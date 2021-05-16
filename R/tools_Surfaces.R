@@ -106,7 +106,7 @@ MakeNDSM <- function(in_cat, DEM_RSDS, out_RSDS,
   # Get tiles
   ts <- .get_tilescheme()
 
-  # Get tile names
+  # Get file paths
   DEM_files <- .get_RSDS_tilepaths(DEM_RSDS)
   out_files <- .get_RSDS_tilepaths(out_RSDS)
 

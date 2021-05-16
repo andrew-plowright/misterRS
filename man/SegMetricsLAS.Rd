@@ -7,14 +7,13 @@
 SegMetricsLAS(
   segRas_RSDS,
   segPoly_RSDS,
-  LAS_RSDS,
+  in_cat,
   DEM_RSDS,
   out_RSDS,
   metricFunc,
   zMin,
   zMax,
   segID,
-  LASselect = "xyzcRGB",
   tileNames = NULL,
   overwrite = FALSE
 )

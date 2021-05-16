@@ -9,8 +9,6 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
   ### INPUT CHECKS ----
 
-    .check_same_ts(segRas_RSDS, segPoly_RSDS, PCA_RSDS, out_RSDS, nDSM_RSDS)
-
     .check_extension(PCA_RSDS,    "tif")
     .check_extension(nDSM_RSDS,   "tif")
     .check_extension(segRas_RSDS, "tif")
@@ -87,7 +85,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    procTiles <- .processing_tiles(out_files, overwrite, tileNames)
+    procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
     # Process
     status <- .doitlive(procTiles, worker)
@@ -215,7 +213,7 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)
@@ -232,26 +230,32 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
 #'
 #' @export
 
-SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSDS,
+SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
                           metricFunc,
-                          zMin, zMax, segID, LASselect = "xyzcRGB",
+                          zMin, zMax, segID,
                           tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("SEGMENT METRICS - LAS")
 
   ### INPUT CHECKS ----
 
-  .check_same_ts(segRas_RSDS, segPoly_RSDS,DEM_RSDS, out_RSDS)
-
+  # Check extensions
   .check_extension(segRas_RSDS, "tif")
-  .check_extension(LAS_RSDS,    "las")
   .check_extension(out_RSDS,    "csv")
 
+  # Check input RSDS are complete
   .check_complete_input(segRas_RSDS,  tileNames)
   .check_complete_input(segPoly_RSDS, tileNames)
   .check_complete_input(DEM_RSDS,     tileNames)
-  .check_complete_input(LAS_RSDS)
 
+  # Get file paths
+  segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+  segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+  DEM_paths     <- .get_RSDS_tilepaths(DEM_RSDS)
+  out_paths     <- .get_RSDS_tilepaths(out_RSDS)
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
 
   ### PREPARE DATA ----
 
@@ -261,11 +265,13 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
 
     metricFormula <- as.formula("~misterRS:::.RGB(Z, R, G, B)")
     emptyResult   <- misterRS:::.RGB(0, 0, 0, 0)
+    LASselect     <- "xyzRGB"
 
   }else if(metricFunc == "classified"){
 
     metricFormula <- as.formula("~misterRS:::.classified(Z, Intensity, Classification)")
     emptyResult   <- misterRS:::.classified(0, 0, 0)
+    LASselect     <- "xyzci"
 
   }else stop("Unrecognized 'metricFunc' input: '", metricFunc, "'", call. = FALSE)
 
@@ -276,30 +282,33 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
   worker <- function(tileName){
 
     # Get tile
-    tile <- segRas_RSDS@tileScheme[tileName,]
+    tile <- ts[tileName]
 
     # Get output file path
-    out_path <- out_RSDS@tilePaths[tileName]
+    out_path     <- out_paths[tileName]
+    DEM_path     <- DEM_paths[tileName]
+    segRas_path  <- segRas_paths[tileName]
+    segPoly_path <- segPoly_paths[tileName]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
+    segDBF <- .read_poly_attributes(segPoly_path)
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
     tileMetrics <- if(nrow(segDBF) > 0){
 
       # Read LAS tile
-      LAStile <- .readLAStile(LAS_RSDS = LAS_RSDS, tile = tile, select = LASselect)
+      LAStile <- .readLAStile(in_cat, tile = tile, select = LASselect)
 
       if(!is.null(LAStile)){
 
         # Normalize LAS tile
-        LAStile <- .normalizeLAS(LAStile, DEMpath = DEM_RSDS@tilePaths[tileName], zMin, zMax)
+        LAStile <- .normalizeLAS(LAStile, DEMpath = DEM_path, zMin, zMax)
 
         if(!is.null(LAStile)){
 
           # Read segment rasters
-          segRas <- raster::raster(segRas_RSDS@tilePaths[tileName])
+          segRas <- raster::raster(segRas_path)
 
           # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
           segRas <- raster::crop(segRas, raster::extent(LAStile)) * 1
@@ -347,7 +356,7 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)

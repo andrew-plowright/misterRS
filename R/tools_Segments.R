@@ -62,10 +62,15 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
 
   tim <- .headline("MSS 2 - CHOP TILES")
 
+  # Get tile scheme
+  ts <- .get_tilescheme()
+
   # Get buffered areas as Simple Features
-  ts_buffs  <- sf::st_as_sf(segPoly_RSDS@tileScheme[["buffs" ]])
-  ts_tiles  <- sf::st_as_sf(segPoly_RSDS@tileScheme[["tiles" ]])
-  ts_nbuffs <- sf::st_as_sf(segPoly_RSDS@tileScheme[["nbuffs"]])
+  ts_buffs  <- sf::st_as_sf(ts[["buffs" ]])
+  ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
+  ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
+
+  tilePaths <- .get_RSDS_tilepaths(segPoly_RSDS)
 
   # Get GeoPackage layer name
   lyrName <- sf::st_layers(in_GPKG)$name[1]
@@ -128,7 +133,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
     for(tileName in unique(polys$tileNames)){
 
       # Set file path
-      tilePath <- segPoly_RSDS@tilePaths[tileName]
+      tilePath <- tilePaths[tileName]
 
       # Get current number of segments in the tile
       n <- if(!file.exists(tilePath)) 0 else sf::st_layers(tilePath)$features[1]
@@ -140,7 +145,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
       tilePoly[[segID]] <- 1:nrow(tilePoly) + n
       tilePoly$FID <- as.numeric(tilePoly[[segID]])
 
-      sf::st_write(tilePoly, tilePath, update = TRUE, quiet = TRUE, fid_column_name = "FID")
+      sf::st_write(tilePoly, tilePath, append = TRUE, quiet = TRUE, fid_column_name = "FID")
     }
 
     pb$tick()
@@ -281,20 +286,24 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
 
   ### INPUT CHECKS ----
 
-  .check_same_ts(segRas_RSDS, segPoly_RSDS)
-
   .check_complete_input(segPoly_RSDS, tileNames)
 
   .check_extension(segRas_RSDS, "tif")
+
+  ts <- .get_tilescheme()
+
+  # Get output file paths
+  in_files  <- .get_RSDS_tilepaths(segPoly_RSDS)
+  out_files <- .get_RSDS_tilepaths(segRas_RSDS)
 
   ### CREATE WORKER ----
 
   worker <- function(tileName){
 
-    in_file  <- segPoly_RSDS@tilePaths[tileName]
-    out_file <- segRas_RSDS@tilePaths[tileName]
+    in_file  <- in_files[tileName]
+    out_file <- out_files[tileName]
 
-    tile <- segRas_RSDS@tileScheme[tileName][["buffs"]]
+    tile <- ts[tileName][["buffs"]]
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
@@ -314,7 +323,7 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(segRas_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)
