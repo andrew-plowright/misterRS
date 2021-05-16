@@ -1,28 +1,28 @@
 .check_complete_input <- function(RSDS, tileNames = NULL){
 
-  files <- if(is.null(tileNames)){
+  filePaths <- .get_RSDS_tilepaths(RSDS)
 
-    RSDS@tilePaths
+  if(!is.null(tileNames)){
 
-  }else{
-
-    notExist <- !tileNames %in% names(RSDS@tilePaths)
+    notExist <- !tileNames %in% names(filePaths)
     if(any(notExist)) stop("Following tile names do not exist for input '", RSDS@name ,"':\n  ", paste(tileNames[notExist], collapse = "\n  "))
 
-    RSDS@tilePaths[tileNames]
+    filePaths <- filePaths[tileNames]
   }
 
-  files <- if(is.null(tileNames))
 
-  if(!all(file.exists(files))) stop("Input RSDS '", RSDS@name, "' is incomplete", call. = FALSE)
+  if(!all(file.exists(filePaths))) stop("Input RSDS '", RSDS@name, "' is incomplete", call. = FALSE)
 }
 
 
 .check_extension <- function(RSDS, extension){
 
-  if(!tools::file_ext(RSDS@tilePaths[1]) %in% extension){
+
+    if(extension != RSDS@ext){
+
     stop("Input RSDS '", RSDS@name, "' should have a '", paste(extension, collapse = "', '"), "' extension", call. = FALSE)
-  }
+
+    }
 }
 
 
@@ -41,6 +41,42 @@
     if(any(!areIdentical)) stop("Following RS Datasets must have the same Tile Scheme:\n  ", paste(sapply(ds, slot, "name"), collapse = "\n  "))
 
   }
+}
+
+.get_tilescheme <- function(ts = getOption("misterRS.tiles")){
+
+  if(is.null(ts)) stop("Could not find default tile scheme")
+
+  return(ts)
+}
+
+.get_RSDS_tilepaths <- function(RSDS){
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
+
+  # Get file paths
+  tilePaths <- file.path(RSDS@dir, "tiles", paste0(ts$tileName, ".", RSDS@ext))
+
+  # Get absolute path
+  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
+
+  # Set names
+  tilePaths <- setNames(tilePaths, ts$tileName)
+
+  return(tilePaths)
+
+}
+
+.get_RSDS_mosaicpath <- function(RSDS){
+
+  # Get file path
+  mosaicPath <- file.path(RSDS@dir, paste0(RSDS@id, ".", RSDS@ext))
+
+  # Get absolute path
+  mosaicPath <- suppressMessages(R.utils::getAbsolutePath(mosaicPath))
+
+  return(mosaicPath)
 }
 
 
@@ -66,12 +102,15 @@
     "\n\n", sep = "")
 }
 
+
 #' Run a worker in parallel or serial
 #'
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.doitlive <- function(tileNames, clusters, worker, ...){
+.doitlive <- function(tileNames, worker, ...){
+
+  clusters = getOption("misterRS.clusters")
 
   if(length(tileNames) == 0){
 
@@ -79,19 +118,10 @@
 
   }else{
 
+    if(clusters > 1) cat("  Clusters         : ", clusters, "\n", sep = "")
+
     # Wrap worker function in 'tryCatch'
     workerE <- function(tileName){ rr <- tryCatch({ worker(tileName) }, error = function(e){e})}
-
-    # Set up clusters
-    progopt <- if(clusters > 1){
-
-      cat("  Clusters         : ", clusters, "\n", sep = "")
-      cl <- parallel::makeCluster(clusters)
-      doSNOW::registerDoSNOW(cl)
-      on.exit(parallel::stopCluster(cl))
-
-      function(n) pb$tick()
-    }
 
     # Make progress bar
     pb <- .progbar(length(tileNames))
@@ -99,12 +129,19 @@
     # Generate 'foreach' statement
     fe <- foreach::foreach(
       tileName = tileNames,
+      .packages = c("raster"),
       .errorhandling = 'pass',
-      .options.snow = list(progress = progopt)
+      .options.snow = list(
+        progress = function(n) pb$tick()
+      )
     )
 
     # Execute in parallel
     if(clusters > 1){
+
+      cl <- parallel::makeCluster(clusters)
+      doSNOW::registerDoSNOW(cl)
+      on.exit(parallel::stopCluster(cl))
 
       # Force the evaluation of all arguments given in the parent frame
       # NOTE: Because R uses 'lazyload', some arguments (or "promises") given in the original function
@@ -197,44 +234,43 @@
 }
 
 
-.processing_tiles <- function(RSDS, overwrite, tileNames = NULL){
+.processing_tiles <- function(tile_paths, overwrite, tileNames = NULL){
 
-  selectedTiles <- if(is.null(tileNames)){
+  selected_tiles <- if(is.null(tileNames)){
 
-    names(RSDS@tilePaths)
+    names(tile_paths)
 
   }else{
 
-    notExist <- !tileNames %in% names(RSDS@tilePaths)
+    notExist <- !tileNames %in% names(tile_paths)
     if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(tileNames[notExist], collapse = "\n  "))
 
     tileNames
   }
 
-  procTiles <- if(overwrite){
+  proc_tiles <- if(overwrite){
 
-    selectedTiles
+    selected_tiles
 
   }else{
 
-    selectedTiles[!file.exists(RSDS@tilePaths[selectedTiles])]
+    selected_tiles[!file.exists(tile_paths[selected_tiles])]
   }
 
 
   cat(
     "  Overwrite        : ", overwrite, "\n",
-    "  Total tiles      : ", length(RSDS@tilePaths), "\n",
-    "  Selected tiles   : ", length(selectedTiles),  "\n",
-    "  Processing tiles : ", length(procTiles),      "\n",
+    "  Total tiles      : ", length(tile_paths), "\n",
+    "  Selected tiles   : ", length(selected_tiles),  "\n",
+    "  Processing tiles : ", length(proc_tiles),      "\n",
     sep = ""
   )
 
-  return(procTiles)
+  return(proc_tiles)
 }
 
 
-
-.readPolyAttributes <- function(path){
+.read_poly_attributes <- function(path){
 
   fileext <- toupper(tools::file_ext(path))
 

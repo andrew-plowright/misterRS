@@ -7,7 +7,7 @@
 #' @export
 
 CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, openings = 1, openingRadius = 0.5,
-                           tileNames = NULL, clusters = 1, overwrite = FALSE){
+                           tileNames = NULL, overwrite = FALSE){
 
 
   tim <- .headline("CANOPY MASK")
@@ -52,6 +52,7 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
 
       # Create moving window matrix for openings canopy edges
       mat <- raster::focalWeight(canopyRas, openingRadius)
+      if(!dim(mat)[1] > 1) stop("'openingRadius' is too small", call. = FALSE)
       mat[mat > 0] <- 1
       mat[mat == 0] <- NA
 
@@ -81,7 +82,7 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
   procTiles <- .processing_tiles(canopyMask_RSDS, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)

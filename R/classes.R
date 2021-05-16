@@ -1,27 +1,30 @@
 #' Remote Sensing Dataset class
+#'
 #' @importClassesFrom TileManager tileScheme
 #' @export
 
 setClass(
   "RSDS",
   representation(
-    name       = 'character',
-    mosaic     = 'character',
-    tileScheme = 'tileScheme',
-    tilePaths  = 'character'
+    id   = 'character',
+    name = 'character',
+    dir  = 'character',
+    ext  = 'character'
   )
 )
 
 
 setMethod("show", "RSDS", function(object){
 
-  exists <- length(object@tilePaths[file.exists(object@tilePaths)])
+  filePaths <- .get_RSDS_tilepaths(object)
 
   cat(
     "REMOTE SENSING DATASET", "\n",
-    "Name   : ", object@name,  "\n",
-    "Folder : ", dirname(object@tilePaths)[1], "\n",
-    "Tiles  : ", exists, " out of ", length(object@tilePaths), "\n",
+    "ID    : ", object@id ,  "\n",
+    "Name  : ", object@name, "\n",
+    "Dir   : ", object@dir,  "\n",
+    "Ext   : ", object@ext,  "\n",
+    "Tiles : ", length(filePaths[file.exists(filePaths)]), "/", length(filePaths), "\n",
     sep = ""
   )
 
@@ -30,19 +33,18 @@ setMethod("show", "RSDS", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-RSDS <- function(name, folder, tileScheme, ext, mosaic = NA_character_, prefix = NULL, suffix = NULL){
+RSDS <- function(id, name, dir, ext){
 
   # Create folder
-  if(!dir.exists(folder)) dir.create(folder, recursive = TRUE)
+  if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
-  # Get file paths
-  tileNames <- tileScheme$tileName
-  tilePaths <- setNames(suppressMessages(R.utils::getAbsolutePath(file.path(folder, paste0(prefix, tileNames, suffix, ".", ext)))), tileNames)
+  # Create tile folder
+  dirTiles <- file.path(dir, "tiles")
+  if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
 
   # Create new object
-  new("RSDS", name = name, mosaic = mosaic, tileScheme = tileScheme, tilePaths = tilePaths)
+  new("RSDS", id = id, name = name, dir = dir, ext = ext)
 }
-
 
 
 #' Training Data (class)
@@ -51,7 +53,7 @@ RSDS <- function(name, folder, tileScheme, ext, mosaic = NA_character_, prefix =
 setClass(
   "TrainingData",
   representation(
-    name     = 'character',
+    id       = 'character',
     SHPfile  = 'character',
     datafile = 'character'
   )
@@ -78,7 +80,7 @@ setMethod("show", "TrainingData", function(object){
 
   cat(
     "TRAINING DATASET", "\n",
-    "Name     : ", object@name,  "\n",
+    "Name     : ", object@id,  "\n",
     "Folder   : ", dirname(object@SHPfile), "\n",
     "Vec pts  : ", vecNum,"\n",
     "Data pts : ", rowNum,"\n",
@@ -90,16 +92,17 @@ setMethod("show", "TrainingData", function(object){
 #' Training Data (constructor)
 #' @export
 
-TrainingData <- function(name, SHPpath, proj, overwrite = FALSE){
+TrainingData <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
-  if(tools::file_ext(SHPpath) != "shp") stop("Training data path should be a SHP file")
+  if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+
+  if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
+
+  # Create SHP path
+  SHPpath <- file.path(dir, paste0(id, ".shp"))
 
   # Get absolute SHP file path
   SHPpath <- suppressMessages(R.utils::getAbsolutePath(SHPpath))
-
-  # Check folder
-  folder <- dirname(SHPpath)
-  if(!dir.exists(folder)) dir.create(folder, recursive = TRUE)
 
   # Get CSV file
   dataPath <- gsub("shp$", "csv", SHPpath)
@@ -113,7 +116,7 @@ TrainingData <- function(name, SHPpath, proj, overwrite = FALSE){
   }
 
   # Create new object
-  new("TrainingData", name = name, SHPfile  = SHPpath, datafile = dataPath)
+  new("TrainingData", id = id, SHPfile  = SHPpath, datafile = dataPath)
 }
 
 
@@ -148,9 +151,11 @@ setMethod("show", "ClassEdits", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-ClassEdits <- function(SHPpath, proj, overwrite = FALSE){
+ClassEdits <- function(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
   if(tools::file_ext(SHPpath) != "shp") stop("Classification Edits path should be a SHP file")
+
+  if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
 
   # Get absolute SHP file path
   SHPpath <- suppressMessages(R.utils::getAbsolutePath(SHPpath))

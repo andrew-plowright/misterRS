@@ -4,7 +4,7 @@
 \alias{TrainingData}
 \title{Training Data (constructor)}
 \usage{
-TrainingData(name, SHPpath, proj, overwrite = FALSE)
+TrainingData(id, dir, proj = getOption("misterRS.crs"), overwrite = FALSE)
 }
 \description{
 Training Data (constructor)

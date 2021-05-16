@@ -3,7 +3,7 @@
 #' @export
 
 SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RSDS, segID,
-                          tileNames = NULL, clusters = 1, overwrite = FALSE){
+                          tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("SEGMENT METRICS - TEXTURAL")
 
@@ -37,7 +37,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
       tile <- segRas_RSDS@tileScheme[tileName,]
 
       # Read segment DBF
-      segDBF <- .readPolyAttributes(segPoly_RSDS@tilePaths[tileName])
+      segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
       if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
       # Compute metrics
@@ -87,10 +87,10 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+    procTiles <- .processing_tiles(out_files, overwrite, tileNames)
 
     # Process
-    status <- .doitlive(procTiles, clusters, worker)
+    status <- .doitlive(procTiles, worker)
 
     # Report
     .statusReport(status)
@@ -107,7 +107,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
 SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
-                           segID,  tileNames = NULL, clusters = 1, overwrite = FALSE){
+                           segID,  tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("SEGMENT METRICS - SPECTRAL")
 
@@ -146,7 +146,7 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
     out_path <- out_RSDS@tilePaths[tileName]
 
     # Read segment DBF
-    segDBF <- .readPolyAttributes(segPoly_RSDS@tilePaths[tileName])
+    segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
@@ -215,10 +215,10 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)
@@ -235,7 +235,7 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
 SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSDS,
                           metricFunc,
                           zMin, zMax, segID, LASselect = "xyzcRGB",
-                          tileNames = NULL, clusters = 1, overwrite = FALSE){
+                          tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("SEGMENT METRICS - LAS")
 
@@ -282,7 +282,7 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
     out_path <- out_RSDS@tilePaths[tileName]
 
     # Read segment DBF
-    segDBF <- .readPolyAttributes(segPoly_RSDS@tilePaths[tileName])
+    segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
@@ -305,7 +305,7 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
           segRas <- raster::crop(segRas, raster::extent(LAStile)) * 1
 
           # Assign segment ID to LAS points
-          LAStile <- lidR::lasmergespatial(LAStile, segRas, attribute = segID)
+          LAStile <- lidR::merge_spatial(LAStile, segRas, attribute = segID)
 
           if(!all(is.na(LAStile[[segID]]))){
 
@@ -347,10 +347,10 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, LAS_RSDS, DEM_RSDS, out_RSD
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)

@@ -13,7 +13,6 @@ MSS(
   mins = 40,
   segID = "polyID",
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

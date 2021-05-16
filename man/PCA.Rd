@@ -4,14 +4,7 @@
 \alias{PCA}
 \title{Principal Component Analysis}
 \usage{
-PCA(
-  ortho_RSDS,
-  out_RSDS,
-  nComp = 2,
-  tileNames = NULL,
-  clusters = 1,
-  overwrite = FALSE
-)
+PCA(ortho_RSDS, out_RSDS, nComp = 2, tileNames = NULL, overwrite = FALSE)
 }
 \description{
 Principal Component Analysis

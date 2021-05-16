@@ -11,7 +11,7 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
 
   if(file.exists(trainingPts@datafile) & !overwrite){
 
-    cat("Training data table for '", trainingPts@name, "' already exists. Set 'overwrite' to TRUE", "\n")
+    cat("Training data table for '", trainingPts@id, "' already exists. Set 'overwrite' to TRUE", "\n")
 
   }else{
 
@@ -54,7 +54,7 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
     if(any(duplicated(unlist(lapply(headers, function(h) h[[1]]))))) stop("Duplicated variable names between metrics")
 
     cat(
-      "  Training set : ", trainingPts@name, "\n",
+      "  Training set : ", trainingPts@id, "\n",
       "  Training pts : ", length(trainingSP), "\n",
       "  Tiles        : ", length(uniqueTiles), "\n",
       sep = ""
@@ -96,7 +96,7 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
 
       cbind(
         row.names = trainingTile$trainingID,
-        trainingSetID = trainingPts@name,
+        trainingSetID = trainingPts@id,
         trainingPtID  = trainingTile$trainingID,
         tileName      = tileName,
         trainingPoly,
@@ -190,7 +190,7 @@ CreateClassifier <- function(trainingPts, classifierFile, segID, predictors = NU
 #' @export
 
 ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, classEdits, metrics, segID,
-                             tileNames = NULL, clusters = 1, overwrite = FALSE){
+                             tileNames = NULL, overwrite = FALSE){
 
 
   tim <- .headline("CLASSIFY POLYGON SEGMENTS")
@@ -262,6 +262,12 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
       votes   <- randomForest:::predict.randomForest(classifier, segData, type = "vote")
       elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
       segPoly[["segClass"]] <- elected
+      if(length(elected) > 0){
+        segPoly[["votePrc"]]  <- sapply(1:length(elected), function(i){
+          el <- elected[i]
+          if(is.na(el)) NA else votes[i, el]
+        })
+      }
 
       # Manual edits
       if(cEdits && length(cTiles[[tileName]]) > 0){
@@ -287,7 +293,9 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
           # Apply edit
           if(nrow(editSegs) > 0){
 
-            segPoly[segPoly[[segID]] %in% editSegs[[segID]],][["segClass"]] <- to
+            whichEdit <- segPoly[[segID]] %in% editSegs[[segID]]
+            segPoly[whichEdit,][["segClass"]] <- to
+            segPoly[whichEdit,][["votePrc" ]] <- NA
           }
         }
       }
@@ -305,7 +313,7 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
     procTiles <- .processing_tiles(segClassPoly_RSDS, overwrite, tileNames)
 
     # Process
-    status <- .doitlive(procTiles, clusters, worker)
+    status <- .doitlive(procTiles, worker)
 
     # Report
     .statusReport(status)
@@ -322,7 +330,7 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
 #' @export
 
 ClassifyRaster <- function(segClassPoly_RSDS, segRas_RSDS, segClassRas_RSDS, segClasses, segID,
-                           tileNames = NULL, clusters = 1, overwrite = FALSE){
+                           tileNames = NULL, overwrite = FALSE){
 
 
   tim <- .headline("CLASSIFY RASTER SEGMENTS")
@@ -373,7 +381,7 @@ ClassifyRaster <- function(segClassPoly_RSDS, segRas_RSDS, segClassRas_RSDS, seg
   procTiles <- .processing_tiles(segClassRas_RSDS, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles,worker)
 
   # Report
   .statusReport(status)

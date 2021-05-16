@@ -4,13 +4,12 @@
 #'
 #' @export
 
-VerticalImage <- function(PCA_RSDS, nDSM_RSDS, out_RSDS, nDSM_range, PCA_range = NULL, tileNames = NULL, clusters = 1, overwrite = FALSE){
+VerticalImage <- function(PCA_RSDS, nDSM_RSDS, out_RSDS, nDSM_range, PCA_range = NULL,
+                          tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("VERTICAL IMAGE")
 
   ### INPUT CHECKS ----
-
-  .check_same_ts(PCA_RSDS, nDSM_RSDS, out_RSDS)
 
   .check_complete_input(PCA_RSDS,  tileNames)
   .check_complete_input(nDSM_RSDS, tileNames)
@@ -19,13 +18,20 @@ VerticalImage <- function(PCA_RSDS, nDSM_RSDS, out_RSDS, nDSM_range, PCA_range =
   .check_extension(nDSM_RSDS, "tif")
   .check_extension(out_RSDS,  "tif")
 
+  # Get tiles
+  ts <- .get_tilescheme()
+
+  # Get file paths
+  out_files  <- .get_RSDS_tilepaths(out_RSDS)
+  nDSM_files <- .get_RSDS_tilepaths(nDSM_RSDS)
+  PCA_files  <- .get_RSDS_tilepaths(PCA_RSDS)
 
   ### GET PCA FILES INFO ----
 
 
-  PCA_files <- if(is.null(tileNames)) PCA_RSDS@tilePaths else PCA_RSDS@tilePaths[tileNames]
+  PCA_stat_files <- if(is.null(tileNames)) PCA_files else PCA_files[tileNames]
 
-  PCA_stats <- lapply(PCA_files, function(f){
+  PCA_stats <- lapply(PCA_stat_files, function(f){
     attr(rgdal::GDALinfo(f), "df")[, c("Bmin", "Bmax")]
   })
 
@@ -62,9 +68,9 @@ VerticalImage <- function(PCA_RSDS, nDSM_RSDS, out_RSDS, nDSM_range, PCA_range =
 
   worker <- function(tileName){
 
-    PCA_file  <- PCA_RSDS@tilePaths[tileName]
-    nDSM_file <- nDSM_RSDS@tilePaths[tileName]
-    out_file  <- out_RSDS@tilePaths[tileName]
+    PCA_file  <- PCA_files[tileName]
+    nDSM_file <- nDSM_files[tileName]
+    out_file  <- out_files[tileName]
 
     # Read raster
     PCA  <- raster::brick(PCA_file)
@@ -95,10 +101,10 @@ VerticalImage <- function(PCA_RSDS, nDSM_RSDS, out_RSDS, nDSM_range, PCA_range =
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)

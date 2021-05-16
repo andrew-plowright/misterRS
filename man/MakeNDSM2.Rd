@@ -4,15 +4,8 @@
 \alias{MakeNDSM2}
 \title{Make Normalized Digital Surface Model}
 \usage{
-MakeNDSM2(
-  DSM_RSDS,
-  DEM_RSDS,
-  out_RSDS,
-  tileNames = NULL,
-  clusters = 1,
-  overwrite = FALSE
-)
+MakeNDSM2(DSM_RSDS, DEM_RSDS, out_RSDS, tileNames = NULL, overwrite = FALSE)
 }
 \description{
-Make Normalized Digital Surface Model
+This version will subtract the DEM from an existing DSM
 }

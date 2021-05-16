@@ -10,7 +10,6 @@ RasterSegment(
   res,
   segID = "polyID",
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

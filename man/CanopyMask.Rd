@@ -11,7 +11,6 @@ CanopyMask(
   openings = 1,
   openingRadius = 0.5,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

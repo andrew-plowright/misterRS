@@ -4,7 +4,7 @@
 \alias{LAX}
 \title{Make LAX files for a LAS dataset}
 \usage{
-LAX(RSDS)
+LAX(in_cat)
 }
 \description{
 Make LAX files for a LAS dataset

@@ -1,17 +1,26 @@
 
-.readLAStile <- function(LAS_RSDS, tile, select, classes = NULL){
+.readLAStile <- function(in_cat, tile, select, classes = NULL){
 
   buff <- tile[["buffs"]]
 
-  # Get intersection between LAS dataset and selected tile
-  LAS_tiles <- LAS_RSDS@tileScheme[["tiles"]][buff,]
+  # Get grid
+  las_grid <- sp::SpatialPolygonsDataFrame(
+    sp::SpatialPolygons(in_cat@polygons, proj4string = in_cat@proj4string),
+    data.frame(ID = sapply(in_cat@polygons, slot, "ID"), stringsAsFactors = F)
+  )
 
-  if(length(LAS_tiles) == 0) return(NULL)
+  # Reproject grid to tile
+  las_grid <- sp::spTransform(las_grid, buff@proj4string)
+
+  # Get intersection between RSDS tile and LAS catalog
+  las_tiles <- las_grid[buff,]
+
+  if(length(las_tiles) == 0) return(NULL)
 
   # Get LAS files
-  LAS_files <- LAS_RSDS@tilePaths[ LAS_tiles$tileName]
+  las_files <- in_cat@data[as.integer(las_tiles[["ID"]]), "filename"]
 
-  if(any(!file.exists(LAS_files))) stop("Missing LAS files")
+  if(any(!file.exists(las_files))) stop("Missing LAS files")
 
   # Create extent filter from buffer extent
   buff_xt   <- raster::extent(buff)
@@ -21,7 +30,7 @@
   class_filt <- if(!is.null(classes)) paste(c("-keep_class", classes), collapse = " ")
 
   # Read LAS files
-  inLAS <- lidR::readLAS(LAS_files, select = select, filter = c(buff_filt, class_filt))
+  inLAS <- lidR::readLAS(las_files, select = select, filter = c(buff_filt, class_filt))
 
   if(lidR::is.empty(inLAS)) return(NULL) else return(inLAS)
 
@@ -35,17 +44,17 @@
   DEM <- raster::raster(DEMpath)
 
   # Remove points that aren't on DEM
-  inLAS <- lidR::lasmergespatial(inLAS, !is.na(DEM), attribute = "onDEM")
-  inLAS <- lidR::lasfilter(inLAS, onDEM == 1)
+  inLAS <- lidR::merge_spatial(inLAS, !is.na(DEM), attribute = "onDEM")
+  inLAS <- lidR::filter_poi(inLAS, onDEM == 1)
 
   # No LAS points over DEM file
   if(lidR::is.empty(inLAS)) return(NULL)
 
   # Normalize
-  inLAS <- lidR::lasnormalize(inLAS, DEM)
+  inLAS <- lidR::normalize_height(inLAS, DEM)
 
   # Filter LAS by height
-  inLAS <- suppressMessages(lidR::lasfilter(inLAS, Z <= zMax & Z > zMin))
+  inLAS <- lidR::filter_poi(inLAS, Z <= zMax & Z > zMin)
 
   # No LAS points within min/max Z bounds over DEM file
   if(lidR::is.empty(inLAS)) return(NULL)

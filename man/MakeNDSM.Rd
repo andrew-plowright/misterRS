@@ -2,10 +2,10 @@
 % Please edit documentation in R/tools_Surfaces.R
 \name{MakeNDSM}
 \alias{MakeNDSM}
-\title{Canopy Height Model}
+\title{Make Normalized Digital Surface Model}
 \usage{
 MakeNDSM(
-  LAS_RSDS,
+  in_cat,
   DEM_RSDS,
   out_RSDS,
   nDSMres,
@@ -17,10 +17,9 @@ MakeNDSM(
   LASselect = "xyzcr",
   LASclasses = NULL,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }
 \description{
-Canopy Height Model
+This version will create an nDSM directly from the point cloud (no existing DSM required)
 }

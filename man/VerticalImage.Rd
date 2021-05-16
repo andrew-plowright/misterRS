@@ -11,7 +11,6 @@ VerticalImage(
   nDSM_range,
   PCA_range = NULL,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

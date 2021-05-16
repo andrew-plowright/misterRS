@@ -11,7 +11,6 @@ ClassifyRaster(
   segClasses,
   segID,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

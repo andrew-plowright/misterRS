@@ -1,116 +1,3 @@
-#' Mean Segment Shift (deprecated)
-#'
-#' WARNING: As of 2019-12-11, this function is semi-deprecated.
-#' This version of the MSS algorithm processes each tile individually.
-#' It appears preferable to generate all segments at once AND THEN chop the
-#' output into individual tiles, for which the \code{MSS2} and \code{MSS2chop}
-#' have been made available.
-#'
-#' @export
-
-MSS <- function(image_RSDS, segPoly_RSDS, segRas_RSDS,
-                spat = 19.5, spec = 17, mins = 40,
-                segID = "polyID",
-                tileNames = NULL, clusters = 1, overwrite = FALSE){
-
-  tim <- .headline("MEAN SEGMENT SHIFT")
-
-  ### INPUT CHECKS ----
-
-  binFile <- file.path(getOption("misterRS.orfeo"), "bin", "otbcli_Segmentation.bat")
-  if(!file.exists(binFile)) stop("Orfeo Toolbox binary not found '", binFile, "'")
-
-  .check_same_ts(image_RSDS, segPoly_RSDS, segRas_RSDS)
-
-  .check_extension(image_RSDS,   "tif")
-  .check_extension(segPoly_RSDS, "shp")
-  .check_extension(segRas_RSDS,  "tif")
-
-  .check_complete_input(image_RSDS, tileNames)
-
-
-  ### CREATE WORKER ----
-
-  worker <- function(tileName){
-
-    tile <- image_RSDS@tileScheme[tileName,][["tiles"]]
-
-    imagePath   <-   image_RSDS@tilePaths[tileName]
-    segRasPath  <-  segRas_RSDS@tilePaths[tileName]
-    segPolyPath <- segPoly_RSDS@tilePaths[tileName]
-
-    # Force delete
-    if(file.exists(segPolyPath)) unlink(APfun::APSHPfiles(segPolyPath))
-    if(file.exists(segRasPath)) unlink(APfun::APrasterFiles(segRasPath))
-
-    # Create segments
-    mss_result <- .mss(
-      inFile  = imagePath,
-      outFile = segRasPath,
-      spat    = spat,
-      spec    = spec,
-      mins    = mins,
-      binFile = binFile)
-
-    if(!file.exists(segRasPath)) stop("Failed to create raster segments")
-
-    # Polygonize raster
-    osgeopy::pyScript(
-      "gdal_polygonize",
-      paste(
-        shQuote(segRasPath),
-        "-f", shQuote("ESRI Shapefile"),
-        shQuote(segPolyPath)
-      )
-    )
-
-    if(!file.exists(segPolyPath)) stop("Failed to create polygon segments")
-
-    # Read polygons and raster
-    segPoly <- APfun::APSHPread(segPolyPath)
-    segRas <- raster::raster(segRasPath)
-
-    # Set unique ID name
-    names(segPoly) <- segID
-
-    # Get centroids
-    segCent <- suppressWarnings(rgeos::gCentroid(segPoly, byid = TRUE))
-    segCent <- sp::SpatialPointsDataFrame(segCent, segPoly@data)
-
-    # Get centroids within tile
-    segCentTile <- segCent[tile,]
-    segPolyTile <- segPoly[segPoly[[segID]] %in% segCentTile[[segID]],]
-    segRasTile <- segRas
-    segRasTile[!segRas[] %in% segPolyTile[[segID]]] <- NA
-
-    # Overwrite subset segments
-    APfun::APSHPsave(segPolyTile, segPolyPath, overwrite = TRUE)
-    raster::writeRaster(segRasTile, segRasPath, overwrite = TRUE)
-
-    if(!file.exists(segRasPath)) stop("Failed to create raster segments")
-    if(!file.exists(segPolyPath)) stop("Failed to create polygon segments")
-
-    return("Success")
-  }
-
-
-  ### APPLY WORKER ----
-
-  # Get tiles for processing
-  procTiles <- .processing_tiles(segPoly_RSDS, overwrite, tileNames)
-
-  # Process
-  status <- .doitlive(procTiles, clusters, worker)
-
-  # Report
-  .statusReport(status)
-
-  # Conclude
-  .conclusion(tim)
-
-}
-
-
 #' Mean Segment Shift 2 - Segment Into Single GeoPackage
 #'
 #' This variation of the MSS algorithm will write all segments into one
@@ -142,10 +29,13 @@ MSS2 <- function(image_RSDS, out_GPKG,
 
   .check_complete_input(image_RSDS, tileNames)
 
+  # Get tiles
+  ts <- .get_tilescheme()
+
 
   ### CREATE VRT MOSAIC ---
 
-  mosaicVRT <- .mosaicVRT(image_RSDS, overlap = "nbuffs", tileNames = tileNames)
+  mosaicVRT <- .mosaicVRT(image_RSDS, ts, overlap = "nbuffs", tileNames = tileNames)
 
   mss_result <- .mss(
     inFile  = mosaicVRT,
@@ -297,7 +187,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
 
 WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
                                   OSGeoPath = "C:/OSGeo4W64",
-                                  clusters = 1, tileNames = NULL, overwrite = FALSE){
+                                  tileNames = NULL, overwrite = FALSE){
 
 
   tim <- .headline("WATERSHED SEGMENTATION")
@@ -369,7 +259,7 @@ WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
   procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)
@@ -385,7 +275,7 @@ WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
 #' @export
 
 RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
-                          tileNames = NULL, clusters = 1, overwrite = FALSE){
+                          tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("RASTER SEGMENTS")
 
@@ -427,7 +317,7 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
   procTiles <- .processing_tiles(segRas_RSDS, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)

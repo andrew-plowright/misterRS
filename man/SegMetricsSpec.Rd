@@ -13,7 +13,6 @@ SegMetricsSpec(
   zonalFun = c("mean", "sd"),
   segID,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

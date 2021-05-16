@@ -4,7 +4,7 @@
 \alias{ClassEdits}
 \title{Remote Sensing Dataset}
 \usage{
-ClassEdits(SHPpath, proj, overwrite = FALSE)
+ClassEdits(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE)
 }
 \description{
 Remote Sensing Dataset

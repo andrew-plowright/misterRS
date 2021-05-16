@@ -4,7 +4,7 @@
 \alias{.doitlive}
 \title{Run a worker in parallel or serial}
 \usage{
-.doitlive(tileNames, clusters, worker, ...)
+.doitlive(tileNames, worker, ...)
 }
 \description{
 Run a worker in parallel or serial

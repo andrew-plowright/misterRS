@@ -5,12 +5,11 @@
 \title{Digital Elevation Model}
 \usage{
 MakeDEM(
-  LAS_RSDS,
+  in_cat,
   out_RSDS,
   LASselect = "xyzc",
   DEMres = 1,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

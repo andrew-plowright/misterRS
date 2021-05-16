@@ -2,7 +2,8 @@
 #'
 #' @export
 
-Rescale <- function(in_RSDS, out_RSDS, from, to = c(0, 254), NAtoZero = TRUE, dataType = "INT1U", tileNames = NULL, clusters = 1, overwrite = FALSE){
+Rescale <- function(in_RSDS, out_RSDS, from, to = c(0, 254), NAtoZero = TRUE, dataType = "INT1U",
+                    tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("RESCALE DATASET")
 
@@ -45,7 +46,7 @@ Rescale <- function(in_RSDS, out_RSDS, from, to = c(0, 254), NAtoZero = TRUE, da
   procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles, clusters, worker)
+  status <- .doitlive(procTiles, worker)
 
   # Report
   .statusReport(status)

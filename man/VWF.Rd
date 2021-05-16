@@ -10,7 +10,6 @@ VWF(
   winFun,
   minHeight,
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

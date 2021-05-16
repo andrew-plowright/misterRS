@@ -12,7 +12,6 @@ Rescale(
   NAtoZero = TRUE,
   dataType = "INT1U",
   tileNames = NULL,
-  clusters = 1,
   overwrite = FALSE
 )
 }

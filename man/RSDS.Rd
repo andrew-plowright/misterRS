@@ -4,15 +4,7 @@
 \alias{RSDS}
 \title{Remote Sensing Dataset}
 \usage{
-RSDS(
-  name,
-  folder,
-  tileScheme,
-  ext,
-  mosaic = NA_character_,
-  prefix = NULL,
-  suffix = NULL
-)
+RSDS(id, name, dir, ext)
 }
 \description{
 Remote Sensing Dataset

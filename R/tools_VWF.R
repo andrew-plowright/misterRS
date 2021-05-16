@@ -2,7 +2,7 @@
 #' @export
 
 VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
-                tileNames = NULL, clusters = 1, overwrite = FALSE){
+                tileNames = NULL, overwrite = FALSE){
 
   tim <- misterRS:::.headline("Variable Window Filter (VWF)")
 
@@ -52,10 +52,10 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- misterRS:::.processing_tiles(ttops_RSDS, overwrite, tileNames)
+  procTiles <- misterRS:::.processing_tiles(out_files, overwrite, tileNames)
 
   # Process
-  status <- misterRS:::.doitlive(procTiles, clusters, worker)
+  status <- misterRS:::.doitlive(procTiles, worker)
 
   # Report
   misterRS:::.statusReport(status)
