@@ -77,6 +77,7 @@ Mosaic <- function(RSDS, overlap = "nbuffs", outFile = NULL, overwrite = FALSE){
   # Create temporary directory
   tempDir <- file.path(tempdir(), "mosaicVRT")
   dir.create(tempDir)
+  withr::defer(unlink(tempDir, recursive = TRUE), envir = parent.frame(1))
 
   # Paths for temporary files
   tempList  <- file.path(tempDir, "tileList.txt")
