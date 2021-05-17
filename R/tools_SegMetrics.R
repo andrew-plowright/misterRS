@@ -9,15 +9,27 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
   ### INPUT CHECKS ----
 
+    # Check extensions
     .check_extension(PCA_RSDS,    "tif")
     .check_extension(nDSM_RSDS,   "tif")
     .check_extension(segRas_RSDS, "tif")
     .check_extension(out_RSDS,    "csv")
 
+    # Check complete inputs
     .check_complete_input(segRas_RSDS,  tileNames)
     .check_complete_input(segPoly_RSDS, tileNames)
     .check_complete_input(PCA_RSDS,     tileNames)
     .check_complete_input(nDSM_RSDS,    tileNames)
+
+    # Get file paths
+    segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+    segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+    PCA_paths     <- .get_RSDS_tilepaths(PCA_RSDS)
+    nDSM_paths    <- .get_RSDS_tilepaths(nDSM_RSDS)
+    out_paths     <- .get_RSDS_tilepaths(out_RSDS)
+
+    # Get tilepaths
+    ts <- .get_tilescheme()
 
   ### CREATE EMPTY METRICS TABLE ----
 
@@ -32,21 +44,28 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
     worker <- function(tileName){
 
       # Get tile
-      tile <- segRas_RSDS@tileScheme[tileName,]
+      tile <- ts[tileName]
+
+      # Get output file path
+      out_path     <- out_paths[tileName]
+      PCA_path     <- PCA_paths[tileName]
+      nDSM_path    <- nDSM_paths[tileName]
+      segRas_path  <- segRas_paths[tileName]
+      segPoly_path <- segPoly_paths[tileName]
 
       # Read segment DBF
-      segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
+      segDBF <- .read_poly_attributes(segPoly_path)
       if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
       # Compute metrics
       tileMetrics <- if(nrow(segDBF) > 0){
 
         # Read segments
-        segRas <- raster::raster(segRas_RSDS@tilePaths[tileName])
+        segRas <- raster::raster(segRas_path)
 
         # Get first PCA and nDSM
-        PCA  <- raster::brick(PCA_RSDS@tilePaths[tileName])[[1]]
-        nDSM <- raster::raster(nDSM_RSDS@tilePaths[tileName])
+        PCA  <- raster::brick(PCA_path)[[1]]
+        nDSM <- raster::raster(nDSM_path)
 
         # Get minimum value and adjust value range of PCA (the PCA cannot have negative values)
         minv <- raster::cellStats(PCA, "min")
@@ -75,8 +94,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
       }else emptyMetrics
 
       # Write output
-      out_path <- out_RSDS@tilePaths[tileName]
-      write.csv( tileMetrics, out_path, row.names = FALSE, na = "")
+      write.csv(tileMetrics, out_path, row.names = FALSE, na = "")
 
       if(file.exists(out_path)) "Success" else "FAILED"
     }
@@ -111,16 +129,24 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
 
   ### INPUT CHECKS ----
 
-  .check_same_ts(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS)
-
+  # Check extensions
   .check_extension(ortho_RSDS,  "tif")
   .check_extension(segRas_RSDS, "tif")
   .check_extension(out_RSDS,    "csv")
 
+  # Check complete inputs
   .check_complete_input(segRas_RSDS,  tileNames)
   .check_complete_input(segPoly_RSDS, tileNames)
   .check_complete_input(ortho_RSDS,   tileNames)
 
+  # Get file paths
+  segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+  segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+  ortho_paths   <- .get_RSDS_tilepaths(ortho_RSDS)
+  out_paths     <- .get_RSDS_tilepaths(out_RSDS)
+
+  # Get tilepaths
+  ts <- .get_tilescheme()
 
   ### CREATE EMPTY METRICS TABLE ----
 
@@ -138,21 +164,24 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
   worker <- function(tileName){
 
     # Get tile
-    tile <- segRas_RSDS@tileScheme[tileName,]
+    tile <- ts[tileName]
 
-    # Get output path
-    out_path <- out_RSDS@tilePaths[tileName]
+    # Get output file path
+    out_path     <- out_paths[tileName]
+    ortho_path   <- ortho_paths[tileName]
+    segRas_path  <- segRas_paths[tileName]
+    segPoly_path <- segPoly_paths[tileName]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(segPoly_RSDS@tilePaths[tileName])
+    segDBF <- .read_poly_attributes(segPoly_path)
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
     tileMetrics <- if(nrow(segDBF) > 0){
 
       # Read ortho and segment raster
-      o <- raster::brick(ortho_RSDS@tilePaths[tileName])
-      segRas <- raster::raster(segRas_RSDS@tilePaths[tileName])
+      o <- raster::brick(ortho_path)
+      segRas <- raster::raster(segRas_path)
 
       # Subset bands
       if(max(bands) > raster::nlayers(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
