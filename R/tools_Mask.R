@@ -11,9 +11,6 @@ Mask <- function(in_RSDS, out_RSDS, mask_RSDS,
 
   ### INPUT CHECKS ----
 
-  # Check that all RSDS have same tileScheme
-  .check_same_ts(in_RSDS, out_RSDS, mask_RSDS)
-
   # Check extensions
   .check_extension(in_RSDS,   "tif")
   .check_extension(out_RSDS,  "tif")
@@ -23,47 +20,58 @@ Mask <- function(in_RSDS, out_RSDS, mask_RSDS,
   .check_complete_input(in_RSDS,   tileNames)
   .check_complete_input(mask_RSDS, tileNames)
 
+  # Get paths
+  in_paths   <- .get_RSDS_tilepaths(in_RSDS)
+  out_paths  <- .get_RSDS_tilepaths(out_RSDS)
+  mask_paths <- .get_RSDS_tilepaths(mask_RSDS)
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
 
   ### CREATE WORKER ----
 
   # Run process
   worker <- function(tileName){
 
-    # Set output file
-    outFile <- out_RSDS@tilePaths[tileName]
+    in_path   <- in_paths[tileName]
+    out_path  <- out_paths[tileName]
 
-    # Read input raster
-    inRas   <- raster::raster(in_RSDS@tilePaths[tileName])
-
-    # Read mask file
+    # Read mask file(s)
     maskRas <- if(useNeighbours){
 
-      maskPaths <- mask_RSDS@tilePaths[.tileNeighbours(mask_RSDS@tileScheme, tileName)$tileName]
-      masks <- lapply(maskPaths, raster::raster)
+      neibNames <- .tileNeighbours(ts, tileName)$tileName
+
+      masks <- lapply(mask_paths[neibNames], raster::raster)
+
       maskRas <- do.call(raster::mosaic, c(unname(masks), list(fun = max)))
-      raster::crop(maskRas, mask_RSDS@tileScheme[tileName][["buffs"]])
+
+      raster::crop(maskRas, ts[tileName][["buffs"]])
 
     }else{
 
-      raster::raster(mask_RSDS@tilePaths[tileName])
+      raster::raster(mask_paths[tileName])
 
     }
+
+
+    # Read input raster
+    inRas   <- raster::raster(in_path)
 
     # Apply mask
     inRas[maskRas != 1] <- NA
     if(maskNA) inRas[is.na(maskRas)] <- NA
 
     # Save output
-    raster::writeRaster(inRas, outFile, overwrite = overwrite)
+    raster::writeRaster(inRas, out_path, overwrite = overwrite)
 
-    if(file.exists(outFile)) "Success" else stop("Failed to create output")
+    if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)

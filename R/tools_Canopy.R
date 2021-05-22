@@ -14,15 +14,16 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
 
   ### INPUT CHECKS ----
 
-  # Check that all RSDS have same tileScheme
-  .check_same_ts(segClassRas_RSDS, canopyMask_RSDS)
-
   # Check extensions
   .check_extension(segClassRas_RSDS,  "tif")
   .check_extension(canopyMask_RSDS,   "tif")
 
   # Check that inputs are complete
   .check_complete_input(segClassRas_RSDS, tileNames)
+
+  # Get file paths
+  segClassRas_paths <- .get_RSDS_tilepaths(segClassRas_RSDS)
+  out_paths         <- .get_RSDS_tilepaths(canopyMask_RSDS)
 
   if(!is.numeric(openings) || openings < 0) stop("Invalid input for 'openings':", openings)
 
@@ -32,11 +33,11 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
   # Run process
   worker <- function(tileName){
 
-    # Get unclassified raster segments
-    segClassRas <- raster::raster(segClassRas_RSDS@tilePaths[tileName])
+    segClassRas_path <- segClassRas_paths[tileName]
+    out_path <- out_paths[tileName]
 
-    # Out file
-    outfile <- canopyMask_RSDS@tilePaths[tileName]
+    # Get unclassified raster segments
+    segClassRas <- raster::raster(segClassRas_path)
 
     # Check if raster is classified
     if(length(segClassRas@data@attributes) == 0) stop("'segClassRas_RSDS' was an unclassified input")
@@ -70,16 +71,16 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
     }
 
     # Save output
-    raster::writeRaster( canopyRas, outfile, overwrite = overwrite, datatype = "INT1U")
+    raster::writeRaster( canopyRas, out_path, overwrite = overwrite, datatype = "INT1U")
 
-    if(file.exists(outfile)) "Success" else stop("Failed to create output")
+    if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(canopyMask_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)

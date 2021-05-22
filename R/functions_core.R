@@ -18,7 +18,7 @@
 .check_extension <- function(RSDS, extension){
 
 
-    if(extension != RSDS@ext){
+    if(!any(RSDS@ext %in% extension)){
 
     stop("Input RSDS '", RSDS@name, "' should have a '", paste(extension, collapse = "', '"), "' extension", call. = FALSE)
 
@@ -49,6 +49,7 @@
 
   return(ts)
 }
+
 
 .get_RSDS_tilepaths <- function(RSDS){
 

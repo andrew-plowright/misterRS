@@ -8,24 +8,37 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
 
   ### INPUT CHECKS ----
 
-  misterRS:::.check_same_ts(CHM_RSDS, ttops_RSDS)
-  misterRS:::.check_complete_input(CHM_RSDS,  tileNames)
-  misterRS:::.check_extension(ttops_RSDS, "shp")
+  # Check extensions
+  .check_extension(CHM_RSDS,   "tif")
+  .check_extension(ttops_RSDS, "shp")
 
+  # Check that inputs are complete
+  .check_complete_input(CHM_RSDS, tileNames)
+
+  # Get CRS
+  proj <- getOption("misterRS.crs")
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
+
+  # Get file paths
+  CHM_paths <- .get_RSDS_tilepaths(CHM_RSDS)
+  out_paths <- .get_RSDS_tilepaths(ttops_RSDS)
 
   ### CREATE WORKER ----
 
   worker <- function(tileName){
 
-    out_file  <- ttops_RSDS@tilePaths[tileName]
-    CHM_file  <- CHM_RSDS@tilePaths[tileName]
+    # Paths
+    CHM_path  <- CHM_paths[tileName]
+    out_path  <- out_paths[tileName]
 
     # Get tile and buff
-    tile <- CHM_RSDS@tileScheme[tileName][["tiles"]]
-    buff <- CHM_RSDS@tileScheme[tileName][["buffs"]]
+    tile <- ts[tileName][["tiles"]]
+    buff <- ts[tileName][["buffs"]]
 
     # Read raster
-    CHM  <- raster::raster(CHM_file)
+    CHM  <- raster::raster(CHM_path)
 
     # Function for creating blank treetop SHP file
     noTrees <- function(e){
@@ -38,9 +51,9 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
     det_ttops <- tryCatch(ForestTools::vwf(CHM, winFun, minHeight), error = noTrees)
 
     # Save output
-    APfun::APSHPsave( det_ttops, out_file, overwrite = overwrite)
+    APfun::APSHPsave( det_ttops, out_path, overwrite = overwrite)
 
-    if(file.exists(out_file)){
+    if(file.exists(out_path)){
       return("Success")
     }else{
       stop("Failed to create tile")
@@ -52,7 +65,7 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- misterRS:::.processing_tiles(out_files, overwrite, tileNames)
+  procTiles <- misterRS:::.processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- misterRS:::.doitlive(procTiles, worker)
