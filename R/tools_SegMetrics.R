@@ -33,7 +33,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
   ### CREATE EMPTY METRICS TABLE ----
 
-    metNames <- names(radiomics::calc_features(radiomics::glcm(matrix(1), n_grey = 1)))
+    metNames <- names(ForestTools:::.GLCMstats(1))
     metNames <- c(segID, gsub("^glcm_", "glcm_PCA_",  metNames), gsub("^glcm_", "glcm_nDSM_", metNames))
 
     emptyMetrics <- setNames(data.frame(matrix(ncol = length(metNames), nrow = 0)), metNames)
