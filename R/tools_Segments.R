@@ -199,36 +199,41 @@ WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
 
   ### INPUT CHECKS ----
 
-  # Check that all RSDS have same tileScheme
-  .check_same_ts(out_RSDS, CHM_RSDS, ttops_RSDS)
-
   # Check extensions
   .check_extension(out_RSDS, "shp")
 
   # Check that inputs are complete
-  .check_complete_input(CHM_RSDS,  tileNames)
+  .check_complete_input(CHM_RSDS,   tileNames)
   .check_complete_input(ttops_RSDS, tileNames)
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
+
+  # Get file paths
+  CHM_paths   <- .get_RSDS_tilepaths(CHM_RSDS)
+  ttops_paths <- .get_RSDS_tilepaths(ttops_RSDS)
+  out_paths   <- .get_RSDS_tilepaths(out_RSDS)
 
   ### CREATE WORKER ----
 
   # Run process
   worker <- function(tileName){
 
-    # Get tile
-    tile <- out_RSDS@tileScheme[tileName][["tiles"]]
-
     # File paths
-    out_file   <- out_RSDS@tilePaths[tileName]
-    ttops_file <- ttops_RSDS@tilePaths[tileName]
-    CHM_file   <- CHM_RSDS@tilePaths[tileName]
+    out_path   <- out_paths[tileName]
+    ttops_path <- ttops_paths[tileName]
+    CHM_path   <- CHM_paths[tileName]
+
+    # Get tile
+    tile <- ts[tileName][["tiles"]]
 
     # CHM
-    CHM <- raster::raster(CHM_file)
+    CHM <- raster::raster(CHM_path)
 
-    if(suppressWarnings(rgdal::ogrInfo(ttops_file)$have_features)){
+    if(suppressWarnings(rgdal::ogrInfo(ttops_path)$have_features)){
 
       # Read in files
-      ttops <- APfun::APSHPread(ttops_file)
+      ttops <- APfun::APSHPread(ttops_path)
       raster::crs(ttops) <- raster::crs(CHM)
 
       # Apply 'marker-controlled watershed segmentation' algorithm
@@ -252,16 +257,16 @@ WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
     }
 
     # Write file
-    APfun::APSHPsave(segPoly_tile, out_file, overwrite = overwrite)
+    APfun::APSHPsave(segPoly_tile, out_path, overwrite = overwrite)
 
-    if(file.exists(out_file)) "Success" else stop("Failed to create output")
+    if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_RSDS, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)
@@ -293,15 +298,15 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
   ts <- .get_tilescheme()
 
   # Get output file paths
-  in_files  <- .get_RSDS_tilepaths(segPoly_RSDS)
-  out_files <- .get_RSDS_tilepaths(segRas_RSDS)
+  in_paths  <- .get_RSDS_tilepaths(segPoly_RSDS)
+  out_paths <- .get_RSDS_tilepaths(segRas_RSDS)
 
   ### CREATE WORKER ----
 
   worker <- function(tileName){
 
-    in_file  <- in_files[tileName]
-    out_file <- out_files[tileName]
+    in_path  <- in_paths[tileName]
+    out_path <- out_paths[tileName]
 
     tile <- ts[tileName][["buffs"]]
 
@@ -313,17 +318,17 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
       te = raster::extent(tile),
       tr = c(res,res),
       ot = "UInt16",
-      in_file,
-      out_file
+      in_path,
+      out_path
     )
 
-    if(file.exists(out_file)) "Success" else stop("Failed")
+    if(file.exists(out_path)) "Success" else stop("Failed")
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_files, overwrite, tileNames)
+  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
   status <- .doitlive(procTiles, worker)

@@ -56,8 +56,13 @@ Mosaic <- function(RSDS, overlap = "nbuffs", outFile = NULL, overwrite = FALSE){
   # Merge shape files
   }else if(ext %in% c("shp")){
 
+    in_paths <- .get_RSDS_tilepaths(RSDS)
+
+    # NOTE: This doesn't seem to work. It might be because the
+    # 'in_paths' is too long for a command line call
+
     gpal2::ogrmerge(
-      o            = c(outFile, RSDS@tilePaths),
+      o            = c(outFile, in_paths),
       single       = TRUE,
       overwrite_ds = overwrite
     )

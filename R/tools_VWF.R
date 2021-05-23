@@ -15,9 +15,6 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
   # Check that inputs are complete
   .check_complete_input(CHM_RSDS, tileNames)
 
-  # Get CRS
-  proj <- getOption("misterRS.crs")
-
   # Get tile scheme
   ts <- .get_tilescheme()
 
