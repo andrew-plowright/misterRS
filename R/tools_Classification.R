@@ -135,9 +135,14 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
 #'
 #' @export
 
-CreateClassifier <- function(trainingPts, classifierFile, segID, predictors = NULL, overwrite = FALSE){
+CreateClassifier <- function(trainingPts, classifierFile = NULL, segID, predictors = NULL,
+                             overwrite = FALSE,  verbose = TRUE){
 
-  if(file.exists(classifierFile) & !overwrite) stop("Classifier already exists. Set 'overwrite' to TRUE")
+  if(!is.null(classifierFile)){
+    if(file.exists(classifierFile) & !overwrite){
+      stop("Classifier already exists. Set 'overwrite' to TRUE")
+    }
+  }
 
   # Combine all training data
   alldata <- do.call(rbind, lapply(trainingPts, function(tp){
@@ -165,7 +170,7 @@ CreateClassifier <- function(trainingPts, classifierFile, segID, predictors = NU
                            paste(predictors[notFound], collapse = "\n  "))
   }
 
-  cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
+  if(verbose) cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
 
   # Factorize 'segClass' attribute
   alldata$segClass <- as.factor(alldata$segClass)
@@ -174,7 +179,7 @@ CreateClassifier <- function(trainingPts, classifierFile, segID, predictors = NU
   badRows <- apply(is.na(alldata), 1, any)
   if(any(badRows)){
 
-    cat("Remove points:", length(badRows[badRows]), "\n")
+    if(verbose) cat("Remove points:", length(badRows[badRows]), "\n")
     alldata <- alldata[!badRows,]
   }
 
@@ -185,15 +190,21 @@ CreateClassifier <- function(trainingPts, classifierFile, segID, predictors = NU
     importance = TRUE,
     ntree      = 1000)
 
-  cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
+  if(verbose) cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
 
-  # create classifier output folder
-  classifierDir <- dirname(classifierFile)
-  if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
+  if(is.null(classifierFile)){
 
-  # Save classifier
-  saveRDS(classifier, classifierFile)
+    return(classifier)
 
+  }else{
+
+    # create classifier output folder
+    classifierDir <- dirname(classifierFile)
+    if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
+
+    # Save classifier
+    saveRDS(classifier, classifierFile)
+  }
 }
 
 #' Classify segments

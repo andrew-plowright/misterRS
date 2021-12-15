@@ -262,11 +262,11 @@ Hillshade <- function(RSDS){
 
   tim <- .headline("HILLSHADE")
 
-  in_file <- RSDS@mosaic
+  in_file <- .get_RSDS_mosaicpath(RSDS)
 
   if(!file.exists(in_file)) stop("No mosaic file found")
 
-  out_file <- gsub("\\.tif$",  "_hillshade.tif", rsds$DEM_2018@mosaic)
+  out_file <- gsub("\\.tif$",  "_hillshade.tif", in_file)
 
   if(file.exists(out_file)){
 

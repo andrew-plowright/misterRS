@@ -35,7 +35,10 @@ MSS2 <- function(image_RSDS, out_GPKG,
 
   ### CREATE VRT MOSAIC ---
 
-  mosaicVRT <- .mosaicVRT(image_RSDS, ts, overlap = "nbuffs", tileNames = tileNames)
+  tile_paths <- .get_RSDS_tilepaths(image_RSDS)
+  if(!is.null(tileNames)) tile_paths <- tile_paths[tileNames]
+
+  mosaicVRT <- .mosaicVRT(tile_paths, ts, overlap = "nbuffs")
 
   mss_result <- .mss(
     inFile  = mosaicVRT,
@@ -317,7 +320,7 @@ RasterSegment <- function(segPoly_RSDS, segRas_RSDS, res, segID = "polyID",
       co = c("COMPRESS=LZW"),
       te = raster::extent(tile),
       tr = c(res,res),
-      ot = "UInt16",
+      ot = "UInt32",
       in_path,
       out_path
     )

@@ -6,10 +6,11 @@
 \usage{
 CreateClassifier(
   trainingPts,
-  classifierFile,
+  classifierFile = NULL,
   segID,
   predictors = NULL,
-  overwrite = FALSE
+  overwrite = FALSE,
+  verbose = TRUE
 )
 }
 \description{

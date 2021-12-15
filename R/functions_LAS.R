@@ -9,6 +9,8 @@
     data.frame(ID = sapply(in_cat@polygons, slot, "ID"), stringsAsFactors = F)
   )
 
+  if(is.na(in_cat@proj4string)) stop("Can't select LAS tiles since this LAS Catalog has no projection info")
+
   # Reproject grid to tile
   las_grid <- sp::spTransform(las_grid, buff@proj4string)
 

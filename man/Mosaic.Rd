@@ -4,7 +4,14 @@
 \alias{Mosaic}
 \title{Mosaic a RS Dataset}
 \usage{
-Mosaic(RSDS, overlap = "nbuffs", outFile = NULL, overwrite = FALSE)
+Mosaic(
+  RSDS,
+  overlap = "nbuffs",
+  shp_clip = FALSE,
+  outFile = NULL,
+  overwrite = FALSE,
+  tileNames = NULL
+)
 }
 \description{
 Mosaic a RS Dataset
