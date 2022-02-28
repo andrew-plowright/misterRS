@@ -212,7 +212,7 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
       # Compute standard metrics
       specMetrics <- do.call(cbind, lapply(zonalFun, function(zf){
         specMetrics <- raster::zonal(o, segRas, fun = zf)
-        colnames(specMetrics) <- paste0(colnames(specMetrics), "_", zf)
+        colnames(specMetrics) <- paste0(c("zone", names(bands)), "_", zf)
         return(specMetrics)
       }))
 

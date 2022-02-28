@@ -117,9 +117,12 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
       # Break up polygons that straddle tile borders
       brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], ts_nbuffs))
 
-      if(nrow(brokeup) != 0) brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
+      brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
 
-      polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+      if(nrow(brokeup) != 0){
+        brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
+        polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+      }
     }
 
     # Explode multipart polygons
@@ -133,7 +136,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
     intrs <- sapply(sf::st_intersects(cent, ts_nbuffs), "[", 1)
     polys$tileNames <- ts_nbuffs$tileName[intrs]
 
-    for(tileName in unique(polys$tileNames)){
+    for(tileName in  na.omit(unique(polys$tileNames))){
 
       # Set file path
       tilePath <- tilePaths[tileName]

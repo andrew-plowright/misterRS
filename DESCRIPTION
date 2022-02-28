@@ -9,4 +9,28 @@ Description: More about what it does (maybe more than one line)
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
+Imports:
+    raster,
+    sf,
+    APfun,
+    RSQLite,
+    lwgeom,
+    sp,
+    rgdal,
+    R.utils,
+    foreach,
+    parallel,
+    doSNOW,
+    progress,
+    crayon,
+    foreign,
+    lidR,
+    moonBook,
+    dplyr,
+    tidyr,
+    ggplot2,
+    randomForest,
+    withr,
+    gpal2,
+    Biocomb

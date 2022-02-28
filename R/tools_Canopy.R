@@ -6,7 +6,7 @@
 #'
 #' @export
 
-CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, openings = 1, openingRadius = 0.5,
+CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, canopyEdits = NULL, openings = 1, openingRadius = 0.5,
                            tileNames = NULL, overwrite = FALSE){
 
 
@@ -26,6 +26,20 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
   out_paths         <- .get_RSDS_tilepaths(canopyMask_RSDS)
 
   if(!is.numeric(openings) || openings < 0) stop("Invalid input for 'openings':", openings)
+
+
+  if(!is.null(canopyEdits)){
+
+    # Temporary folder
+    editFolder <- file.path(tempdir(), "canopyEdits")
+    dir.create(editFolder, showWarnings = FALSE)
+    on.exit(unlink(editFolder, recursive = TRUE))
+
+    # Read canopy edits
+    edits <- sf::st_read(canopyEdits, quiet = T)
+
+    if(!all(edits$canopy %in% c(1,0))) stop("All values in the 'canopy' column should be either 1 or 0")
+  }
 
 
   ### CREATE WORKER ----
@@ -69,6 +83,27 @@ CanopyMask <- function(segClassRas_RSDS, canopyMask_RSDS, canopyClasses, opening
         openings <- openings - 1
       }
     }
+
+    if(!is.null(canopyEdits)){
+
+      editFile <- file.path(editFolder, paste0(tileName, ".tif"))
+
+      gpal2::gdal_rasterize(
+        a = 'canopy',
+        a_nodata = -1,
+        co = c("COMPRESS=LZW"),
+        te = raster::extent(canopyRas),
+        tr = raster::res(canopyRas),
+        ot = "Int16",
+        R.utils::getAbsolutePath(canopyEdits),
+        editFile
+      )
+
+      editRas <- raster::raster(editFile)
+
+      canopyRas <- raster::cover(editRas, canopyRas)
+    }
+
 
     # Save output
     raster::writeRaster( canopyRas, out_path, overwrite = overwrite, datatype = "INT1U")

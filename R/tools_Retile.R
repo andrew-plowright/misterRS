@@ -16,6 +16,7 @@ Retile <- function(in_files, out_RSDS, res, bands = NULL,
   tempList <- tempfile(fileext = ".txt")
   tempVRT  <- tempfile(fileext = ".vrt")
 
+  # Make a list of a bunch of VRTs? Why do this?
   if(makeVRTlist){
 
     tempVRTdir <- file.path(tempdir(), "VRTlist")

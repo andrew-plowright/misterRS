@@ -105,7 +105,7 @@ FinalCanopy <- function(treeClassRas_RSDS, canopyClasses, boundary, out_file,
 
   ### MERGE ----
 
-    tempVRT <- .mosaicVRT(canopyMask_paths, ts, overlap = "nbuffs" )
+    tempVRT <- .mosaicVRT(canopyMask_paths, ts, overlap = "buffs" )
 
     gpal2::gdal_translate(
       co = c("BIGTIFF=YES", "COMPRESS=LZW"),

@@ -8,6 +8,7 @@ CanopyMask(
   segClassRas_RSDS,
   canopyMask_RSDS,
   canopyClasses,
+  canopyEdits = NULL,
   openings = 1,
   openingRadius = 0.5,
   tileNames = NULL,
