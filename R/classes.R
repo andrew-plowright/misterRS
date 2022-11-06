@@ -4,7 +4,7 @@
 #' @export
 
 setClass(
-  "RSDS",
+  "rsds",
   representation(
     id   = 'character',
     name = 'character',
@@ -15,9 +15,9 @@ setClass(
 )
 
 
-setMethod("show", "RSDS", function(object){
+setMethod("show", "rsds", function(object){
 
-  filePaths <- .get_RSDS_tilepaths(object)
+  filePaths <- .get_rsds_tilepaths(object)
 
   cat(
     "REMOTE SENSING DATASET", "\n",
@@ -35,7 +35,7 @@ setMethod("show", "RSDS", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-RSDS <- function(id, name, dir, ext, archive = FALSE){
+rsds <- function(id, name, dir, ext, archive = FALSE){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
@@ -45,7 +45,7 @@ RSDS <- function(id, name, dir, ext, archive = FALSE){
   if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
 
   # Create new object
-  new("RSDS", id = id, name = name, dir = dir, ext = ext, archive = archive)
+  new("rsds", id = id, name = name, dir = dir, ext = ext, archive = archive)
 }
 
 
@@ -53,7 +53,7 @@ RSDS <- function(id, name, dir, ext, archive = FALSE){
 #' @export
 
 setClass(
-  "TrainingData",
+  "trainingdata",
   representation(
     id       = 'character',
     SHPfile  = 'character',
@@ -62,7 +62,7 @@ setClass(
 )
 
 
-setMethod("show", "TrainingData", function(object){
+setMethod("show", "trainingdata", function(object){
 
   if(file.exists(object@datafile)){
     csv <- read.csv(object@datafile)
@@ -94,7 +94,7 @@ setMethod("show", "TrainingData", function(object){
 #' Training Data (constructor)
 #' @export
 
-TrainingData <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
+training_data <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
@@ -118,7 +118,7 @@ TrainingData <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = 
   }
 
   # Create new object
-  new("TrainingData", id = id, SHPfile  = SHPpath, datafile = dataPath)
+  new("trainingdata", id = id, SHPfile  = SHPpath, datafile = dataPath)
 }
 
 
@@ -127,14 +127,14 @@ TrainingData <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = 
 #' @export
 
 setClass(
-  "ClassEdits",
+  "class_edits",
   representation(
     SHPfile  = 'character'
   )
 )
 
 
-setMethod("show", "ClassEdits", function(object){
+setMethod("show", "class_edits", function(object){
 
   if(file.exists(object@SHPfile)){
     info <- suppressWarnings(rgdal::ogrInfo(object@SHPfile))
@@ -153,7 +153,7 @@ setMethod("show", "ClassEdits", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-ClassEdits <- function(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE){
+class_edits <- function(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
   if(tools::file_ext(SHPpath) != "shp") stop("Classification Edits path should be a SHP file")
 
@@ -175,6 +175,6 @@ ClassEdits <- function(SHPpath, proj = getOption("misterRS.crs"), overwrite = FA
   }
 
   # Create new object
-  new("ClassEdits", SHPfile = SHPpath)
+  new("class_edits", SHPfile = SHPpath)
 }
 

@@ -1,0 +1,77 @@
+#' Convert raster file(s) to tiled RS dataset
+#'
+#' @export
+
+to_rsds <- function(in_files, out_rsds, res, bands = NULL,
+                   tile_names = NULL, overwrite = FALSE){
+
+  process_timer <- .headline("CONVERT TO RS DATASET")
+
+  ### CHECK INPUTS ----
+
+  if(!all(file.exists(in_files))) stop("Some input files were missing")
+
+  # Set file paths
+  temp_list <- tempfile(fileext = ".txt")
+  temp_vrt  <- tempfile(fileext = ".vrt")
+
+  # Write list of input files to a text file
+  write(in_files, temp_list)
+
+  # Format bands argument
+  bands <- if(!is.null(bands)) as.list(setNames(bands, rep("b", length(bands))))
+
+  # List of VRT arguments
+  # NOTE: 'srcnodata = "None"' prevents No Data values from being included
+  arg_list <- c(list(input_file_list = temp_list), bands, list(srcnodata = "None"), temp_vrt)
+
+  # Generate VRT
+  do.call(gpal2::gdalbuildvrt, arg_list)
+
+  if(!file.exists(temp_vrt)) stop("Failed to create VRT")
+
+  # Get tiles
+  ts <- .get_tilescheme()
+
+  # Get tile names
+  out_files <- .get_rsds_tilepaths(out_rsds)
+
+
+  ### CREATE WORKER ----
+
+  tile_worker <-function(tile_name){
+
+    # Get tile
+    tile <- ts[tile_name,]
+
+    # Resample
+    gpal2::gdalwarp(
+      t_srs     = as.character(tile@crs),
+      te        = raster::extent(tile[["buffs"]]),
+      tr        = c(res, res),
+      r         = "bilinear",
+      overwrite = overwrite,
+      temp_vrt,
+      out_files[tile_name]
+    )
+
+    if(!file.exists(out_files[tile_name])) stop("Failed to create output for tile '", tile_name, "'")
+
+    return("Success")
+  }
+
+  ### APPLY WORKER ----
+
+  # Get tiles for processing
+  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+
+  # Process
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+
+  # Report
+  .print_process_status(process_status)
+
+  # Conclude
+  .conclusion(process_timer)
+
+}

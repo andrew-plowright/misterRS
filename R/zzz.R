@@ -18,7 +18,8 @@
   op.current <- options()
   op.misterRS <- list(
     misterRS.clusters = 1,
-    misterRS.orfeo = orfeoPath
+    misterRS.orfeo = orfeoPath,
+    misterRS.verbosity = TRUE
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])
