@@ -7,8 +7,8 @@
 MakeDEM(
   in_cat,
   out_RSDS,
-  LASselect = "xyzc",
-  DEMres = 1,
+  LAS_select = "xyzc",
+  res = 1,
   tileNames = NULL,
   overwrite = FALSE
 )

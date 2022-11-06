@@ -2,41 +2,43 @@
 #'
 #' @export
 
-SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RSDS, segID,
-                          tileNames = NULL, overwrite = FALSE){
+SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, img_RSDS, out_RSDS, segID, band = 1,
+                          tileNames = NULL, overwrite = FALSE, prefix = ""){
+
+  cat("*** This function needs a terra update ***", "\n\n")
 
   tim <- .headline("SEGMENT METRICS - TEXTURAL")
+
 
   ### INPUT CHECKS ----
 
     # Check extensions
-    .check_extension(PCA_RSDS,    "tif")
-    .check_extension(nDSM_RSDS,   "tif")
     .check_extension(segRas_RSDS, "tif")
+    .check_extension(img_RSDS,    "tif")
     .check_extension(out_RSDS,    "csv")
 
     # Check complete inputs
     .check_complete_input(segRas_RSDS,  tileNames)
     .check_complete_input(segPoly_RSDS, tileNames)
-    .check_complete_input(PCA_RSDS,     tileNames)
-    .check_complete_input(nDSM_RSDS,    tileNames)
+    .check_complete_input(img_RSDS,     tileNames)
 
     # Get file paths
-    segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
-    segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
-    PCA_paths     <- .get_RSDS_tilepaths(PCA_RSDS)
-    nDSM_paths    <- .get_RSDS_tilepaths(nDSM_RSDS)
+    segras_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+    segpoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+    img_paths     <- .get_RSDS_tilepaths(img_RSDS)
     out_paths     <- .get_RSDS_tilepaths(out_RSDS)
 
     # Get tilepaths
     ts <- .get_tilescheme()
 
+    cat("  Image            :", img_RSDS@name, "\n")
+
+
   ### CREATE EMPTY METRICS TABLE ----
 
-    metNames <- names(ForestTools:::.GLCMstats(1))
-    metNames <- c(segID, gsub("^glcm_", "glcm_PCA_",  metNames), gsub("^glcm_", "glcm_nDSM_", metNames))
-
-    emptyMetrics <- setNames(data.frame(matrix(ncol = length(metNames), nrow = 0)), metNames)
+    met_names <- names(ForestTools:::.GLCMstats(1))
+    met_names  <- c(segID, gsub("^glcm_", paste0(prefix, "glcm_"),  met_names))
+    empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names), nrow = 0)), met_names)
 
   ### CREATE WORKER ----
 
@@ -48,53 +50,47 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
       # Get output file path
       out_path     <- out_paths[tileName]
-      PCA_path     <- PCA_paths[tileName]
-      nDSM_path    <- nDSM_paths[tileName]
-      segRas_path  <- segRas_paths[tileName]
-      segPoly_path <- segPoly_paths[tileName]
+      img_path     <- img_paths[tileName]
+      segras_path  <- segras_paths[tileName]
+      segpoly_path <- segpoly_paths[tileName]
 
       # Read segment DBF
-      segDBF <- .read_poly_attributes(segPoly_path)
+      segDBF <- .read_poly_attributes(segpoly_path)
       if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
       # Compute metrics
-      tileMetrics <- if(nrow(segDBF) > 0){
+      tile_metrics <- if(nrow(segDBF) > 0){
 
         # Read segments
-        segRas <- raster::raster(segRas_path)
+        segras <- raster::raster(segras_path)
 
-        # Get first PCA and nDSM
-        PCA  <- raster::brick(PCA_path)[[1]]
-        nDSM <- raster::raster(nDSM_path)
+        # Get image
+        img  <- raster::raster(img_path, band = band)
 
-        # Get minimum value and adjust value range of PCA (the PCA cannot have negative values)
-        minv <- raster::cellStats(PCA, "min")
-        PCAmv <- PCA - minv
+        # Get minimum value and adjust value range (cannot have negative values)
+        min_value <- raster::cellStats(img, "min", na.rm = TRUE)
+        img <- img - min_value
 
-        # Remove values below 0 (cannot have negative values for GLCM)
-        nDSM[nDSM < 0] <- 0
-        nDSM[is.na(nDSM)] <- 0
+        # Remove values below 0 (cannot have NA values)
+        img[is.na(img)] <- 0
 
         # Compute GLCMs
-        GLCM_PCA  <- suppressWarnings(ForestTools::glcm(segRas, PCAmv, n_grey = 8))
-        GLCM_nDSM <- suppressWarnings(ForestTools::glcm(segRas,  nDSM, n_grey = 8))
+        glcm <- ForestTools::glcm(segras, img, n_grey = 8)
 
         # Rename, combine and reorder
-        names(GLCM_PCA)  <- gsub("^glcm_", "glcm_PCA_",  names(GLCM_PCA ))
-        names(GLCM_nDSM) <- gsub("^glcm_", "glcm_nDSM_", names(GLCM_nDSM))
-        GLCM             <- cbind(GLCM_PCA, GLCM_nDSM[,-1])
-        names(GLCM)[1]   <- segID
-        row.names(GLCM)  <- GLCM[[segID]]
-        GLCM             <- GLCM[as.character(segDBF[[segID]]),]
-        GLCM[[segID]]    <- segDBF[[segID]]
+        names(glcm)  <- gsub("^glcm_", paste0(prefix, "glcm_"),  names(glcm))
+        names(glcm)[1]   <- segID
+        row.names(glcm)  <- glcm[[segID]]
+        glcm             <- glcm[as.character(segDBF[[segID]]),]
+        glcm[[segID]]    <- segDBF[[segID]]
 
-        GLCM
+        glcm
 
       # Return empty table of metrics
-      }else emptyMetrics
+      }else empty_metrics
 
       # Write output
-      write.csv(tileMetrics, out_path, row.names = FALSE, na = "")
+      write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
 
       if(file.exists(out_path)) "Success" else "FAILED"
     }
@@ -123,7 +119,7 @@ SegMetricsTex <- function(segRas_RSDS, segPoly_RSDS, PCA_RSDS, nDSM_RSDS, out_RS
 
 SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
-                           segID,  tileNames = NULL, overwrite = FALSE){
+                           segID,  tileNames = NULL, overwrite = FALSE, prefix = NULL){
 
   tim <- .headline("SEGMENT METRICS - SPECTRAL")
 
@@ -140,22 +136,31 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
   .check_complete_input(ortho_RSDS,   tileNames)
 
   # Get file paths
-  segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
-  segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+  segras_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+  segpoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
   ortho_paths   <- .get_RSDS_tilepaths(ortho_RSDS)
   out_paths     <- .get_RSDS_tilepaths(out_RSDS)
 
   # Get tilepaths
   ts <- .get_tilescheme()
 
+  do_metrics_RGB <- all(c("R", "G", "B") %in% names(bands))
+  do_metrics_IR  <- all(c("IR", "R")     %in% names(bands))
+
+
+  ### SET NAMES OF METRICS ----
+
+  met_names_noprefix <- names(bands)
+  if(do_metrics_RGB) met_names_noprefix <- c(met_names_noprefix, "GLI", "VARI", "NGRDI", "NGBDI", "NRBDI")
+  if(do_metrics_IR)  met_names_noprefix <- c(met_names_noprefix, "NDVI", "EVI2", "MSAVI2", "SAVI")
+
+  met_names_prefix <- setNames(paste0(prefix, met_names_noprefix), met_names_noprefix)
+
+
   ### CREATE EMPTY METRICS TABLE ----
 
-  metNames <- names(bands)
-  if(all(c("R", "G", "B") %in% metNames)) metNames <- c(metNames, "GLI", "VARI", "NGRDI", "NGBDI", "NRBDI")
-  if(all(c("IR", "R")     %in% metNames)) metNames <- c(metNames, "NDVI", "EVI2", "MSAVI2", "SAVI")
-  metNames <- c(segID, apply(expand.grid(metNames, zonalFun), 1, paste, collapse="_"))
-
-  emptyMetrics <- setNames(data.frame(matrix(ncol = length(metNames), nrow = 0)), metNames)
+  met_names_final <- c(segID, apply(expand.grid(met_names_prefix, zonalFun), 1, paste, collapse="_"))
+  empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names_final), nrow = 0)), met_names_final)
 
 
   ### CREATE WORKER ----
@@ -169,50 +174,58 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
     # Get output file path
     out_path     <- out_paths[tileName]
     ortho_path   <- ortho_paths[tileName]
-    segRas_path  <- segRas_paths[tileName]
-    segPoly_path <- segPoly_paths[tileName]
+    segras_path  <- segras_paths[tileName]
+    segpoly_path <- segpoly_paths[tileName]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(segPoly_path)
+    segDBF <- .read_poly_attributes(segpoly_path)
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
-    tileMetrics <- if(nrow(segDBF) > 0){
+    tile_metrics <- if(nrow(segDBF) > 0){
 
       # Read ortho and segment raster
       o <- raster::brick(ortho_path)
-      segRas <- raster::raster(segRas_path)
+      segras <- raster::raster(segras_path)
 
       # Subset bands
       if(max(bands) > raster::nlayers(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
       o <- o[[bands]]
-      names(o) <- names(bands)
+      names(o) <- met_names_prefix[names(bands)]
 
       # Produce indices (RGB)
-      if(all(c("R", "G", "B") %in% names(o))){
+      if(do_metrics_RGB){
 
-        o[["GLI"]]    <- (2 * o$G - o$R - o$B + 0.01) / (2 * o$G + o$R + o$B+ 0.01)
-        o[["VARI"]]   <- (o$G - o$R) / (o$G + o$R - o$B + 0.01)
+        oR <- o[[met_names_prefix["R"]]]
+        oG <- o[[met_names_prefix["G"]]]
+        oB <- o[[met_names_prefix["B"]]]
 
-        o[["NGRDI"]]  <- (o$G - o$R) / (o$G + o$R)
-        o[["NGBDI"]]  <- (o$G - o$B) / (o$G + o$B)
-        o[["NRBDI"]]  <- (o$R - o$B) / (o$R + o$B)
+        o[[met_names_prefix["GLI"]]]    <- (2 * oG - oR - oB + 0.01) / (2 * oG + oR + oB+ 0.01)
+        o[[met_names_prefix["VARI"]]]   <- (oG - oR) / (oG + oR - oB + 0.01)
+
+        o[[met_names_prefix["NGRDI"]]]  <- (oG - oR) / (oG + oR)
+        o[[met_names_prefix["NGBDI"]]]  <- (oG - oB) / (oG + oB)
+        o[[met_names_prefix["NRBDI"]]]  <- (oR - oB) / (oR + oB)
 
       }
-      # Produce indices (Infrared)
-      if(all(c("IR", "R") %in% names(o))){
 
-        o[["NDVI"]]   <- (o$IR - o$R) / (o$IR + o$R)
-        o[["EVI2"]]   <- (o$IR - o$R) / (o$IR + 2.4 * o$R + 1)
-        o[["MSAVI2"]] <- (2 * o$IR + 1 - sqrt( (2 * o$IR + 1)^2 - 8 * (o$IR - o$R) )) / 2
-        o[["SAVI"]]   <- ((o$IR - o$R) / (o$IR + o$R + 0.5)) * (1.5)
+      # Produce indices (Infrared)
+      if(do_metrics_IR){
+
+        oR <- o[[met_names_prefix["R"]]]
+        oIR <- o[[met_names_prefix["IR"]]]
+
+        o[[met_names_prefix["NDVI"]]]   <- (oIR - oR) / (oIR + oR)
+        o[[met_names_prefix["EVI2"]]]   <- (oIR - oR) / (oIR + 2.4 * oR + 1)
+        o[[met_names_prefix["MSAVI2"]]] <- (2 * oIR + 1 - sqrt( (2 * oIR + 1)^2 - 8 * (oIR - oR) )) / 2
+        o[[met_names_prefix["SAVI"]]]   <- ((oIR - oR) / (oIR + oR + 0.5)) * (1.5)
 
       }
 
       # Compute standard metrics
       specMetrics <- do.call(cbind, lapply(zonalFun, function(zf){
-        specMetrics <- raster::zonal(o, segRas, fun = zf)
-        colnames(specMetrics) <- paste0(c("zone", names(bands)), "_", zf)
+        specMetrics <- raster::zonal(o, segras, fun = zf)
+        colnames(specMetrics) <- paste0(c("zone", names(o)), "_", zf)
         return(specMetrics)
       }))
 
@@ -231,10 +244,10 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
       specMetrics
 
     }else{
-      emptyMetrics
+      empty_metrics
     }
 
-    write.csv(tileMetrics, out_path, row.names = FALSE)
+    write.csv(tile_metrics, out_path, row.names = FALSE)
 
     if(file.exists(out_path)) "Success" else "FAILED"
   }
@@ -261,7 +274,7 @@ SegMetricsSpec <- function(segRas_RSDS, segPoly_RSDS, ortho_RSDS, out_RSDS,
 
 SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
                           metricFunc,
-                          zMin, zMax, segID,
+                          zMin, zMax, segID, prefix = NULL,
                           tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("SEGMENT METRICS - LAS")
@@ -278,8 +291,8 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
   .check_complete_input(DEM_RSDS,     tileNames)
 
   # Get file paths
-  segRas_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
-  segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+  segras_paths  <- .get_RSDS_tilepaths(segRas_RSDS)
+  segpoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
   DEM_paths     <- .get_RSDS_tilepaths(DEM_RSDS)
   out_paths     <- .get_RSDS_tilepaths(out_RSDS)
 
@@ -316,15 +329,15 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
     # Get output file path
     out_path     <- out_paths[tileName]
     DEM_path     <- DEM_paths[tileName]
-    segRas_path  <- segRas_paths[tileName]
-    segPoly_path <- segPoly_paths[tileName]
+    segras_path  <- segras_paths[tileName]
+    segpoly_path <- segpoly_paths[tileName]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(segPoly_path)
+    segDBF <- .read_poly_attributes(segpoly_path)
     if(!segID %in% names(segDBF)) stop("Could not find '", segID, "' in the '", segPoly_RSDS@name, "' dataset")
 
     # Compute tile metrics
-    tileMetrics <- if(nrow(segDBF) > 0){
+    tile_metrics <- if(nrow(segDBF) > 0){
 
       # Read LAS tile
       LAStile <- .readLAStile(in_cat, tile = tile, select = LASselect)
@@ -337,25 +350,28 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
         if(!is.null(LAStile)){
 
           # Read segment rasters
-          segRas <- raster::raster(segRas_path)
+          segras <- terra::rast(segras_path)
 
           # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
-          segRas <- raster::crop(segRas, raster::extent(LAStile)) * 1
+          segras <- terra::crop(segras, lidR::ext(LAStile))
 
           # Assign segment ID to LAS points
-          LAStile <- lidR::merge_spatial(LAStile, segRas, attribute = segID)
+          LAStile <- lidR::merge_spatial(LAStile, segras, attribute = segID)
 
           if(!all(is.na(LAStile[[segID]]))){
 
             # Compute cloud statistics within segments
-            LASmetrics <- as.data.frame(lidR::tree_metrics(LAStile, metricFormula, attribute = segID))
+            LASmetrics <- as.data.frame(lidR::crown_metrics(LAStile, metricFormula, attribute = segID))
+
+            # Remove unneeded columns
+            LASmetrics <- LASmetrics[, !names(LASmetrics) %in% "geometry"]
 
             # Reorder
             LASmetrics <- LASmetrics[match(segDBF[[segID]], LASmetrics[[segID]]),]
             LASmetrics[[segID]] <- segDBF[[segID]]
 
-            # Remove unneeded columns
-            LASmetrics <- LASmetrics[, !names(LASmetrics) %in% c("x.pos.t", "y.pos.t")]
+            # Add prefix
+            names(LASmetrics)[2:ncol(LASmetrics)] <- paste0(prefix, names(LASmetrics)[2:ncol(LASmetrics)])
 
             LASmetrics
 
@@ -366,17 +382,18 @@ SegMetricsLAS <- function(segRas_RSDS, segPoly_RSDS, in_cat, DEM_RSDS, out_RSDS,
 
 
     # If no LAS points were found or segment file was empty, create a dummy table
-    if(is.null(tileMetrics)){
+    if(is.null(tile_metrics)){
 
       dummyMetrics   <- emptyResult
       dummyMetrics[] <- NA
       dummyMetrics   <- dummyMetrics[rep(1, nrow(segDBF)), ]
+      names(dummyMetrics) <- paste0(prefix, names(dummyMetrics))
 
-      tileMetrics <- cbind(segDBF[,segID, drop = FALSE], dummyMetrics)
+      tile_metrics <- cbind(segDBF[,segID, drop = FALSE], dummyMetrics)
     }
 
     # Write table
-    write.csv(tileMetrics, out_path, row.names = FALSE, na = "")
+    write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
 
     if(file.exists(out_path)) "Success" else "FAILED"
 

@@ -9,7 +9,8 @@ setClass(
     id   = 'character',
     name = 'character',
     dir  = 'character',
-    ext  = 'character'
+    ext  = 'character',
+    archive = 'logical'
   )
 )
 
@@ -20,11 +21,12 @@ setMethod("show", "RSDS", function(object){
 
   cat(
     "REMOTE SENSING DATASET", "\n",
-    "ID    : ", object@id ,  "\n",
-    "Name  : ", object@name, "\n",
-    "Dir   : ", object@dir,  "\n",
-    "Ext   : ", object@ext,  "\n",
-    "Tiles : ", length(filePaths[file.exists(filePaths)]), "/", length(filePaths), "\n",
+    "ID      : ", object@id ,  "\n",
+    "Name    : ", object@name, "\n",
+    "Dir     : ", object@dir,  "\n",
+    "Ext     : ", object@ext,  "\n",
+    "Tiles   : ", length(filePaths[file.exists(filePaths)]), "/", length(filePaths), "\n",
+    "Archive : ", object@archive, "\n",
     sep = ""
   )
 
@@ -33,7 +35,7 @@ setMethod("show", "RSDS", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-RSDS <- function(id, name, dir, ext){
+RSDS <- function(id, name, dir, ext, archive = FALSE){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
@@ -43,7 +45,7 @@ RSDS <- function(id, name, dir, ext){
   if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
 
   # Create new object
-  new("RSDS", id = id, name = name, dir = dir, ext = ext)
+  new("RSDS", id = id, name = name, dir = dir, ext = ext, archive = archive)
 }
 
 
@@ -110,9 +112,9 @@ TrainingData <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = 
   if(!file.exists(SHPpath) | overwrite){
 
     # Create Simple Feature object with blank geometry and empty attribute fields
-    s <- sf::st_sf(geometry = sf::st_sfc(crs = proj), list(segClass = character()))
+    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(segClass = character()))
 
-    sf::write_sf(s, SHPpath, layer_options = "SHPT=POINT", quiet = TRUE, delete_dsn = overwrite)
+    sf::st_write(s, SHPpath, layer_options = "SHPT=POINT", quiet = TRUE, delete_dsn = overwrite)
   }
 
   # Create new object

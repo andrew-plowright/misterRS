@@ -14,6 +14,7 @@ SegMetricsLAS(
   zMin,
   zMax,
   segID,
+  prefix = NULL,
   tileNames = NULL,
   overwrite = FALSE
 )

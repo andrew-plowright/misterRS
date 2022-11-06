@@ -4,15 +4,7 @@
 \alias{VerticalImage}
 \title{Vertical image}
 \usage{
-VerticalImage(
-  PCA_RSDS,
-  nDSM_RSDS,
-  out_RSDS,
-  nDSM_range,
-  PCA_range = NULL,
-  tileNames = NULL,
-  overwrite = FALSE
-)
+VerticalImage(inputs, out_RSDS, tileNames = NULL, overwrite = FALSE)
 }
 \description{
 Composite image of two ortho PCA bands and a normalized digital surface model

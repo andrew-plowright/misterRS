@@ -8,7 +8,7 @@
 #' @export
 
 PCAlocal <- function(ortho_RSDS, out_RSDS, nComp = 2, in_bands = c(1,2,3),
-                tileNames = NULL, overwrite = FALSE){
+                tileNames = NULL, overwrite = FALSE, spca = TRUE){
 
   tim <- .headline("PRINCIPAL COMPONENT ANALYSIS")
 
@@ -34,17 +34,18 @@ PCAlocal <- function(ortho_RSDS, out_RSDS, nComp = 2, in_bands = c(1,2,3),
     in_ras <- raster::brick(in_file)[[in_bands]]
 
     # Generate PCA
-    PCAras <- try(RStoolbox::rasterPCA(in_ras, nComp = nComp, spca = TRUE), silent = T)
+    # NOTE: 'maskCheck = FALSE' saves processing time but assumes that there's no NA values
+    PCAras <- try(RStoolbox::rasterPCA(in_ras, nComp = nComp, spca = spca, maskCheck = FALSE), silent = T)
 
     # Manage errors
-    if(class(PCAras) == "try-error"){
+    if("try-error" %in% class(PCAras) ){
 
-      if(attr(PCAras,"condition") == "cannot use 'cor = TRUE' with a constant variable"){
+      if(attr(PCAras,"condition")$message == "cannot use 'cor = TRUE' with a constant variable"){
 
         # Return dummy raster
         PCAras <- list(map = in_ras)
         bandNames <- names(PCAras$map)[1:2]
-        PCAras$map <- setValues(PCAras$map[[c(1,2)]],0)
+        PCAras$map <- raster::setValues(PCAras$map[[c(1,2)]],0)
         PCAras$map <- setNames(PCAras$map, bandNames)
       }else{
         stop(PCAras, call. = FALSE)
@@ -113,11 +114,15 @@ PCAglobal <- function(ortho_RSDS, out_RSDS, PCA_model, nComp = 2, in_bands = c(1
     in_file  <- ortho_files[tileName]
     out_file <- out_files[tileName]
 
-    in_ras <- raster::brick(in_file)[[in_bands]]
+    in_ras <- terra::rast(in_file, lyrs = in_bands)
     names(in_ras) <- in_bands
 
     # Generate PCA
-    raster::predict(in_ras, model, na.rm = TRUE, index=1:nComp, filename = out_file, overwrite = overwrite)
+    out_pca <- terra::predict(in_ras, model)[[1:nComp]]
+
+    # Write output
+    terra::writeRaster(out_pca,   filename = out_file, overwrite = overwrite)
+
 
     if(file.exists(out_file)){
       return("Success")
@@ -152,22 +157,28 @@ PCAmodel <- function(ortho_RSDS, out_file, nSamples = NULL, in_bands = c(1,2,3),
 
   tim <- .headline("PCA MODEL")
 
-  # Get tiles
-  ts <- .get_tilescheme()
-
-  if(is.null(nSamples)) nSamples <- length(ts) * 1100
-
   # Get paths
   in_paths <- .get_RSDS_tilepaths(ortho_RSDS)
 
+  # Get tiles
+  ts <- .get_tilescheme()
+  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
+
+  # Default number of samples if it's not specified
+  if(is.null(nSamples)) nSamples <- length(ts) * 1100
+
   # Create sample points
-  samples <- suppressWarnings(sp::spsample(ts[["tiles"]], nSamples , "random"))
-  samples_df <- sp::SpatialPointsDataFrame(samples, data.frame(tileName = rep(NA, length(samples))))
-  samples_df[["tileName"]] <- sp::over(samples_df, ts[["tiles"]])[["tileName"]]
-  unique_tiles <- unique(samples_df[["tileName"]])
+  samples <- sf::st_as_sf(sf::st_sample(tiles_sf, size = nSamples))
+
+  # Assign each sample its tile
+  samples[["tileName"]] <- ts[["tiles"]]$tileName[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
+
+
+  # Get unique tiles
+  unique_tiles <- unique(samples[["tileName"]])
 
   cat(
-    "  Sample pts        : ", nrow(samples_df), "\n",
+    "  Sample pts        : ", length(samples), "\n",
     "  Tiles             : ", length(unique_tiles), "\n",
     sep = ""
   )
@@ -178,17 +189,18 @@ PCAmodel <- function(ortho_RSDS, out_file, nSamples = NULL, in_bands = c(1,2,3),
   # Read training data
   samples_vals <- lapply(unique_tiles, function(tile_name){
 
+
     ras_path <- in_paths[tile_name]
 
-    # Read segments
-    ras <- raster::brick(ras_path)[[in_bands]]
+    # Read ortho tile
+    ras <- terra::rast(ras_path, lyrs = in_bands )
     names(ras) <- in_bands
 
     # Subset of sample points
-    samples_sub <- samples_df[samples_df[["tileName"]] == tile_name,]
+    samples_sub <- samples[samples$tileName == tile_name,]
 
     # Extract values
-    samples_val <- raster::extract(ras, samples_sub)
+    samples_val <- terra::extract(ras, sf::st_coordinates(samples_sub))
 
     pb$tick()
 
@@ -196,12 +208,18 @@ PCAmodel <- function(ortho_RSDS, out_file, nSamples = NULL, in_bands = c(1,2,3),
   })
   samples_vals <- do.call(rbind,samples_vals)
 
+  # Remove NAs
+  remove_nas <- apply(samples_vals, 1, function(x) any(is.na(x)))
+  samples_vals <- samples_vals[!remove_nas,]
+  cat("  Removing NA px   : ", length(remove_nas[remove_nas]), "\n", sep = "")
+
   # Remove black points
   if(removeBlack){
 
-    samples_vals <- samples_vals[!apply(samples_vals, 1, function(x) all(x==0)),]
+    remove_blacks <- !apply(samples_vals, 1, function(x) all(x==0))
+    samples_vals <- samples_vals[remove_blacks,]
+    cat("  Removing black px : ", length(remove_blacks[!remove_blacks]), "\n", sep = "")
 
-    cat("  Removing black px : ", nrow(samples_df) - nrow(samples_vals), "\n", sep = "")
   }
 
   cat("  Creating model",  "\n", sep = "")

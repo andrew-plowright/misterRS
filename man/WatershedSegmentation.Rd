@@ -8,7 +8,7 @@ WatershedSegmentation(
   out_RSDS,
   CHM_RSDS,
   ttops_RSDS,
-  OSGeoPath = "C:/OSGeo4W64",
+  minCrownHgt = 0.2,
   tileNames = NULL,
   overwrite = FALSE
 )

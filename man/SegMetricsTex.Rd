@@ -7,12 +7,13 @@
 SegMetricsTex(
   segRas_RSDS,
   segPoly_RSDS,
-  PCA_RSDS,
-  nDSM_RSDS,
+  img_RSDS,
   out_RSDS,
   segID,
+  band = 1,
   tileNames = NULL,
-  overwrite = FALSE
+  overwrite = FALSE,
+  prefix = ""
 )
 }
 \description{

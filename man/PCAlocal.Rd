@@ -10,7 +10,8 @@ PCAlocal(
   nComp = 2,
   in_bands = c(1, 2, 3),
   tileNames = NULL,
-  overwrite = FALSE
+  overwrite = FALSE,
+  spca = TRUE
 )
 }
 \description{

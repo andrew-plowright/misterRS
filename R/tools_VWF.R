@@ -4,7 +4,7 @@
 VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
                 tileNames = NULL, overwrite = FALSE){
 
-  tim <- misterRS:::.headline("Variable Window Filter (VWF)")
+  tim <- .headline("Variable Window Filter (VWF)")
 
   ### INPUT CHECKS ----
 
@@ -21,6 +21,11 @@ VWF <- function(CHM_RSDS, ttops_RSDS, winFun, minHeight,
   # Get file paths
   CHM_paths <- .get_RSDS_tilepaths(CHM_RSDS)
   out_paths <- .get_RSDS_tilepaths(ttops_RSDS)
+
+  # Write function
+  win_fun_text <- deparse(winFun)[2]
+  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_RSDS@dir), "win_fun.txt")
+  write(win_fun_text, win_fun_text_path)
 
   ### CREATE WORKER ----
 

@@ -3,7 +3,7 @@
 #'
 #' @export
 
-MakeDEM <- function(in_cat, out_RSDS, LASselect = "xyzc", DEMres =  1,
+MakeDEM <- function(in_cat, out_RSDS, LAS_select = "xyzc", res =  1,
                     tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("DIGITAL ELEVATION MODEL")
@@ -21,9 +21,9 @@ MakeDEM <- function(in_cat, out_RSDS, LASselect = "xyzc", DEMres =  1,
     # # Get CRS
     crs <- getOption("misterRS.crs")
 
-    ### CREATE WORKER ----
+  ### CREATE WORKER ----
 
-      # Run process
+    # Run process
       worker <- function(tileName){
 
         # Get tile
@@ -33,32 +33,36 @@ MakeDEM <- function(in_cat, out_RSDS, LASselect = "xyzc", DEMres =  1,
         out_file <- out_files[tileName]
 
         # Read LAS file
-        LAStile <- .readLAStile(in_cat = in_cat, tile = tile, select = LASselect)
+        LAStile <- .readLAStile(in_cat = in_cat, tile = tile, select = LAS_select)
 
         # Filter duplicates
         LAStile <- if(!is.null(LAStile)) lidR::filter_duplicates(LAStile)
 
-        # Create output layout
-        DEMlayout <- raster::raster(raster::extent(tile[["buffs"]]), res = DEMres, crs = crs)
-
         # If LAStile is NULL or contains insufficient points, return a NA file
         DEM <- if(is.null(LAStile) | sum(LAStile$Classification == 2) <= 3){
 
-          raster::setValues(DEMlayout, NA)
+          terra::rast(terra::ext( tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs), vals = NA)
 
         # Otherwise, triangulate DEM
         }else{
 
-          suppressWarnings(lidR::grid_terrain(
+          # NOTE:
+          # I would prefer that the 'res' argument take a template for creating the rasterized terrain, but for mysterious reasons that's not currently working
+
+          lidR::rasterize_terrain(
             LAStile,
-            res         = DEMlayout,
+            res         = res,
             algorithm   = lidR::tin(),
             keep_lowest = FALSE,
-            use_class   = c(2,9)))
+            use_class   = c(2,9)
+          )
+
+
         }
 
         # Save
-        raster::writeRaster(DEM, out_file, overwrite = TRUE)
+        terra::writeRaster(DEM, out_file, overwrite = TRUE)
+
 
         if(file.exists(out_file)) "Success" else "FAILED"
       }
@@ -81,37 +85,42 @@ MakeDEM <- function(in_cat, out_RSDS, LASselect = "xyzc", DEMres =  1,
 
 
 
-#' Make Normalized Digital Surface Model
+#' Make Digital Surface Model
 #'
-#' This version will create an nDSM directly from the point cloud (no existing DSM required)
+#' Generate a DSM. If \code{DEM_RSDS} is provided, it will generate a normalized DSM (nDSM)
 #'
 #' @export
 
-MakeNDSM <- function(in_cat, DEM_RSDS, out_RSDS,
-                     nDSMres, zMin, zMax,
-                     maxEdge =c(0, 1), subCircle = 0,
+MakeDSM <- function(in_cat, DEM_RSDS = NULL, out_RSDS,
+                     res = 0.25, zMin = 0, zMax = 80,
+                     max_edge =c(0, 1), subcircle = 0,
                      thresholds = c(0, 2, 5, 10, 15, 20, 25, 30, 35, 40),
-                     LASselect = "xyzcr", LASclasses = NULL,
+                     LAS_select = "xyzcr", LAS_classes = NULL,
                      tileNames = NULL, overwrite = FALSE){
 
-  tim <- .headline("NORMALIZED DIGITAL SURFACE MODEL")
+  tim <- .headline("DIGITAL SURFACE MODEL")
 
   ### INPUT CHECKS ----
 
-  .check_extension(DEM_RSDS, "tif")
-  .check_extension(out_RSDS, "tif")
-
-  .check_complete_input(DEM_RSDS, tileNames)
+  # Switch for generating nDSM
+  is_nDSM <- !is.null(DEM_RSDS)
 
   # Get tiles
   ts <- .get_tilescheme()
 
-  # Get file paths
-  DEM_files <- .get_RSDS_tilepaths(DEM_RSDS)
-  out_files <- .get_RSDS_tilepaths(out_RSDS)
-
   # # Get CRS
   crs <- getOption("misterRS.crs")
+
+  # Check inputs
+  .check_extension(out_RSDS, "tif")
+  if(is_nDSM){
+    .check_extension(DEM_RSDS, "tif")
+    .check_complete_input(DEM_RSDS, tileNames)
+  }
+
+  # Get file paths
+  out_files <- .get_RSDS_tilepaths(out_RSDS)
+  if(is_nDSM) DEM_files <- .get_RSDS_tilepaths(DEM_RSDS)
 
   ### CYCLE THROUGH TILES ----
 
@@ -122,61 +131,51 @@ MakeNDSM <- function(in_cat, DEM_RSDS, out_RSDS,
 
     # File paths
     out_file <- out_files[tileName]
-    DEM_file <- DEM_files[tileName]
 
     # Out raster layout
-    tile_ext <- raster::extent(tile[["buffs"]])
-    nDSMlayout <- raster::raster(tile_ext, res = nDSMres, crs =  crs)
+    out_template <- terra::rast(terra::ext(tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs))
 
     # Read LAS tile
-    LAStile <- .readLAStile(in_cat = in_cat, tile = tile, select = LASselect, classes = LASclasses)
-
-    # Normalize LAS tile
-    LAStile <- if(!is.null(LAStile)) .normalizeLAS(LAStile, DEMpath = DEM_file, zMin, zMax)
+    LAStile <- .readLAStile(in_cat = in_cat, tile = tile, select = LAS_select, classes = LAS_classes)
 
     if(is.null(LAStile)){
 
-      # Create blank nDSM
-      nDSM <- raster::setValues(nDSMlayout, NA)
+      # Blank nDSM
+      out_DSM <- terra::setValues(out_template, NA)
 
     }else{
 
+      # Normalize LAS tile
+      if(is_nDSM){
+        DEM_file <- DEM_files[tileName]
+        LAStile <- .normalizeLAS(LAStile, DEMpath = DEM_file, zMin, zMax)
+      }
+
       ### IMPORTANT NOTE:
       #
-      # These settings produced some ugly nDSM artifacts
+      # These settings produced some ugly DSM artifacts
       # The 'Max Edge' setting might need to be changed
-      # View coordinates c(529709.302, 5444776.672) in the Langley nDSM
+      # View coordinates c(529709.302, 5444776.672) in the Langley DSM
       # The 'pitfree' algorithm is probably best, but do more tests next time to figure out best parameters
-      #
-      # Use invisible and capture.output to suppress annoying progress bar
 
-      invisible(capture.output({
+      # Set algorithm
+      alg <- lidR::pitfree(thresholds = thresholds, max_edge = max_edge, subcircle = subcircle)
 
-        nDSM <- lidR::grid_canopy(
-          LAStile,
-          res = nDSMlayout,
-          algorithm = lidR::pitfree(
-            thresholds = thresholds,
-            max_edge   = maxEdge,
-            subcircle  = subCircle)
-        )
-      }))
+      # Generate surface
+      out_DSM <- lidR::rasterize_canopy(LAStile, res = out_template, algorithm = alg)
 
-      if(is.null(nDSM)) stop("Failed to create nDSM file")
-
-      # Extent to size of tile
-      nDSM <- raster::extend(nDSM, tile_ext)
+      if(is.null(out_DSM)) stop("Failed to create DSM file")
 
       # Add random layer to eliminate adjacent cells with identical values
-      nDSM <- nDSM + runif(raster::ncell(nDSM), min = 0, max = 0.0001)
+      out_DSM <- out_DSM + terra::setValues(out_template,  runif(terra::ncell(out_DSM), min = 0, max = 0.0001))
 
       # Fill in gaps
-      nDSM[is.na(nDSM)] <- 0
+      out_DSM[is.na(out_DSM)] <- 0
 
     }
 
-    # Write nDSM
-    raster::writeRaster(nDSM, out_file, overwrite = TRUE)
+    # Write DSM
+    terra::writeRaster(out_DSM, out_file, overwrite = TRUE)
 
     if(file.exists(out_file)) "Success" else "FAILED"
   }

@@ -17,13 +17,14 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
 
     # Get tile scheme
     ts <- .get_tilescheme()
+    tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
     # Get CRS
     crs <- getOption("misterRS.crs")
 
     # Get metric paths
     met_paths <- lapply(metrics, .get_RSDS_tilepaths)
-    segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+    seg_poly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
 
     # Check extensions
     .check_extension(segPoly_RSDS, c("shp", "gpkg"))
@@ -37,13 +38,12 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
     ### READ TRAINING POINTS ----
 
     # Read training points
-    trainingSP <- APfun::APSHPread(trainingPts@SHPfile)
-    trainingSP[["trainingID"]] <- 1:length(trainingSP)
-    raster::crs(trainingSP) <- crs
+    training_sf <- sf::st_read(trainingPts@SHPfile, quiet = TRUE)
+    training_sf[["trainingID"]] <- 1:nrow(training_sf)
 
     # Assign training points to tiles
-    trainingSP[["tileName"]] <- sp::over(trainingSP, ts[["tiles"]])[["tileName"]]
-    unique_tiles <- unique(trainingSP[["tileName"]])
+    training_sf[["tileName"]] <- tiles_sf$tileName[ sapply( sf::st_intersects(training_sf, tiles_sf), `[`, 1) ]
+    unique_tiles <- unique(training_sf[["tileName"]])
 
     if(any(is.na(unique_tiles))) stop("Training points outside of tileset")
 
@@ -63,8 +63,8 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
     if(any(duplicated(unlist(lapply(headers, function(h) h[[1]]))))) stop("Duplicated variable names between metrics")
 
     cat(
-      "  Training set : ", trainingPts@id, "\n",
-      "  Training pts : ", length(trainingSP), "\n",
+
+      "  Training pts : ", nrow(training_sf), "\n",
       "  Tiles        : ", length(unique_tiles), "\n",
       sep = ""
     )
@@ -78,40 +78,40 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
     # Read training data
     trainingData <- lapply(unique_tiles, function(tile_name){
 
-      segPoly_path <- segPoly_paths[tile_name]
+      seg_poly_path <- seg_poly_paths[tile_name]
 
       # Read segments
-      segPoly <- sf::st_read(segPoly_path, quiet = TRUE)
+      seg_poly <- sf::st_read(seg_poly_path, quiet = TRUE)
 
       # Get all metrics
-      segData <- unname(lapply(names(metrics), function(met_name) read.csv(met_paths[[met_name]][tile_name], row.names = 1, check.names = FALSE, stringsAsFactors = FALSE)))
+      seg_data <- unname(lapply(names(metrics), function(met_name) read.csv(met_paths[[met_name]][tile_name], row.names = 1, check.names = FALSE, stringsAsFactors = FALSE)))
 
       # Check matching row names
       for(i in 1:length(metrics)){
-        if(!all(segPoly[[segID]] == row.names(segData[[i]]))){
+        if(!all(seg_poly[[segID]] == row.names(seg_data[[i]]))){
           stop("Row names for '", metrics[[i]]@name, "' do not match '", segID, "' field for segments in tile '", tile_name, "'")
         }
       }
 
       # Assemble all metrics
-      segPoly <- dplyr::bind_cols(segPoly[,segID], do.call(cbind, segData))
+      seg_poly <- dplyr::bind_cols(seg_poly[,segID], do.call(cbind, seg_data))
 
       # Get training points for tile
-      trainingTile <- sf::st_as_sf(trainingSP[trainingSP$tileName == tile_name,])
+      training_tile <- training_sf[training_sf$tileName == tile_name,]
 
       # Get segment polygons intersection with points
-      trainingPoly <- segPoly[as.numeric(sf::st_intersects(trainingTile, segPoly)),]
+      trainingPoly <- seg_poly[as.numeric(sf::st_intersects(training_tile, seg_poly)),]
       sf::st_geometry(trainingPoly) <- NULL
 
       pb$tick()
 
       cbind(
-        row.names = trainingTile$trainingID,
+        row.names = training_tile$trainingID,
         trainingSetID = trainingPts@id,
-        trainingPtID  = trainingTile$trainingID,
+        trainingPtID  = training_tile$trainingID,
         tileName      = tile_name,
         trainingPoly,
-        segClass = trainingTile$segClass
+        segClass = training_tile$segClass
       )
     })
 
@@ -121,7 +121,7 @@ ExtractTrainingData <- function(trainingPts, segPoly_RSDS, metrics, segID, overw
     trainingData <- do.call(rbind,trainingData)
 
     # Re-order
-    trainingData <- trainingData[as.character(trainingSP$trainingID), ]
+    trainingData <- trainingData[as.character(training_sf$trainingID), ]
 
     # Write output
     write.csv(trainingData, trainingPts@datafile, row.names = FALSE, na = "")
@@ -233,9 +233,10 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
 
     # Get tile scheme
     ts <- .get_tilescheme()
+    tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
     # Get file paths
-    segPoly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
+    seg_poly_paths <- .get_RSDS_tilepaths(segPoly_RSDS)
     out_paths     <- .get_RSDS_tilepaths(segClassPoly_RSDS)
     met_paths     <- lapply(metrics, .get_RSDS_tilepaths)
 
@@ -244,18 +245,12 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
 
   ### READ CLASS EDITS ----
 
-    cEdits <- suppressWarnings(rgdal::ogrInfo(classEdits@SHPfile)$have_features)
+    class_edits <- sf::st_read(classEdits@SHPfile, quiet = TRUE)
 
-    if(cEdits){
+    if(nrow(class_edits) > 0){
 
-      classEdits <- APfun::APSHPread(classEdits@SHPfile)
-      raster::crs(classEdits) <- proj
+      class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
 
-      cTiles <- setNames(lapply( sp::over(
-        ts[["tiles"]],
-        classEdits,
-        returnList = TRUE
-      ), row.names), ts[["tiles"]][["tileName"]])
     }
 
 
@@ -264,14 +259,14 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
     # Run process
     worker <- function(tileName){
 
-      segPoly_path <- segPoly_paths[tileName]
+      seg_poly_path <- seg_poly_paths[tileName]
       out_path     <- out_paths[tileName]
 
       # Read segments
-      segPoly <- sf::st_read(segPoly_path, quiet = TRUE)
+      seg_poly <- sf::st_read(seg_poly_path, quiet = TRUE)
 
       # Get all metrics
-      segData <- unname(lapply(names(metrics), function(met_name){
+      seg_data <- unname(lapply(names(metrics), function(met_name){
         read.csv(met_paths[[met_name]][tileName],
                  row.names = 1, check.names = FALSE,
                  stringsAsFactors = FALSE)
@@ -279,58 +274,60 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
 
       # Check matching row names
       for(i in 1:length(metrics)){
-        if(!all(segPoly[[segID]] == row.names(segData[[i]]))){
+        if(!all(seg_poly[[segID]] == row.names(seg_data[[i]]))){
           stop("Row names for '", metrics[[i]]@name, "' do not match '", segID, "' field for segments in tile '", tileName, "'")
         }
       }
 
       # Combine metrics
-      segData <- do.call(cbind, segData)
+      seg_data <- do.call(cbind, seg_data)
 
       # Classify according to most-voted class
-      votes   <- randomForest:::predict.randomForest(classifier, segData, type = "vote")
+      votes   <- randomForest:::predict.randomForest(classifier, seg_data, type = "vote")
       elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
-      segPoly[["segClass"]] <- elected
+      seg_poly[["segClass"]] <- elected
       if(length(elected) > 0){
-        segPoly[["votePrc"]]  <- sapply(1:length(elected), function(i){
+        seg_poly[["votePrc"]]  <- sapply(1:length(elected), function(i){
           el <- elected[i]
           if(is.na(el)) NA else votes[i, el]
         })
       }
 
       # Manual edits
-      if(cEdits && length(cTiles[[tileName]]) > 0){
+      if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tileName]]) > 0)){
 
-        edits <- sf::st_as_sf(classEdits[cTiles[[tileName]],])
+        # Class edits for this tile
+        class_edits_tile <- class_edits[class_edits_bytile[[tileName]],]
 
-        editIntersc <- sf::st_intersects(edits, segPoly)
+        # Intersection between class edits and polygons
+        class_edits_bypoly <- sf::st_intersects(class_edits_tile, seg_poly)
 
-        for(i in 1:nrow(edits)){
+        for(i in 1:nrow(class_edits_tile)){
 
-          edit <- edits[i,]
+          edit <- class_edits_tile[i,]
 
           # Get to/from classes
           from <- strsplit(edit$fromClass, " ")[[1]]
           to   <- edit$toClass
 
           # Get segments that intersect with edit polygon
-          editSegs <- segPoly[editIntersc[[i]],]
+          edit_segs <- seg_poly[class_edits_bypoly[[i]],]
 
           # Subset according to specified 'fromClass' value (if specified)
-          if(!is.na(from)) editSegs <- editSegs[editSegs$segClass %in% from,]
+          if(!is.na(from)) edit_segs <- edit_segs[edit_segs$segClass %in% from,]
 
           # Apply edit
-          if(nrow(editSegs) > 0){
+          if(nrow(edit_segs) > 0){
 
-            whichEdit <- segPoly[[segID]] %in% editSegs[[segID]]
-            segPoly[whichEdit,][["segClass"]] <- to
-            segPoly[whichEdit,][["votePrc" ]] <- NA
+            edit_which <- seg_poly[[segID]] %in% edit_segs[[segID]]
+            seg_poly[edit_which,][["segClass"]] <- to
+            seg_poly[edit_which,][["votePrc" ]] <- NA
           }
         }
       }
 
       # Save output
-      sf::st_write(segPoly, out_path, delete_dsn = file.exists(out_path), quiet = TRUE)
+      sf::st_write(seg_poly, out_path, delete_dsn = file.exists(out_path), quiet = TRUE)
 
       if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
@@ -339,10 +336,10 @@ ClassifySegments <- function(classifierFile, segPoly_RSDS, segClassPoly_RSDS, cl
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
+    proc_tiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
     # Process
-    status <- .doitlive(procTiles, worker)
+    status <- .doitlive(proc_tiles, worker)
 
     # Report
     .statusReport(status)
@@ -390,14 +387,14 @@ ClassifyRaster <- function(segClassPoly_RSDS, segRas_RSDS, segClassRas_RSDS, seg
     out_path          <- out_paths[tileName]
 
     # Get classified polygonal segments
-    segPoly <- sf::st_read(segClassPoly_path, quiet = TRUE)
+    seg_poly <- sf::st_read(segClassPoly_path, quiet = TRUE)
 
     # Get unclassified raster segments
     segRas <- raster::raster(segRas_path)
 
     # Convert 'segRas' segment numbers to class numbers
     segClassRas <- raster::setValues(segRas, factor(
-      segPoly[["segClass"]][match(segRas[], segPoly[[segID]])],
+      seg_poly[["segClass"]][match(segRas[], seg_poly[[segID]])],
       levels = segClasses))
 
     # Save output
@@ -410,10 +407,10 @@ ClassifyRaster <- function(segClassPoly_RSDS, segRas_RSDS, segClassRas_RSDS, seg
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  procTiles <- .processing_tiles(out_paths, overwrite, tileNames)
+  proc_tiles <- .processing_tiles(out_paths, overwrite, tileNames)
 
   # Process
-  status <- .doitlive(procTiles,worker)
+  status <- .doitlive(proc_tiles, worker)
 
   # Report
   .statusReport(status)

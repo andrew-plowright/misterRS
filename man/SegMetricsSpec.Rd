@@ -13,7 +13,8 @@ SegMetricsSpec(
   zonalFun = c("mean", "sd"),
   segID,
   tileNames = NULL,
-  overwrite = FALSE
+  overwrite = FALSE,
+  prefix = NULL
 )
 }
 \description{

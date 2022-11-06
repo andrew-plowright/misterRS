@@ -1,11 +1,15 @@
-source("C:/Users/Andrew/Dropbox/Scripts/Projects/Diamondhead/Parksville/R/Pv_1_variables.R")
-source("C:/Users/Andrew/Dropbox/Scripts/Projects/Diamondhead/Parksville/R/Pv_2_paths.R")
-source("C:/Users/Andrew/Dropbox/Scripts/Projects/Diamondhead/Parksville/R/Pv_3_data.R")
 
-tileNames <- c("R5C3", "R9C10", "R7C8")
-tileNames <- c("R7C8")
-
-setwd("C:/Users/Andrew/Dropbox/Scripts/Libraries/misterRS/R")
+setwd("C:/Users/andre/Dropbox/Scripts/libraries/misterRS")
 devtools::load_all()
-setwd("D:/Pv")
 
+source("D:/Temp/CNV/R/cnv2021/cnv2021_3_data.R")
+
+
+segClassRas_RSDS = rsds$rufclassras
+canopyMask_RSDS  = rsds$canopymask
+canopyClasses    = var$canopyClasses
+canopyEdits      = p$canopy$edits
+openings         = 2
+openingRadius    = 0.5
+tileNames        = tileNames
+overwrite        = TRUE

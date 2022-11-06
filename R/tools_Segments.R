@@ -105,6 +105,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
     # Select polygons in chunk
     sel <- sprintf("SELECT * FROM %1$s WHERE FID IN (%2$s)", lyrName, paste(chunks[[i]], collapse = ", "))
     polys <- sf::st_read(in_GPKG, query = sel, quiet = TRUE)
+    suppressWarnings(sf::st_crs(polys) <- sf::st_crs(ts_buffs))
 
     # Fix invalid geometry
     if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
@@ -197,7 +198,7 @@ MSS2chop <- function(in_GPKG, segPoly_RSDS, chunk_size = 2000, segID = "polyID")
 #' @export
 
 WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
-                                  OSGeoPath = "C:/OSGeo4W64",
+                                  minCrownHgt = 0.2,
                                   tileNames = NULL, overwrite = FALSE){
 
 
@@ -231,39 +232,37 @@ WatershedSegmentation <- function(out_RSDS, CHM_RSDS, ttops_RSDS,
     CHM_path   <- CHM_paths[tileName]
 
     # Get tile
-    tile <- ts[tileName][["tiles"]]
+    tile <- sf::st_as_sf(ts[tileName][["tiles"]])
 
-    # CHM
-    CHM <- raster::raster(CHM_path)
+    # Read in files
+    CHM <- terra::rast(CHM_path)
+    ttops <- sf::st_read(ttops_path, quiet = TRUE)
 
-    if(suppressWarnings(rgdal::ogrInfo(ttops_path)$have_features)){
-
-      # Read in files
-      ttops <- APfun::APSHPread(ttops_path)
-      raster::crs(ttops) <- raster::crs(CHM)
+    if(nrow(ttops) > 0){
 
       # Apply 'marker-controlled watershed segmentation' algorithm
-      segPoly  <- ForestTools::mcws(
-        ttops, CHM,
-        minHeight = 0.1,
-        format    = "polygon",
-        OSGeoPath = OSGeoPath)
+      segPoly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
 
       # Subset only those segments that have treetops within tile boundaries
       ttops_tile   <- ttops[tile,]
-      segPoly_tile <- segPoly[segPoly$treeID %in% ttops_tile$treeID,]
+      segPoly_tile <- segPoly[match(ttops_tile$treeID, segPoly$treeID),]
+
+      # Seg poly attributes
+      segPoly_tile[["height"]] <- ttops_tile$height
+      segPoly_tile[["crownArea"]] <- as.numeric(sf::st_area(segPoly_tile))
+
+      segPoly_tile <- segPoly_tile[,c("treeID", "height", "crownArea", "geometry")]
 
     }else{
 
       # Create blank polygons
-      segPoly_tile <- sp::SpatialPolygonsDataFrame(
-        sp::SpatialPolygons(list(), proj4string = raster::crs(CHM)),
-        data.frame(height = numeric(), winRadius = numeric(), treeID = integer(), crownArea = numeric())
-      )
+
+      segPoly_tile <- sf::st_sf(data.frame(treeID = integer(), height = numeric(), crownArea = numeric()), geometry = sf::st_sfc(crs = sf::st_crs(ttops)))
+
     }
 
     # Write file
-    APfun::APSHPsave(segPoly_tile, out_path, overwrite = overwrite)
+    sf::st_write(segPoly_tile, out_path, layer_options = "SHPT=POLYGON", quiet = T)
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

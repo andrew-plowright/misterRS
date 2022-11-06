@@ -3,7 +3,6 @@
 #' @export
 
 Retile <- function(in_files, out_RSDS, res, bands = NULL,
-                   makeVRTlist = FALSE,
                    tileNames = NULL, overwrite = FALSE){
 
   tim <- .headline("RETILE RS DATASET")
@@ -16,18 +15,18 @@ Retile <- function(in_files, out_RSDS, res, bands = NULL,
   tempList <- tempfile(fileext = ".txt")
   tempVRT  <- tempfile(fileext = ".vrt")
 
-  # Make a list of a bunch of VRTs? Why do this?
-  if(makeVRTlist){
-
-    tempVRTdir <- file.path(tempdir(), "VRTlist")
-    dir.create(tempVRTdir)
-
-    for(inFile in in_files){
-      tempFile <- file.path(tempVRTdir, paste0(tools::file_path_sans_ext(basename(inFile)), ".vrt"))
-      gpal2::gdalbuildvrt(tempFile, inFile)
-    }
-    in_files <- list.files(tempVRTdir, full.names = TRUE)
-  }
+  # # Make a list of a bunch of VRTs? Why do this?
+  # if(makeVRTlist){
+  #
+  #   tempVRTdir <- file.path(tempdir(), "VRTlist")
+  #   dir.create(tempVRTdir)
+  #
+  #   for(inFile in in_files){
+  #     tempFile <- file.path(tempVRTdir, paste0(tools::file_path_sans_ext(basename(inFile)), ".vrt"))
+  #     gpal2::gdalbuildvrt(tempFile, inFile)
+  #   }
+  #   in_files <- list.files(tempVRTdir, full.names = TRUE)
+  # }
 
   # Write list of input files to a text file
   write(in_files, tempList)
@@ -36,7 +35,8 @@ Retile <- function(in_files, out_RSDS, res, bands = NULL,
   bands <- if(!is.null(bands)) as.list(setNames(bands, rep("b", length(bands))))
 
   # List of VRT arguments
-  argList <- c(list(input_file_list = tempList), bands, tempVRT)
+  # NOTE: 'srcnodata = "None"' prevents No Data values from being included
+  argList <- c(list(input_file_list = tempList), bands, list(srcnodata = "None"), tempVRT)
 
   # Generate VRT
   do.call(gpal2::gdalbuildvrt, argList)

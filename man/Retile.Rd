@@ -9,7 +9,6 @@ Retile(
   out_RSDS,
   res,
   bands = NULL,
-  makeVRTlist = FALSE,
   tileNames = NULL,
   overwrite = FALSE
 )
