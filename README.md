@@ -14,4 +14,4 @@ The functions are built to allow efficient parallel processing of these tiled da
 - Generating spectral, textural, and LAS metrics for segments
 - Classifying segments
 
-_**Developer's note:** This library is developed mainly for my personal workflow and so its structure is still very much un flux. As such, it's unlikely to be of immediate use to anyone else at this point, but please give me a shout if you find anything of interest. -- Andrew_
+_**Developer's note:** This library is developed mainly for my personal workflow and so its structure is still very much in flux. As such, it's unlikely to be of immediate use to anyone else at this point, but please give me a shout if you find anything of interest. -- Andrew_
