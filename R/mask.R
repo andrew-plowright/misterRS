@@ -39,30 +39,33 @@ mask <- function(in_rsds, out_rsds, mask_rsds,
     out_path  <- out_paths[tile_name]
 
     # Read mask file(s)
-    maskRas <- if(use_neibs){
+    if(use_neibs){
 
-      neibNames <- .tile_neibs(ts, tile_name)$tile_name
+      buff <- sf::st_as_sf(ts[["buffs"]][ts[["buffs"]]$tileName == tile_name,])
 
-      masks <- lapply(mask_paths[neibNames], raster::raster)
+      neib_names <- .tile_neibs(ts, tile_name)$tileName
+      mask_neibs <- lapply(mask_paths[neib_names], terra::rast)
 
-      maskRas <- do.call(raster::mosaic, c(unname(masks), list(fun = max)))
-
-      raster::crop(maskRas, ts[tile_name][["buffs"]])
+      # Merge and then crop
+      mask_ras <- mask_neibs %>%
+        terra::sprc() %>%
+        terra::merge() %>%
+        terra::crop(terra::ext(buff))
 
     }else{
 
-      raster::raster(mask_paths[tile_name])
+      mask_ras <- terra::rast(mask_paths[tile_name])
     }
 
     # Read input raster
-    inRas   <- raster::raster(in_path)
+    in_ras  <- terra::rast(in_path)
 
     # Apply mask
-    inRas[maskRas != 1] <- NA
-    if(mask_na) inRas[is.na(maskRas)] <- NA
+    in_ras[mask_ras != 1] <- NA
+    if(mask_na) in_ras[is.na(mask_ras)] <- NA
 
     # Save output
-    raster::writeRaster(inRas, out_path, overwrite = overwrite)
+    terra::writeRaster(in_ras, out_path, overwrite = overwrite)
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

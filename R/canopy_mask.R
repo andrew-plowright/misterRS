@@ -1,12 +1,12 @@
 #' Create canopy mask
 #'
-#' @param canopyClasses names of raster classes that are included in the canopy
+#' @param canopy_classes names of raster classes that are included in the canopy
 #' @param openings the number of times that a morphological opening will be applied
 #' @param opening_radius radius of morphological opening window
 #'
 #' @export
 
-canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopyClasses, canopy_edits = NULL, openings = 1, opening_radius = 0.5,
+canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes, canopy_edits = NULL, openings = 1, opening_radius = 0.5,
                            tile_names = NULL, overwrite = FALSE){
 
 
@@ -55,7 +55,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopyClasses, canopy_edit
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Get neighbours
-    neib_names <- .tile_neibs(ts, tile_name)$tile_name
+    neib_names <- .tile_neibs(ts, tile_name)$tileName
     seg_class_ras_neibs <- lapply(seg_class_ras_paths[neib_names], terra::rast)
 
     # Check if raster is classified
@@ -69,7 +69,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopyClasses, canopy_edit
       terra::crop(terra::ext(buff))
 
     # Create matrix for converting clsses into binary canopy mask
-    convert_matrix <- matrix(c(ras_classes$value, as.numeric(ras_classes$category %in% canopyClasses)),ncol = 2)
+    convert_matrix <- matrix(c(ras_classes$value, as.numeric(ras_classes$category %in% canopy_classes)),ncol = 2)
 
     # Reclassify raster
     canopy_ras <- terra::classify(seg_class_ras, convert_matrix)

@@ -4,7 +4,7 @@ monte_carlo_accuracy <- function(training_pts, classifier, seg_id, reclass, iter
   alldata <- do.call(rbind, lapply(training_pts, function(tp) read.csv(tp@datafile)))
 
   # Drop columns
-  dropCols <- c("trainingSetID", "trainingPtID", "tile_name" , seg_id)
+  dropCols <- c("tile_name" , seg_id)
   alldata <- alldata[,!names(alldata) %in% dropCols]
 
   # Remove any classes that aren't in 'reclass'

@@ -8,7 +8,7 @@ classify_seg_ras(
   seg_class_poly_rsds,
   seg_ras_rsds,
   seg_class_ras_rsds,
-  segClasses,
+  seg_classes,
   seg_id,
   tile_names = NULL,
   overwrite = FALSE

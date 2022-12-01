@@ -13,7 +13,8 @@ seg_metrics_tex(
   band = 1,
   tile_names = NULL,
   overwrite = FALSE,
-  prefix = ""
+  prefix = "",
+  n_grey = 16
 )
 }
 \description{

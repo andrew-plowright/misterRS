@@ -5,7 +5,7 @@
 \title{Create classifier}
 \usage{
 classifier_create(
-  training_pts,
+  training_data,
   classifier_file = NULL,
   seg_id,
   predictors = NULL,

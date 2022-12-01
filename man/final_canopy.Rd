@@ -9,8 +9,7 @@ final_canopy(
   canopyClasses,
   boundary,
   out_file,
-  boundary_buff = 0,
-  tile_names = NULL
+  boundary_buff = 0
 )
 }
 \description{

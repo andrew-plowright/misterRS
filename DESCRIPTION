@@ -35,3 +35,6 @@ Imports:
     withr,
     gpal2,
     Biocomb
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

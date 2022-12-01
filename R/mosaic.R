@@ -140,7 +140,7 @@ mosaic <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, o
 
   # Create temporary directory
   temp_dir <- file.path(tempdir(), "mosaicVRT")
-  dir.create(temp_dir)
+  dir.create(temp_dir, showWarnings = FALSE)
   withr::defer(unlink(temp_dir, recursive = TRUE), envir = parent.frame(1))
 
   # Paths for temporary files

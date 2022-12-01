@@ -17,9 +17,11 @@
   # Set global options
   op.current <- options()
   op.misterRS <- list(
-    misterRS.clusters = 1,
-    misterRS.orfeo = orfeoPath,
-    misterRS.verbosity = TRUE
+    misterRS.clusters   = 1,
+    misterRS.orfeo      = orfeoPath,
+    misterRS.verbosity  = TRUE,
+    misterRS.crs        = NA,
+    misterRS.ts = NULL
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])

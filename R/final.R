@@ -10,8 +10,7 @@
 #' @export
 
 final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file,
-                        boundary_buff = 0,
-                        tile_names = NULL){
+                        boundary_buff = 0){
 
   process_timer <- .headline("FINAL CANOPY")
 
@@ -50,7 +49,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
     boundary_sp[["Mask"]] <- 1
 
     # Save
-    sf::st_write(boundary_sp, boundary_mask_path, quiet = TRUE)
+    sf::st_write(boundary_sp[,c("Mask")], boundary_mask_path, quiet = TRUE)
 
   ### CREATE WORKER ----
 

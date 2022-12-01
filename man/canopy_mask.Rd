@@ -7,7 +7,7 @@
 canopy_mask(
   seg_class_ras_rsds,
   out_rsds,
-  canopyClasses,
+  canopy_classes,
   canopy_edits = NULL,
   openings = 1,
   opening_radius = 0.5,
@@ -16,7 +16,7 @@ canopy_mask(
 )
 }
 \arguments{
-\item{canopyClasses}{names of raster classes that are included in the canopy}
+\item{canopy_classes}{names of raster classes that are included in the canopy}
 
 \item{openings}{the number of times that a morphological opening will be applied}
 

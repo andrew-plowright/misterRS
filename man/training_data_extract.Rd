@@ -5,7 +5,7 @@
 \title{Extract Training data}
 \usage{
 training_data_extract(
-  training_pts,
+  training_data,
   seg_poly_rsds,
   metrics,
   seg_id,

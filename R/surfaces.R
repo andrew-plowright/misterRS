@@ -151,7 +151,6 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
       #
       # These settings produced some ugly DSM artifacts
       # The 'Max Edge' setting might need to be changed
-      # View coordinates c(529709.302, 5444776.672) in the Langley DSM
       # The 'pitfree' algorithm is probably best, but do more tests next time to figure out best parameters
 
       # Set algorithm
@@ -183,7 +182,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
   queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
 
   # Process
-  process_status <- .exe_tile_worker(queued_tiles,  worker)
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
   # Report
   .print_process_status(process_status)

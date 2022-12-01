@@ -3,12 +3,9 @@
 #' @export
 
 seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg_id, band = 1,
-                          tile_names = NULL, overwrite = FALSE, prefix = ""){
-
-  cat("*** This function needs a terra update ***", "\n\n")
+                          tile_names = NULL, overwrite = FALSE, prefix = "", n_grey = 16){
 
   process_timer <- .headline("SEGMENT METRICS - TEXTURAL")
-
 
   ### INPUT CHECKS ----
 
@@ -25,18 +22,17 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg
     # Get file paths
     seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
     seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-    img_paths     <- .get_rsds_tilepaths(img_rsds)
-    out_paths     <- .get_rsds_tilepaths(out_rsds)
+    img_paths      <- .get_rsds_tilepaths(img_rsds)
+    out_paths      <- .get_rsds_tilepaths(out_rsds)
 
     # Get tilepaths
     ts <- .get_tilescheme()
 
     cat("  Image            :", img_rsds@name, "\n")
 
-
   ### CREATE EMPTY METRICS TABLE ----
 
-    met_names <- names(ForestTools:::.GLCMstats(1))
+    met_names <- names(ForestTools:::.glcm_stats(1))
     met_names  <- c(seg_id, gsub("^glcm_", paste0(prefix, "glcm_"),  met_names))
     empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names), nrow = 0)), met_names)
 
@@ -49,40 +45,44 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg
       tile <- ts[tile_name]
 
       # Get output file path
-      out_path     <- out_paths[tile_name]
-      img_path     <- img_paths[tile_name]
+      out_path      <- out_paths[tile_name]
+      img_path      <- img_paths[tile_name]
       seg_ras_path  <- seg_ras_paths[tile_name]
       seg_poly_path <- seg_poly_paths[tile_name]
 
       # Read segment DBF
-      segDBF <- .read_poly_attributes(seg_poly_path)
-      if(!seg_id %in% names(segDBF)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+      seg_dbf <- .read_poly_attributes(seg_poly_path)
+      if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
 
       # Compute metrics
-      tile_metrics <- if(nrow(segDBF) > 0){
+      tile_metrics <- if(nrow(seg_dbf) > 0){
 
         # Read segments
-        seg_ras <- raster::raster(seg_ras_path)
+        seg_ras <- terra::rast(seg_ras_path)
 
         # Get image
-        img  <- raster::raster(img_path, band = band)
+        img  <- terra::rast(img_path, lyrs = band)
 
         # Get minimum value and adjust value range (cannot have negative values)
-        min_value <- raster::cellStats(img, "min", na.rm = TRUE)
+        min_value <- terra::global(img, "min", na.rm = TRUE)[,1]
         img <- img - min_value
 
         # Remove values below 0 (cannot have NA values)
         img[is.na(img)] <- 0
 
         # Compute GLCMs
-        glcm <- ForestTools::glcm(seg_ras, img, n_grey = 8)
+        glcm <- ForestTools::glcm(img, seg_ras, n_grey = n_grey)
 
-        # Rename, combine and reorder
+        # Add prefix
         names(glcm)  <- gsub("^glcm_", paste0(prefix, "glcm_"),  names(glcm))
-        names(glcm)[1]   <- seg_id
-        row.names(glcm)  <- glcm[[seg_id]]
-        glcm             <- glcm[as.character(segDBF[[seg_id]]),]
-        glcm[[seg_id]]    <- segDBF[[seg_id]]
+
+        # Add segment ID
+        glcm <- cbind(row.names(glcm), glcm)
+        colnames(glcm)[1] <- seg_id
+
+        # Reorder to match 'seg_dbf'
+        glcm             <- glcm[as.character(seg_dbf[[seg_id]]),]
+        glcm[[seg_id]]   <- seg_dbf[[seg_id]]
 
         glcm
 
@@ -178,11 +178,11 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
     seg_poly_path <- seg_poly_paths[tile_name]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(segDBF)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+    seg_dbf <- .read_poly_attributes(seg_poly_path)
+    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(segDBF) > 0){
+    tile_metrics <- if(nrow(seg_dbf) > 0){
 
       # Read ortho and segment raster
       o <- raster::brick(ortho_path)
@@ -238,8 +238,8 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
       # Keep only segments found in 'seg_poly', and re-order them to match
       names(specMetrics)[names(specMetrics) == "zoneID"] <- seg_id
       row.names(specMetrics) <- specMetrics[[seg_id]]
-      specMetrics <- specMetrics[as.character(segDBF[[seg_id]]),]
-      specMetrics[[seg_id]] <- segDBF[[seg_id]]
+      specMetrics <- specMetrics[as.character(seg_dbf[[seg_id]]),]
+      specMetrics[[seg_id]] <- seg_dbf[[seg_id]]
 
       specMetrics
 
@@ -306,13 +306,13 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   if(metric_fun == "RGB"){
 
     metricFormula <- as.formula("~misterRS:::.metric_fun_RGB(Z, R, G, B)")
-    emptyResult   <- misterRS:::metric_fun_RGB(0, 0, 0, 0)
+    emptyResult   <- misterRS:::.metric_fun_RGB(0, 0, 0, 0)
     LASselect     <- "xyzRGB"
 
   }else if(metric_fun == "classified"){
 
     metricFormula <- as.formula("~misterRS:::.metric_fun_classified(Z, Intensity, Classification)")
-    emptyResult   <- misterRS:::metric_fun_classified(0, 0, 0)
+    emptyResult   <- misterRS:::.metric_fun_classified(0, 0, 0)
     LASselect     <- "xyzci"
 
   }else stop("Unrecognized 'metric_fun' input: '", metric_fun, "'", call. = FALSE)
@@ -333,11 +333,11 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     seg_poly_path <- seg_poly_paths[tile_name]
 
     # Read segment DBF
-    segDBF <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(segDBF)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+    seg_dbf <- .read_poly_attributes(seg_poly_path)
+    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(segDBF) > 0){
+    tile_metrics <- if(nrow(seg_dbf) > 0){
 
       # Read LAS tile
       LAStile <- .read_las_tile(in_cat, tile = tile, select = LASselect)
@@ -367,8 +367,8 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
             LASmetrics <- LASmetrics[, !names(LASmetrics) %in% "geometry"]
 
             # Reorder
-            LASmetrics <- LASmetrics[match(segDBF[[seg_id]], LASmetrics[[seg_id]]),]
-            LASmetrics[[seg_id]] <- segDBF[[seg_id]]
+            LASmetrics <- LASmetrics[match(seg_dbf[[seg_id]], LASmetrics[[seg_id]]),]
+            LASmetrics[[seg_id]] <- seg_dbf[[seg_id]]
 
             # Add prefix
             names(LASmetrics)[2:ncol(LASmetrics)] <- paste0(prefix, names(LASmetrics)[2:ncol(LASmetrics)])
@@ -386,10 +386,10 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
       dummyMetrics   <- emptyResult
       dummyMetrics[] <- NA
-      dummyMetrics   <- dummyMetrics[rep(1, nrow(segDBF)), ]
+      dummyMetrics   <- dummyMetrics[rep(1, nrow(seg_dbf)), ]
       names(dummyMetrics) <- paste0(prefix, names(dummyMetrics))
 
-      tile_metrics <- cbind(segDBF[,seg_id, drop = FALSE], dummyMetrics)
+      tile_metrics <- cbind(seg_dbf[,seg_id, drop = FALSE], dummyMetrics)
     }
 
     # Write table

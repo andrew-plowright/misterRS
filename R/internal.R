@@ -17,7 +17,6 @@
 
 .check_extension <- function(RSDS, extension){
 
-
     if(!any(RSDS@ext %in% extension)){
 
     stop("Input RSDS '", RSDS@name, "' should have a '", paste(extension, collapse = "', '"), "' extension", call. = FALSE)
@@ -25,9 +24,9 @@
     }
 }
 
-.get_tilescheme <- function(ts = getOption("misterRS.tilesheme")){
+.get_tilescheme <- function(ts = getOption("misterRS.ts")){
 
-  if(is.null(ts)) stop("Could not find default tile scheme")
+  if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
 
   return(ts)
 }
@@ -39,13 +38,13 @@
   ts <- .get_tilescheme()
 
   # Get file paths
-  tilePaths <- file.path(rsds@dir, "tiles", paste0(ts$tile_name, ".", rsds@ext))
+  tilePaths <- file.path(rsds@dir, "tiles", paste0(ts$tileName, ".", rsds@ext))
 
   # Get absolute path
   tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
 
   # Set names
-  tilePaths <- setNames(tilePaths, ts$tile_name)
+  tilePaths <- setNames(tilePaths, ts$tileName)
 
   return(tilePaths)
 
@@ -78,10 +77,19 @@
 
   total_time <- as.numeric(difftime(Sys.time(), time, units="secs"))
 
+  total_time_str <- sprintf("%02d:%02d:%02d", total_time %% 86400 %/% 3600, total_time %% 3600 %/% 60, total_time %% 60 %/% 1)
+
+  if(total_time >= 86400){
+
+    n_days <- total_time %/% 86400
+
+    total_time_str <- paste0(total_time_str, " + ", n_days, " day(s)")
+  }
+
   cat(
     "\n",
     "Finished at : ", format(Sys.time(), "%Y-%m-%d %X"), "\n",
-    "Total time  : ", sprintf("%02d:%02d:%02d", total_time %% 86400 %/% 3600, total_time %% 3600 %/% 60, total_time %% 60 %/% 1),
+    "Total time  : ", total_time_str,
     "\n\n", sep = "")
 }
 
@@ -91,7 +99,7 @@
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_tile_worker <-function(tile_names, worker, ...){
+.exe_tile_worker <-function(tile_names, worker, ...){
 
   clusters = getOption("misterRS.clusters")
 
@@ -197,10 +205,10 @@
 
   if(verbose){
     cat(
-      "  Overwrite      : ", overwrite, "\n",
-      "  Total tiles    : ", length(tile_paths), "\n",
-      "  Selected tiles : ", length(selected_tiles),  "\n",
-      "  Queued tiles   : ", length(proc_tiles),      "\n",
+      "  Overwrite        : ", overwrite, "\n",
+      "  Total tiles      : ", length(tile_paths), "\n",
+      "  Selected tiles   : ", length(selected_tiles),  "\n",
+      "  Queued tiles     : ", length(proc_tiles),      "\n",
       sep = ""
     )
   }
@@ -239,7 +247,7 @@
 }
 
 
-.print_process_process_status <- function(status){
+.print_process_status <- function(status){
 
   if(length(status) == 0){
 
@@ -254,7 +262,6 @@
     if(any(success)){
 
       cat(crayon::green("  Successful tiles : ", length(success[success]), "\n", sep = ""))
-
     }
 
     if(any(warn)){
@@ -281,7 +288,7 @@
 
 .tile_neibs <- function(ts, tile_name, case = "queen"){
 
-  tile <- ts@data[ts@data$tile_name == tile_name,]
+  tile <- ts@data[ts@data$tileName == tile_name,]
 
   tile_names <- apply(
     expand.grid(
@@ -291,7 +298,7 @@
 
   if(case == "rook") tile_names <- tile_names[c(2, 4,5,6, 8)]
 
-  return(ts[ts@data$tile_name[ts@data$tile_name %in% tile_names]])
+  return(ts[ts@data$tileName[ts@data$tileName %in% tile_names]])
 
 }
 
@@ -327,7 +334,7 @@
   class_filt <- if(!is.null(classes)) paste(c("-keep_class", classes), collapse = " ")
 
   # Read LAS files
-  inLAS <- lidR::readLAS(las_files, select = select, filter = c(buff_filt, class_filt))
+  inLAS <- lidR::readLAS(las_files, select = select, filter = paste(buff_filt, class_filt))
 
   if(lidR::is.empty(inLAS)) return(NULL) else return(inLAS)
 

@@ -32,6 +32,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL,
 
   # Get tiles
   ts <- .get_tilescheme()
+  crs <- getOption('misterRS.crs')
 
   # Get tile names
   out_files <- .get_rsds_tilepaths(out_rsds)
@@ -46,7 +47,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL,
 
     # Resample
     gpal2::gdalwarp(
-      t_srs     = as.character(tile@crs),
+      t_srs     = paste0("EPSG:", crs),
       te        = raster::extent(tile[["buffs"]]),
       tr        = c(res, res),
       r         = "bilinear",

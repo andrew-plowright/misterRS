@@ -12,7 +12,8 @@ segment_mss(
   mins = 40,
   writeVectoreMode = "ulu",
   seg_id = "polyID",
-  tile_names = NULL
+  tile_names = NULL,
+  min_per_tile_est = 4.3
 )
 }
 \description{

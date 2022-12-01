@@ -55,38 +55,37 @@ rsds <- function(id, name, dir, ext, archive = FALSE){
 setClass(
   "trainingdata",
   representation(
-    id       = 'character',
-    SHPfile  = 'character',
-    datafile = 'character'
+    id = 'character',
+    file_path = 'character'
   )
 )
 
 
 setMethod("show", "trainingdata", function(object){
 
-  if(file.exists(object@datafile)){
-    csv <- read.csv(object@datafile)
-    varNum <- ncol(csv)
-    rowNum <- nrow(csv)
-  }else{
-    varNum <- 0
-    rowNum <- 0
-  }
+  if(file.exists(object@file_path)){
 
-  if(file.exists(object@SHPfile)){
-    info <- suppressWarnings(rgdal::ogrInfo(object@SHPfile))
-   vecNum <- info$nrows
+    lyrs <- sf::st_layers(object@file_path)
+
+    features_points <- lyrs$features[lyrs$name == "points"]
+    features_polys  <- lyrs$features[lyrs$name == "polygons"]
+    features_data   <- if("data" %in% lyrs) lyrs$features[lyrs$name == "data"] else 0
+
   }else{
-   vecNum <- 0
+
+    features_points <- 0
+    features_polys  <- 0
+    features_data   <- 0
   }
 
   cat(
     "TRAINING DATASET", "\n",
-    "Name     : ", object@id,  "\n",
-    "Folder   : ", dirname(object@SHPfile), "\n",
-    "Vec pts  : ", vecNum,"\n",
-    "Data pts : ", rowNum,"\n",
-    "Data var : ", varNum,"\n",
+    "ID        : ", object@id,  "\n",
+    "File      : ", object@file_path, "\n",
+    "Points    : ", features_points, "\n",
+    "Polygons  : ", features_polys, "\n",
+    "Data rows : ", features_data,
+
     sep = ""
   )
 })
@@ -96,32 +95,33 @@ setMethod("show", "trainingdata", function(object){
 
 training_data <- function(id, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
-  if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
-
   if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
 
-  # Create SHP path
-  SHPpath <- file.path(dir, paste0(id, ".shp"))
+  file_path <- file.path(dir, paste0(id, ".gpkg"))
 
-  # Get absolute SHP file path
-  SHPpath <- suppressMessages(R.utils::getAbsolutePath(SHPpath))
+  if(!file.exists(file_path) | overwrite){
 
-  # Get CSV file
-  dataPath <- gsub("shp$", "csv", SHPpath)
+    if(overwrite) file.remove(file_path)
 
-  if(!file.exists(SHPpath) | overwrite){
+    dir <- dirname(file_path)
+    if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
     # Create Simple Feature object with blank geometry and empty attribute fields
-    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(segClass = character()))
+    pts  <- poly <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(segClass = character()))
 
-    sf::st_write(s, SHPpath, layer_options = "SHPT=POINT", quiet = TRUE, delete_dsn = overwrite)
+    sf::st_write(pts,  file_path, quiet = TRUE, layer = "points",   delete_layer = TRUE)
+    sf::st_write(poly, file_path, quiet = TRUE, layer = "polygons", delete_layer = TRUE)
+
+    con = DBI::dbConnect(RSQLite::SQLite(),dbname= file_path)
+    withr::defer(DBI::dbDisconnect(con))
+
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POINT' WHERE table_name = 'points'")
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'polygons'")
   }
 
   # Create new object
-  new("trainingdata", id = id, SHPfile  = SHPpath, datafile = dataPath)
+  new("trainingdata", id = id,  file_path = file_path)
 }
-
-
 
 #' Classification edits (class)
 #' @export

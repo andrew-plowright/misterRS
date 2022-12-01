@@ -16,9 +16,10 @@ segment_mss <- function(img_rsds, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
                  writeVectoreMode = "ulu",
                  seg_id = "polyID",
-                 tile_names = NULL){
+                 tile_names = NULL,
+                 min_per_tile_est = 4.3){
 
-  process_timer <- .headline("MSS 2 - SEGMENT")
+  process_timer <- .headline("MEAN SHIFT SEGMENTATION")
 
   ### INPUT CHECKS ----
 
@@ -33,12 +34,19 @@ segment_mss <- function(img_rsds, out_gpkg,
   ts <- .get_tilescheme()
 
 
-  ### CREATE VRT MOSAIC ---
+  ### CREATE VRT MOSAIC ----
 
   tile_paths <- .get_rsds_tilepaths(img_rsds)
   if(!is.null(tile_names)) tile_paths <- tile_paths[tile_names]
-
   mosaic_vrt <- .mosaic_vrt(tile_paths, ts, overlap = "nbuffs")
+
+  ### PROCESS ----
+
+  cat(
+    "  Number of tiles        : ", length(tile_paths), "\n",
+    "  Estimated minutes/tile : ", min_per_tile_est, " minutes\n",
+    "  Estimated total time   : ", round(length(tile_paths) * min_per_tile_est / 60,2), " hours",
+    sep = "")
 
   mss_result <- .exe_mss(
     in_file  = mosaic_vrt,
@@ -49,7 +57,19 @@ segment_mss <- function(img_rsds, out_gpkg,
     bin_file = bin_file,
     writeVectorMode = writeVectoreMode)
 
-  print(mss_result)
+  # Filter out warnings about self-intersections
+  mss_result <- mss_result[!grepl("Warning 1: Self-intersection", mss_result)]
+
+  # Print message from algorithm
+  cat("  ", paste(mss_result, collapse = "\n  "), "\n", sep = "")
+
+
+  ### CONCLUDE ----
+
+  # Calculate how long it took per tile
+  total_time <- as.numeric(difftime(Sys.time(), process_timer, units="mins"))
+  min_per_tile <- total_time / length(tile_paths)
+  cat(crayon::bold("  Actual minutes/tile    : ", round(min_per_tile, 2), " minutes\n", sep = ""))
 
   .conclusion(process_timer)
 }
@@ -107,13 +127,13 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyI
   tilePaths <- .get_rsds_tilepaths(seg_poly_rsds)
 
   # Get GeoPackage layer name
-  lyrName <- sf::st_layers(in_gpkg)$name[1]
+  lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
   cat("  Retrieving feature IDs", "\n")
 
   # Get GeoPackage feature IDs
   con <- RSQLite::dbConnect(RSQLite::SQLite(), dbname = in_gpkg)
-  res <- RSQLite::dbSendQuery(con, sprintf("SELECT fid FROM %s", lyrName))
+  res <- RSQLite::dbSendQuery(con, sprintf("SELECT fid FROM %s", lyr_name))
   fid <- RSQLite::dbFetch(res)[,1]
   RSQLite::dbClearResult(res)
   RSQLite::dbDisconnect(con)
@@ -134,7 +154,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyI
   for(i in 1:length(chunks)){
 
     # Select polygons in chunk
-    sel <- sprintf("SELECT * FROM %1$s WHERE FID IN (%2$s)", lyrName, paste(chunks[[i]], collapse = ", "))
+    sel <- sprintf("SELECT * FROM %1$s WHERE FID IN (%2$s)", lyr_name, paste(chunks[[i]], collapse = ", "))
     polys <- sf::st_read(in_gpkg, query = sel, quiet = TRUE)
     suppressWarnings(sf::st_crs(polys) <- sf::st_crs(ts_buffs))
 
@@ -166,7 +186,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyI
 
     # Tile names (for centroids)
     intrs <- sapply(sf::st_intersects(cent, ts_nbuffs), "[", 1)
-    polys$tile_names <- ts_nbuffs$tile_name[intrs]
+    polys$tile_names <- ts_nbuffs$tileName[intrs]
 
     for(tile_name in  na.omit(unique(polys$tile_names))){
 
@@ -191,6 +211,122 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyI
 
   .conclusion(process_timer)
 }
+
+
+#' Tile polygons
+#'
+#' Convert a single polygonal dataset (must be in GPKG format) to tiles
+#'
+#' @importFrom sf st_sf
+#'
+#' @export
+
+tile_poly2 <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NULL, overwrite = FALSE){
+
+  process_timer <- .headline("TILE POLYGONS 2")
+
+  # Get tile scheme
+  ts <- .get_tilescheme()
+
+  crs <- getOption("misterRS.crs")
+
+  # Get buffered areas as Simple Features
+  ts_buffs  <- sf::st_as_sf(ts[["buffs" ]])
+  ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
+  ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
+
+  # Get output paths
+  out_paths <- .get_rsds_tilepaths(seg_poly_rsds)
+
+  # Get GeoPackage layer name
+  lyr_name <- sf::st_layers(in_gpkg)$name[1]
+
+
+  # Run process
+  tile_worker <-function(tile_name){
+
+    out_path <- out_paths[tile_name]
+
+    tile  <- ts_tiles [ts_tiles [["tileName"]] == tile_name,]
+    buff  <- ts_buffs [ts_buffs [["tileName"]] == tile_name,]
+    nbuff <- ts_nbuffs[ts_nbuffs[["tileName"]] == tile_name,]
+
+    # Get bounding box
+    bbox <- sf::st_bbox(tile)
+
+    # Get statement for selecting polygons that intersect with tile
+    sel = paste0("SELECT * FROM ", lyr_name ,
+                 " WHERE fid IN (SELECT id FROM rtree_", lyr_name,
+                 "_geom AS r WHERE r.miny < ", bbox["ymax"],
+                 " AND r.maxy > ", bbox["ymin"],
+                 " AND r.minx < ", bbox["xmax"],
+                 " AND r.maxx > ", bbox["xmin"],
+                 ")")
+
+    # Read tiles
+    polys <- sf::st_read(in_gpkg, query = sel, quiet = TRUE)
+
+    # Force crs
+    suppressWarnings(sf::st_crs(polys) <- sf::st_crs(crs))
+
+    # Fix invalid geometry
+    if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
+
+    # Get vector of polygons that straddle tile borders
+    crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
+
+    if(any(crossborder)){
+
+      # Break up polygons that straddle tile borders
+      brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
+
+      # Get rid of slivers
+      brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
+
+      # Get "POLYGONS" from "GEOMETRYCOLLECTION
+      brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
+
+      # Swap cross-border polys with broken-up polys
+      polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+
+    }
+
+    # Explode multipart polygons
+    # As suggested by: https://github.com/r-spatial/sf/issues/763
+    polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
+
+    # Generate centroids
+    cent <- suppressWarnings(sf::st_centroid(polys))
+
+    # Subset segments with centroid within tile
+    intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
+    polys <- polys[!is.na(intrs),]
+
+    # Assign numbers
+    polys[[seg_id]] <- 1:nrow(polys)
+    polys$FID <- as.numeric(polys[[seg_id]])
+
+    # Write file
+    sf::st_write(polys, out_path, quiet = TRUE, fid_column_name = "FID", delete_dsn = overwrite)
+
+    if(file.exists(out_path)) "Success" else stop("Failed to create output")
+  }
+
+  ### APPLY WORKER ----
+
+  # Get tiles for processing
+  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+
+  # Process
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+
+  # Report
+  .print_process_status(process_status)
+
+  # Conclude
+  .conclusion(process_timer)
+}
+
 
 #' Watershed Segmentation
 #'
@@ -258,7 +394,7 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
     }
 
     # Write file
-    sf::st_write(seg_poly_tile, out_path, layer_options = "SHPT=POLYGON", quiet = T)
+    sf::st_write(seg_poly_tile, out_path, layer_options = "SHPT=POLYGON", quiet = T, delete_dsn = overwrite & file.exists(out_path))
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
   }
