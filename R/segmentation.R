@@ -45,7 +45,7 @@ segment_mss <- function(img_rsds, out_gpkg,
   cat(
     "  Number of tiles        : ", length(tile_paths), "\n",
     "  Estimated minutes/tile : ", min_per_tile_est, " minutes\n",
-    "  Estimated total time   : ", round(length(tile_paths) * min_per_tile_est / 60,2), " hours",
+    "  Estimated total time   : ", round(length(tile_paths) * min_per_tile_est / 60,2), " hours\n\n",
     sep = "")
 
   mss_result <- .exe_mss(
@@ -58,10 +58,10 @@ segment_mss <- function(img_rsds, out_gpkg,
     writeVectorMode = writeVectoreMode)
 
   # Filter out warnings about self-intersections
-  mss_result <- mss_result[!grepl("Warning 1: Self-intersection", mss_result)]
+  mss_result <- mss_result[!grepl("Self-intersection", mss_result)]
 
   # Print message from algorithm
-  cat("  ", paste(mss_result, collapse = "\n  "), "\n", sep = "")
+  cat("  ", paste(mss_result, collapse = "\n  "), "\n\n", sep = "")
 
 
   ### CONCLUDE ----
@@ -385,6 +385,11 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
       seg_poly_tile[["height"]] <- ttops_tile$height
       seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
 
+      # Remove polygons with no 'treeID'
+      # (This happens when a treetop does not have an associated polygon)
+      seg_poly_tile <- seg_poly_tile[!is.na(seg_poly_tile$treeID),]
+
+      # Subset desired columns
       seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
 
     }else{

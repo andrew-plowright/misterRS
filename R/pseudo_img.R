@@ -29,7 +29,7 @@
 
 pseudo_img <- function(inputs, out_rsds,  tile_names = NULL, overwrite = FALSE){
 
-  process_timer <- .headline("VERTICAL IMAGE")
+  process_timer <- .headline("PSEUDO-IMAGE")
 
   ### INPUT CHECKS ----
 
