@@ -171,14 +171,14 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
   samples <- sf::st_as_sf(sf::st_sample(tiles_sf, size = nSamples))
 
   # Assign each sample its tile
-  samples[["tile_name"]] <- ts[["tiles"]]$tile_name[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
+  samples[["tile_name"]] <- ts[["tiles"]]$tileName[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
 
 
   # Get unique tiles
   unique_tiles <- unique(samples[["tile_name"]])
 
   cat(
-    "  Sample pts        : ", length(samples), "\n",
+    "  Sample pts        : ", nrow(samples), "\n",
     "  Tiles             : ", length(unique_tiles), "\n",
     sep = ""
   )
@@ -188,7 +188,6 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
 
   # Read training data
   samples_vals <- lapply(unique_tiles, function(tile_name){
-
 
     ras_path <- in_paths[tile_name]
 
@@ -223,7 +222,7 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
   }
 
   cat("  Creating model",  "\n", sep = "")
-  model <- prin_comp(samples_vals, scores = FALSE, cor = spca)
+  model <- princomp(samples_vals, scores = FALSE, cor = spca)
 
   # Save classifier
   saveRDS(model, out_file)
