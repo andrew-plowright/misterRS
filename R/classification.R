@@ -53,6 +53,8 @@ training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id,
     # Get tiles
     unique_tiles <- buffs_sf[["tileName"]][(lengths(training_pts_ints) > 0) | (lengths(training_polys_ints) > 0)]
 
+    if(length(unique_tiles) == 0) stop("No tiles intersected with training data")
+
     # Assign training points to tiles
     #training_sf[["tile_name"]] <- tiles_sf$tile_name[ sapply( sf::st_intersects(training_sf, tiles_sf), `[`, 1) ]
     #unique_tiles <- unique(training_sf[["tile_name"]])

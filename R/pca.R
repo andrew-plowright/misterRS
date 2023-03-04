@@ -35,7 +35,7 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),
 
     # Generate PCA
     # NOTE: 'maskCheck = FALSE' saves processing time but assumes that there's no NA values
-    PCAras <- try(RStoolbox::rasterPCA(in_ras, n_comp = n_comp, spca = spca, maskCheck = FALSE), silent = T)
+    PCAras <- try(RStoolbox::rasterPCA(in_ras, nComp = n_comp, spca = spca, maskCheck = FALSE), silent = T)
 
     # Manage errors
     if("try-error" %in% class(PCAras) ){
@@ -43,10 +43,9 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),
       if(attr(PCAras,"condition")$message == "cannot use 'cor = TRUE' with a constant variable"){
 
         # Return dummy raster
-        PCAras <- list(map = in_ras)
-        bandNames <- names(PCAras$map)[1:2]
+        PCAras <- list(map = in_ras[[1:n_comp]])
         PCAras$map <- raster::setValues(PCAras$map[[c(1,2)]],0)
-        PCAras$map <- setNames(PCAras$map, bandNames)
+        PCAras$map <- setNames(PCAras$map, paste0("PC", 1:n_comp))
       }else{
         stop(PCAras, call. = FALSE)
       }
@@ -118,7 +117,7 @@ pca_global <- function(img_rsds, out_rsds, PCA_model, n_comp = 2, in_bands = c(1
     names(in_ras) <- in_bands
 
     # Generate PCA
-    out_pca <- terra::predict(in_ras, model)[[1:n_comp]]
+    out_pca <- terra::predict(in_ras, model, index = 1:n_comp)
 
     # Write output
     terra::writeRaster(out_pca,   filename = out_file, overwrite = overwrite)
