@@ -8,7 +8,8 @@ merge(
   in_rsds,
   out_rsds,
   zones_path,
-  zone_attr,
+  zone_field,
+  id_field = NULL,
   tile_names = NULL,
   overwrite = FALSE
 )

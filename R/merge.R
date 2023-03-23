@@ -2,8 +2,8 @@
 #'
 #' @export
 
-merge <- function(in_rsds, out_rsds, zones_path, zone_attr,
-                    tile_names = NULL, overwrite = FALSE){
+merge <- function(in_rsds, out_rsds, zones_path, zone_field,
+                    id_field = NULL, tile_names = NULL, overwrite = FALSE){
 
 
   process_timer <- .headline("MERGE")
@@ -26,16 +26,13 @@ merge <- function(in_rsds, out_rsds, zones_path, zone_attr,
   # Read zones
   zones <- sf::st_read(zones_path, quiet = TRUE)
 
-  if(!all(setdiff(names(in_rsds), "<none>") %in% unique(zones[[zone_attr]]))) stop(
-    "Could match list names of 'in_rsds' to the values in the '", zone_attr,
+  if(!all(setdiff(names(in_rsds), "<none>") %in% unique(zones[[zone_field]]))) stop(
+    "Could match list names of 'in_rsds' to the values in the '", zone_field,
     "' attribute of '", basename(zones_path), "'")
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
-
-
-   # tile_nbuff <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
     # Output file
     out_file  <- out_files[tile_name]
@@ -55,11 +52,10 @@ merge <- function(in_rsds, out_rsds, zones_path, zone_attr,
       # Intersect with a given zone
       }else{
 
-        zone <- zones[zones[[zone_attr]] == zone_name, ]
+        zone <- zones[zones[[zone_field]] == zone_name, ]
 
         intersec <- sapply(sf::st_intersects(in_sp, zone), function(x) if(length(x) >0) TRUE else FALSE)
       }
-
 
       if(length(intersec) > 0 && any(intersec)){
         return(in_sp[intersec,])
@@ -69,15 +65,13 @@ merge <- function(in_rsds, out_rsds, zones_path, zone_attr,
     })
     out_sp <- do.call(dplyr::bind_rows, in_sps)
 
-    # Intersect with nbuff tile
-    # intersec <- sapply(sf::st_intersects(out_sp, tile_nbuff), function(x) if(length(x) >0) TRUE else FALSE)
-    # if(length(intersec) > 0){
-    #   out_sp <- out_sp[intersec,]
-    # }
+    # Create new field ID
+    if(!is.null(id_field) & nrow(out_sp) > 0){
+      out_sp[[id_field]] <- 1:nrow(out_sp)
+    }
 
-    # Return empty
+
     sf::st_write(out_sp, out_file, quiet=TRUE, delete_dsn = overwrite)
-
 
     if(file.exists(out_file)){
       return("Success")
@@ -85,8 +79,6 @@ merge <- function(in_rsds, out_rsds, zones_path, zone_attr,
       stop("Failed to create tile")
     }
   }
-
-
   ### APPLY WORKER ----
 
   # Get tiles for processing

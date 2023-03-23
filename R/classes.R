@@ -69,7 +69,7 @@ setMethod("show", "trainingdata", function(object){
 
     features_points <- lyrs$features[lyrs$name == "points"]
     features_polys  <- lyrs$features[lyrs$name == "polygons"]
-    features_data   <- if("data" %in% lyrs) lyrs$features[lyrs$name == "data"] else 0
+    features_data   <- if("data" %in% lyrs$name) lyrs$features[lyrs$name == "data"] else 0
 
   }else{
 

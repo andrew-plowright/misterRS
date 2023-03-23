@@ -134,18 +134,18 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
     # Read LAS tile
     LAStile <- .read_las_tile(in_cat = in_cat, tile = tile, select = LAS_select, classes = LAS_classes)
 
+    # Normalize LAS tile
+    if(is_nDSM & !is.null(LAStile)){
+      DEM_file <- DEM_files[tile_name]
+      LAStile <- .normalize_las(LAStile, DEMpath = DEM_file, z_min, z_max)
+    }
+
     if(is.null(LAStile)){
 
       # Blank nDSM
       out_DSM <- terra::setValues(out_template, NA)
 
     }else{
-
-      # Normalize LAS tile
-      if(is_nDSM){
-        DEM_file <- DEM_files[tile_name]
-        LAStile <- .normalize_las(LAStile, DEMpath = DEM_file, z_min, z_max)
-      }
 
       ### IMPORTANT NOTE:
       #
