@@ -4,80 +4,80 @@
 #' @export
 
 surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1,
-                    tile_names = NULL, overwrite = FALSE){
+                        tile_names = NULL, overwrite = FALSE){
 
   process_timer <- .headline("DIGITAL ELEVATION MODEL")
 
   ### INPUT CHECKS ----
 
-    .check_extension(out_rsds, "tif")
+  .check_extension(out_rsds, "tif")
 
-    # Get tiles
-    ts <- .get_tilescheme()
+  # Get tiles
+  ts <- .get_tilescheme()
 
-    # Get output file paths
-    out_files <- .get_rsds_tilepaths(out_rsds)
+  # Get output file paths
+  out_files <- .get_rsds_tilepaths(out_rsds)
 
-    # # Get CRS
-    crs <- getOption("misterRS.crs")
+  # # Get CRS
+  crs <- getOption("misterRS.crs")
 
   ### CREATE WORKER ----
 
-    # Run process
-      tile_worker <-function(tile_name){
+  # Run process
+  tile_worker <-function(tile_name){
 
-        # Get tile
-        tile <- ts[tile_name,]
+    # Get tile
+    tile <- ts[tile_name,]
 
-        # Set output file
-        out_file <- out_files[tile_name]
+    # Set output file
+    out_file <- out_files[tile_name]
 
-        # Read LAS file
-        LAStile <- .read_las_tile(in_cat = in_cat, tile = tile, select = LAS_select)
+    # Read LAS file
+    LAStile <- .read_las_tile(in_cat = in_cat, tile = tile, select = LAS_select)
 
-        # Filter duplicates
-        LAStile <- if(!is.null(LAStile)) lidR::filter_duplicates(LAStile)
+    # Filter duplicates
+    LAStile <- if(!is.null(LAStile)) lidR::filter_duplicates(LAStile)
 
-        # If LAStile is NULL or contains insufficient points, return a NA file
-        DEM <- if(is.null(LAStile) | sum(LAStile$Classification == 2) <= 3){
+    # If LAStile is NULL or contains insufficient points, return a NA file
+    DEM <- if(is.null(LAStile) | sum(LAStile$Classification == 2) <= 3){
 
-          terra::rast(terra::ext( tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs), vals = NA)
+      terra::rast(terra::ext( tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs), vals = NA)
 
-        # Otherwise, triangulate DEM
-        }else{
+      # Otherwise, triangulate DEM
+    }else{
 
-          # NOTE:
-          # I would prefer that the 'res' argument take a template for creating the rasterized terrain, but for mysterious reasons that's not currently working
+      # NOTE:
+      # I would prefer that the 'res' argument take a template for creating the rasterized terrain, but for mysterious reasons that's not currently working
 
-          lidR::rasterize_terrain(
-            LAStile,
-            res         = res,
-            algorithm   = lidR::tin(),
-            keep_lowest = FALSE,
-            use_class   = c(2,9)
-          )
-        }
+      lidR::rasterize_terrain(
+        LAStile,
+        res         = res,
+        algorithm   = lidR::tin(),
+        keep_lowest = FALSE,
+        use_class   = c(2,9)
+      )
+    }
 
-        # Save
-        terra::writeRaster(DEM, out_file, overwrite = TRUE)
+    # Save
+    terra::writeRaster(DEM, out_file, overwrite = TRUE)
 
-        if(file.exists(out_file)) "Success" else "FAILED"
-      }
+    if(file.exists(out_file)) "Success" else "FAILED"
+  }
 
 
-    ### APPLY WORKER ----
+  ### APPLY WORKER ----
 
-      # Get tiles for processing
-      queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  # Get tiles for processing
+  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
 
-      # Process
-      process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  # Process
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
-      # Report
-      .print_process_status(process_status)
+  # Report
+  .print_process_status(process_status)
 
-      # Conclude
-      .conclusion(process_timer)
+  # Conclude
+  .conclusion(process_timer)
 }
 
 
@@ -116,7 +116,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
 
   # Get file paths
   out_files <- .get_rsds_tilepaths(out_rsds)
-  if(is_nDSM) DEM_files <- .get_rsds_tilepaths(dem_rsds)
+  if(is_nDSM) DEM_paths <- .get_rsds_tilepaths(dem_rsds)
 
   ### CYCLE THROUGH TILES ----
 
@@ -136,8 +136,8 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
 
     # Normalize LAS tile
     if(is_nDSM & !is.null(LAStile)){
-      DEM_file <- DEM_files[tile_name]
-      LAStile <- .normalize_las(LAStile, DEMpath = DEM_file, z_min, z_max)
+      DEM_path <- DEM_paths[tile_name]
+      LAStile <- .normalize_las(LAStile, DEM_path = DEM_path, z_min, z_max)
     }
 
     if(is.null(LAStile)){

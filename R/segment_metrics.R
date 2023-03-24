@@ -345,7 +345,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
       if(!is.null(LAStile)){
 
         # Normalize LAS tile
-        LAStile <- .normalize_las(LAStile, DEMpath = DEM_path, z_min, z_max)
+        LAStile <- .normalize_las(LAStile, DEM_path = DEM_path, z_min, z_max)
 
         if(!is.null(LAStile)){
 

@@ -340,15 +340,14 @@
 
 }
 
-.normalize_las <- function(inLAS, DEMpath, z_min, z_max){
+.normalize_las <- function(inLAS, DEM_path, z_min, z_max){
 
-  if(!file.exists(DEMpath)) stop("Could not find DEM file '", DEMpath, "'")
+  if(!file.exists(DEM_path)) stop("Could not find DEM file '", DEM_path, "'")
 
   # Read segments and DEM
-  DEM <- terra::rast(DEMpath)
+  DEM <- terra::rast(DEM_path)
 
   # Remove points that aren't on DEM
-
 
   DEM_mask <- !is.na(DEM)
   inLAS <- lidR::merge_spatial(inLAS, DEM_mask,attribute = "onDEM")
@@ -369,5 +368,26 @@
 
   return(outLAS)
 
+}
+
+
+.is_las_rgb <- function(inLAS){
+
+  # Are there R, G, B fields?
+  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
+
+  if(has_rgb){
+
+    # Do they contain only 0s? (Only check R to save time)
+    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
+
+  }else{
+    return(FALSE)
+  }
+}
+
+is_las_classified <- function(inLAS){
+
+  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
 }
 
