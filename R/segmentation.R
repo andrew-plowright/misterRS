@@ -110,120 +110,13 @@ segment_mss <- function(img_rsds, out_gpkg,
 #'
 #' Convert a single polygonal dataset (must be in GPKG format) to tiles
 #'
-#' @export
-
-tile_poly <- function(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyID"){
-
-  process_timer <- .headline("TILE POLYGONS")
-
-  # Get tile scheme
-  ts <- .get_tilescheme()
-
-  # Get buffered areas as Simple Features
-  ts_buffs  <- sf::st_as_sf(ts[["buffs" ]])
-  ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
-  ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
-
-  tilePaths <- .get_rsds_tilepaths(seg_poly_rsds)
-
-  # Get GeoPackage layer name
-  lyr_name <- sf::st_layers(in_gpkg)$name[1]
-
-  cat("  Retrieving feature IDs", "\n")
-
-  # Get GeoPackage feature IDs
-  con <- RSQLite::dbConnect(RSQLite::SQLite(), dbname = in_gpkg)
-  res <- RSQLite::dbSendQuery(con, sprintf("SELECT fid FROM %s", lyr_name))
-  fid <- RSQLite::dbFetch(res)[,1]
-  RSQLite::dbClearResult(res)
-  RSQLite::dbDisconnect(con)
-
-  # Get chunks of GeoPackage feature IDs
-  chunks <- split(fid, ceiling(seq_along(fid)/chunk_size))
-
-  cat(
-    "  Segments   : ", formatC(length(fid),    format="f", big.mark=",", digits = 0), "\n",
-    "  Chunk size : ", formatC(chunk_size,     format="f", big.mark=",", digits = 0), "\n",
-    "  Chunks     : ", formatC(length(chunks), format="f", big.mark=",", digits = 0), "\n",
-    sep = ""
-  )
-
-  pb <- .progbar(length(chunks))
-
-  # Loop through chunks
-  for(i in 1:length(chunks)){
-
-    # Select polygons in chunk
-    sel <- sprintf("SELECT * FROM %1$s WHERE FID IN (%2$s)", lyr_name, paste(chunks[[i]], collapse = ", "))
-    polys <- sf::st_read(in_gpkg, query = sel, quiet = TRUE)
-    suppressWarnings(sf::st_crs(polys) <- sf::st_crs(ts_buffs))
-
-    # Fix invalid geometry
-    if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
-
-    # Get vector of polygons that straddle tile borders
-    crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
-
-    if(any(crossborder)){
-
-      # Break up polygons that straddle tile borders
-      brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], ts_nbuffs))
-
-      brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
-
-      if(nrow(brokeup) != 0){
-        brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
-        polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
-      }
-    }
-
-    # Explode multipart polygons
-    # As suggested by: https://github.com/r-spatial/sf/issues/763
-    polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
-
-    # Generate centroids
-    cent <- suppressWarnings(sf::st_centroid(polys))
-
-    # Tile names (for centroids)
-    intrs <- sapply(sf::st_intersects(cent, ts_nbuffs), "[", 1)
-    polys$tile_names <- ts_nbuffs$tileName[intrs]
-
-    for(tile_name in  na.omit(unique(polys$tile_names))){
-
-      # Set file path
-      tilePath <- tilePaths[tile_name]
-
-      # Get current number of segments in the tile
-      n <- if(!file.exists(tilePath)) 0 else sf::st_layers(tilePath)$features[1]
-
-      # Get subset of polygons
-      tilePoly <- polys[polys$tile_names == tile_name,]
-
-      # Set DN and FID values
-      tilePoly[[seg_id]] <- 1:nrow(tilePoly) + n
-      tilePoly$FID <- as.numeric(tilePoly[[seg_id]])
-
-      sf::st_write(tilePoly, tilePath, append = TRUE, quiet = TRUE, fid_column_name = "FID")
-    }
-
-    pb$tick()
-  }
-
-  .conclusion(process_timer)
-}
-
-
-#' Tile polygons
-#'
-#' Convert a single polygonal dataset (must be in GPKG format) to tiles
-#'
 #' @importFrom sf st_sf
 #'
 #' @export
 
-tile_poly2 <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NULL, overwrite = FALSE){
+tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NULL, overwrite = FALSE){
 
-  process_timer <- .headline("TILE POLYGONS 2")
+  process_timer <- .headline("TILE POLYGONS")
 
   # Get tile scheme
   ts <- .get_tilescheme()

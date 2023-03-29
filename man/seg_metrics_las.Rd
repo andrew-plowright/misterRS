@@ -10,11 +10,14 @@ seg_metrics_las(
   in_cat,
   dem_rsds,
   out_rsds,
-  metric_fun,
   z_min,
   z_max,
   seg_id,
   prefix = NULL,
+  is_ground_classified = NULL,
+  is_full_classified = NULL,
+  is_rgb = NULL,
+  is_intensity = NULL,
   tile_names = NULL,
   overwrite = FALSE
 )

@@ -221,7 +221,8 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
   }
 
   cat("  Creating model",  "\n", sep = "")
-  model <- princomp(samples_vals, scores = FALSE, cor = spca)
+  #model <- princomp(samples_vals, scores = FALSE, cor = spca)
+  model <- prcomp(samples_vals)
 
   # Save classifier
   saveRDS(model, out_file)

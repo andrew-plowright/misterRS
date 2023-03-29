@@ -4,7 +4,13 @@
 \alias{tile_poly}
 \title{Tile polygons}
 \usage{
-tile_poly(in_gpkg, seg_poly_rsds, chunk_size = 2000, seg_id = "polyID")
+tile_poly(
+  in_gpkg,
+  seg_poly_rsds,
+  seg_id = "polyID",
+  tile_names = NULL,
+  overwrite = FALSE
+)
 }
 \description{
 Convert a single polygonal dataset (must be in GPKG format) to tiles

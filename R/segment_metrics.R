@@ -273,8 +273,9 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 #' @export
 
 seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_rsds,
-                          metric_fun,
-                          z_min, z_max, seg_id, prefix = NULL,
+                          z_min, z_max,
+                          seg_id, prefix = NULL,
+                          is_ground_classified = NULL, is_full_classified = NULL, is_rgb = NULL, is_intensity = NULL,
                           tile_names = NULL, overwrite = FALSE){
 
   process_timer <- .headline("SEGMENT METRICS - LAS")
@@ -293,30 +294,66 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   # Get file paths
   seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
   seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-  DEM_paths     <- .get_rsds_tilepaths(dem_rsds)
-  out_paths     <- .get_rsds_tilepaths(out_rsds)
+  DEM_paths      <- .get_rsds_tilepaths(dem_rsds)
+  out_paths      <- .get_rsds_tilepaths(out_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()
 
   ### PREPARE DATA ----
 
-  # Set metric formula. This is a bizarre way of doing things, but this is the way it has
-  # to be for us to swap out different functions that get passed on to 'lidR::tree_metrics()'
-  if(metric_fun == "RGB"){
+  # Auto-detect classification and RGB
+  if(any(sapply(list(is_rgb, is_intensity, is_full_classified, is_ground_classified), is.null))){
 
-    metricFormula <- as.formula("~misterRS:::.metric_fun_RGB(Z, R, G, B)")
-    emptyResult   <- misterRS:::.metric_fun_RGB(0, 0, 0, 0)
-    LASselect     <- "xyzRGB"
+    testLAS <- lidR::readLAS(las_cat$filename[[1]])
 
-  }else if(metric_fun == "classified"){
+    if(is.null(is_full_classified)){
+      is_full_classified <- .is_las_full_classified(testLAS)
+    }
 
-    metricFormula <- as.formula("~misterRS:::.metric_fun_classified(Z, Intensity, Classification)")
-    emptyResult   <- misterRS:::.metric_fun_classified(0, 0, 0)
-    LASselect     <- "xyzci"
+    if(is.null(is_ground_classified)){
+      is_ground_classified <- .is_las_ground_classified(testLAS)
+    }
 
-  }else stop("Unrecognized 'metric_fun' input: '", metric_fun, "'", call. = FALSE)
+    if(is.null(is_rgb)){
+      is_rgb <- .is_las_rgb(testLAS)
+    }
 
+    if(is.null(is_intensity)){
+      is_intensity <- .is_las_intensity(testLAS)
+    }
+  }
+
+  # Get LAS select
+  las_select <- c("xyz")
+  if(is_rgb)        las_select <- paste0(las_select, c("RGB"))
+  if(is_intensity)  las_select <- paste0(las_select, c("i"))
+  if(is_ground_classified | is_full_classified) las_select <- paste0(las_select, c("c"))
+
+  # Get metric variables
+  las_variables <- list("Z" = "Z")
+  if(is_rgb)        las_variables <- c(las_variables, list("R" = "R", "G" = "G", "B" = "B"))
+  if(is_intensity)  las_variables <- c(las_variables, list("I" = "Intensity"))
+  if(is_ground_classified | is_full_classified) las_variables <- c(las_variables, list("class" = "Classification"))
+  if(is_ground_classified) las_variables <- c(las_variables, list(ground_classification = TRUE))
+  if(is_full_classified) las_variables <- c(las_variables, list(full_classification = TRUE))
+
+  # Create formula
+  metric_formula <- as.formula(paste0("~misterRS:::.metric_fun(", paste(paste(names(las_variables), '=', las_variables), collapse = ", ") ,")"))
+
+  # Create empty result
+  empty_input  <- lapply(las_variables, function(x) if(is.character(x)) 0 else x)
+  empty_result <- do.call(misterRS:::.metric_fun, empty_input)
+  empty_result[] <- NA
+
+
+  cat(
+    "  Intensity           : ", is_intensity, "\n",
+    "  Classified (Ground) : ", is_ground_classified, "\n",
+    "  Classified (Full)   : ", is_full_classified, "\n",
+    "  RGB                 : " , is_rgb, "\n",
+    "\n", sep = ""
+  )
 
   ### CREATE WORKER ----
 
@@ -340,40 +377,40 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     tile_metrics <- if(nrow(seg_dbf) > 0){
 
       # Read LAS tile
-      LAStile <- .read_las_tile(in_cat, tile = tile, select = LASselect)
+      las_tile <- .read_las_tile(in_cat, tile = tile, select = las_select)
 
-      if(!is.null(LAStile)){
+      if(!is.null(las_tile)){
 
         # Normalize LAS tile
-        LAStile <- .normalize_las(LAStile, DEM_path = DEM_path, z_min, z_max)
+        las_tile <- .normalize_las(las_tile, DEM_path = DEM_path, z_min, z_max)
 
-        if(!is.null(LAStile)){
+        if(!is.null(las_tile)){
 
           # Read segment rasters
           seg_ras <- terra::rast(seg_ras_path)
 
           # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
-          seg_ras <- terra::crop(seg_ras, lidR::ext(LAStile))
+          seg_ras <- terra::crop(seg_ras, lidR::ext(las_tile))
 
           # Assign segment ID to LAS points
-          LAStile <- lidR::merge_spatial(LAStile, seg_ras, attribute = seg_id)
+          las_tile <- lidR::merge_spatial(las_tile, seg_ras, attribute = seg_id)
 
-          if(!all(is.na(LAStile[[seg_id]]))){
+          if(!all(is.na(las_tile[[seg_id]]))){
 
             # Compute cloud statistics within segments
-            LASmetrics <- as.data.frame(lidR::crown_metrics(LAStile, metricFormula, attribute = seg_id))
+            las_metrics <- as.data.frame(lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id))
 
             # Remove unneeded columns
-            LASmetrics <- LASmetrics[, !names(LASmetrics) %in% "geometry"]
+            las_metrics <- las_metrics[, !names(las_metrics) %in% "geometry"]
 
             # Reorder
-            LASmetrics <- LASmetrics[match(seg_dbf[[seg_id]], LASmetrics[[seg_id]]),]
-            LASmetrics[[seg_id]] <- seg_dbf[[seg_id]]
+            las_metrics <- las_metrics[match(seg_dbf[[seg_id]], las_metrics[[seg_id]]),]
+            las_metrics[[seg_id]] <- seg_dbf[[seg_id]]
 
             # Add prefix
-            names(LASmetrics)[2:ncol(LASmetrics)] <- paste0(prefix, names(LASmetrics)[2:ncol(LASmetrics)])
+            names(las_metrics)[2:ncol(las_metrics)] <- paste0(prefix, names(las_metrics)[2:ncol(las_metrics)])
 
-            LASmetrics
+            las_metrics
 
           }else NULL
         }else NULL
@@ -384,12 +421,10 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     # If no LAS points were found or segment file was empty, create a dummy table
     if(is.null(tile_metrics)){
 
-      dummyMetrics   <- emptyResult
-      dummyMetrics[] <- NA
-      dummyMetrics   <- dummyMetrics[rep(1, nrow(seg_dbf)), ]
-      names(dummyMetrics) <- paste0(prefix, names(dummyMetrics))
+      empty_metrics <- empty_result[rep(1, nrow(seg_dbf)), ]
+      names(empty_metrics) <- paste0(prefix, names(empty_metrics))
 
-      tile_metrics <- cbind(seg_dbf[,seg_id, drop = FALSE], dummyMetrics)
+      tile_metrics <- cbind(seg_dbf[,seg_id, drop = FALSE], empty_metrics)
     }
 
     # Write table
@@ -415,94 +450,155 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 }
 
 
-.metric_by_height <- function(spec, heightThresh = c("p50", "p75")){
 
-  # Compute total number of points and Z percentiles
-  allPts    <- nrow(spec)
-  Zp        <- quantile(spec$Z, c(.5, .75, .9, .99))
-  names(Zp) <- paste0("p", gsub("%", "", names(Zp)))
+.metric_fun <- function(..., ground_classification = FALSE, full_classification = FALSE){
 
-  # Remove non-finite values
-  spec <- data.frame(lapply(spec, function(x) replace(x, !is.finite(x), NA)))
+  p <- list(...)
+#
+#   if(!"Z" %in% names(p)) stop("Needs at least Z values")
+#
+#   if(any(!names(p) %in% c("Z", "R", "G", "B", "Classification", "Intensity"))){
+#     stop("Unrecognized LAS file type")
+#   }
 
-  # Standard Z metrics
-  Zstand <- data.frame(
 
-    allPts      = allPts,
+  # Count number of points
+  all <- length(p$Z)
 
-    ZquadMean   = sqrt(mean(spec$Z^2)),
-    Zmean       = mean(spec$Z),
-    Zstddev     = sd(spec$Z),
-    Ziq         = IQR(spec$Z),
-    Zp50        = Zp["p50"],
-    Zp75        = Zp["p75"],
-    Zp90        = Zp["p90"],
-    Zp99        = Zp["p99"],
+  # Compute Z percentiles
+  z_thresh <- quantile(p$Z, c(.5, .75, .9)) %>% setNames(paste0("p", gsub("%", "", names(.))))
 
-    PrcOver1    = length(spec$Z[spec$Z>1]) / allPts,
-    PrcOver2    = length(spec$Z[spec$Z>2]) / allPts,
-    PrcOver3    = length(spec$Z[spec$Z>3]) / allPts
-  )
+  # Stats for Z
+  stats_out <- with(p,{
+    data.frame(
+      Z_qmn  = sqrt(mean(Z^2)),
+      Z_mn   = mean(Z),
+      Z_sd   = sd(Z),
+      Z_iq   = IQR(Z),
+      Z_p50  = z_thresh["p50"],
+      Z_p75  = z_thresh["p75"],
+      Z_p90  = z_thresh["p90"],
 
-  # Divide spectral values by Z percentile percentile
-  varNames <- names(spec)[names(spec) != "Z"]
-  Pspec <- c(list(spec[,varNames, drop = FALSE]), lapply(Zp[heightThresh], function(Zpp) subset(spec, subset = Z >= Zpp, select = varNames)))
-  Pspec <- lapply(1:length(Pspec), function(i) setNames(Pspec[[i]], paste(names(Pspec[[i]]), names(Pspec)[i], sep = "_")))
-
-  # Spectral statistics by Z percentile
-  Zspec <- rbind(c(
-    Pspec %>% lapply(sapply, mean,   na.rm = TRUE) %>% unlist %>% setNames(paste0(names(.), "mn")),
-    Pspec %>% lapply(sapply, median, na.rm = TRUE) %>% unlist %>% setNames(paste0(names(.), "med"))
-  ))
-
-  # Combine
-  cbind(Zstand, Zspec)
-}
-
-.metric_fun_RGB <- function(Z, R, G, B){
-
-  # Remove '0' values for RGB (otherwise several fractional indices will mess up)
-  R[R == 0] <- 1
-  B[B == 0] <- 1
-  G[G == 0] <- 1
+      Z_over1 = length(Z[Z>1]) / all,
+      Z_over2 = length(Z[Z>2]) / all,
+      Z_over3 = length(Z[Z>3]) / all
+    )
+  })
 
   # Create spectral indices
-  spec <- data.frame(
-    Z     = Z,
-    R     = R,
-    G     = G,
-    B     = B,
-    RG    = R/G,
-    RB    = R/B,
-    NGI = (G - R) / (G + R),     # Normalized Green Red Difference Index (NGRDI)
-    NGB = (G - B) / (G + B),
-    NRB = (R - B) / (R + B),
-    VAg = (G - R) / (G + R - B + 0.01), #	Visible Atmospherically Resistant Index (VARIg)
-    GLI   = (2 * G - R - B) / (2 * G + R + B) # Green Leaf Index (GLI)
-  )
+  if(all(c("R", "G", "B") %in% names(p))){
 
-  .metric_by_height(spec)
-}
+    p <- within(p,{
+
+      # These proportions don't like 0 values
+      R[R == 0] <- 1
+      B[B == 0] <- 1
+      G[G == 0] <- 1
+
+      # Spectral indices
+      #RG    = R/G
+      #RB    = R/B
+      NGI = (G - R) / (G + R)     # Normalized Green Red Difference Index (NGRDI)
+      NGB = (G - B) / (G + B)
+      NRB = (R - B) / (R + B)
+      VAg = (G - R) / (G + R - B + 0.01) #	Visible Atmospherically Resistant Index (VARIg)
+      GLI   = (2 * G - R - B) / (2 * G + R + B) # Green Leaf Index (GLI)
+
+    })
+
+    # Remove non-finite values
+    p <- lapply(p, function(pp) replace(pp, !is.finite(pp), NA))
+  }
 
 
-.metric_fun_classified <- function(Z, I, class){
+  # Get variables for which stats will be computed by threshhold
+  by_thresh <- setdiff(names(p), c("Z", "class"))
 
-  all  = length(Z)
+  if(length(by_thresh) > 0){
 
-  grnd  = length(class[class %in% 2])
-  lvg   = length(class[class %in% 3])
-  hvg   = length(class[class %in% c(4,5)])
-  bld   = length(class[class %in% 6])
-  water = length(class[class %in% 9])
+    # Subset variables according to z thresholds
+    p_thresh <- unlist(lapply(names(z_thresh), function(z_percentile_name){
 
-  cbind(
+      z_percentile <- z_thresh[z_percentile_name]
+      z_sub <- p$Z >= z_percentile
+      p_sub <- lapply(p[by_thresh], function(pp){pp[z_sub]})
+      names(p_sub) <- paste0(names(p_sub), "_", z_percentile_name)
 
-    .metric_by_height(data.frame(Z = Z, I = I)),
+      return(p_sub)
 
-    grndPrc  = grnd / all, # Percentage of ground points
-    lvgPrc   = lvg  / all, # Percentage of low vegetation
-    hvgPrc   = hvg  / all, # Percentage of high vegetation
-    bldPrc   = bld  / all  # Percentage of building points
-  )
+    }), recursive=FALSE)
+    p_thresh <- c(p[by_thresh], p_thresh)
+
+    # Calculate stats for threshholded variables
+    stats_thresh <- do.call(cbind, lapply(names(p_thresh), function(p_name){
+      v <- p_thresh[[p_name]]
+      data.frame(
+        mn = mean(v),
+        mx = max(v)
+      ) %>% setNames(paste0(p_name, "_", names(.)))
+    }))
+
+    stats_out <- cbind(stats_out, stats_thresh)
+  }
+
+  # Ground classification
+  if(ground_classification){
+
+    if(all == 0){
+
+      stats_grnd <- data.frame(grnd = 0)
+
+    }else{
+
+      p_grnd <- p$class[p$class %in% 2]
+      stats_grnd <- data.frame(grnd = length(p_grnd) / all)
+
+    }
+
+    stats_out <- cbind(stats_out, stats_grnd)
+  }
+
+  # Full classification
+  if(full_classification){
+
+    stats_class <- do.call(cbind, lapply(c(0,1,2,3), function(thresh){
+
+      v <- p$class
+
+      if(thresh > 0) v <- v[p$Z > thresh]
+
+      v_length <- length(v)
+
+      if(v_length == 0){
+
+        stats <- data.frame(
+          lvg   = 0,
+          hvg   = 0,
+          bld   = 0
+        )
+
+      }else{
+
+        lvg   = length(v[v %in% 3])
+        hvg   = length(v[v %in% c(4,5)])
+        bld   = length(v[v %in% 6])
+
+        stats <- data.frame(
+          lvg   = lvg  / v_length, # Percentage of low vegetation
+          hvg   = hvg  / v_length, # Percentage of high vegetation
+          bld   = bld  / v_length  # Percentage of building points
+        )
+      }
+
+      if(thresh > 0) names(stats) <- paste0(names(stats), "_over", thresh)
+
+      return(stats)
+    }))
+
+    stats_out <- cbind(stats_out, stats_class)
+
+  }
+
+  return(stats_out)
 }
 

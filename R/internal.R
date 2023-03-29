@@ -386,8 +386,18 @@
   }
 }
 
-is_las_classified <- function(inLAS){
+.is_las_ground_classified <- function(inLAS){
+
+  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASGROUND))
+}
+
+.is_las_full_classified <- function(inLAS){
 
   return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
+}
+
+.is_las_intensity <- function(inLAS){
+
+  return(!is.null(inLAS$Intensity) && lidR:::fast_countover(inLAS$Intensity, 0))
 }
 

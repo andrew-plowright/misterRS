@@ -1,0 +1,85 @@
+[
+	{
+		"name": "Deciduous",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "D"
+		},
+		"shortcut_str": "D"
+	},
+	{
+		"name": "Confiferous",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "C"
+		},
+		"shortcut_str": "C"
+	},
+	{
+		"name": "Cherry",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "H"
+		},
+		"shortcut_str": "H"
+	},
+	{
+		"name": "Dead",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "E"
+		},
+		"shortcut_str": "E"
+	},
+	{
+		"name": "Building",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "B"
+		},
+		"shortcut_str": "B"
+	},
+		{
+		"name": "Deciduous (Poly)",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "D"
+		},
+		"shortcut_str": "Shift+D"
+	},
+	{
+		"name": "Confiferous (Poly)",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "C"
+		},
+		"shortcut_str": "Shift+C"
+	},
+	{
+		"name": "Cherry (Poly)",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "H"
+		},
+		"shortcut_str": "Shift+H"
+	},
+	{
+		"name": "Dead (Poly)",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "E"
+		},
+		"shortcut_str": "Shift+E"
+	},
+	{
+		"name": "Building (Poly)",
+		"map_lyr_name": "",
+		"default_values": {
+			"segClass": "B"
+		},
+		"shortcut_str": "Shift+B"
+	}
+]
+
+
+
