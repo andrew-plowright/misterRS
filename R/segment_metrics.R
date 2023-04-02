@@ -324,22 +324,43 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     }
   }
 
-  # Get LAS select
-  las_select <- c("xyz")
-  if(is_rgb)        las_select <- paste0(las_select, c("RGB"))
-  if(is_intensity)  las_select <- paste0(las_select, c("i"))
-  if(is_ground_classified | is_full_classified) las_select <- paste0(las_select, c("c"))
+  # Variables that depend on classification and RGB setting
 
-  # Get metric variables
   las_variables <- list("Z" = "Z")
-  if(is_rgb)        las_variables <- c(las_variables, list("R" = "R", "G" = "G", "B" = "B"))
-  if(is_intensity)  las_variables <- c(las_variables, list("I" = "Intensity"))
-  if(is_ground_classified | is_full_classified) las_variables <- c(las_variables, list("class" = "Classification"))
-  if(is_ground_classified) las_variables <- c(las_variables, list(ground_classification = TRUE))
-  if(is_full_classified) las_variables <- c(las_variables, list(full_classification = TRUE))
+  las_select    <- c("xyz")
+  by_thresh     <- NULL
+
+  if(is_rgb){
+    las_select    <- paste0(las_select, c("RGB"))
+    rgb_variables <- c("R", "G", "B", 'NGI' , 'NGB', 'NRB', 'VAg', 'GLI')
+    las_variables <- c(las_variables, as.list(setNames(rgb_variables, rgb_variables)))
+    by_thresh     <- c(by_thresh, rgb_variables)
+  }
+  if(is_intensity){
+    las_select    <- paste0(las_select, c("i"))
+    las_variables <- c(las_variables, list("I" = "Intensity"))
+    by_thresh     <- c(by_thresh, "I")
+  }
+  if(is_ground_classified | is_full_classified){
+    las_select    <- paste0(las_select, c("c"))
+    las_variables <- c(las_variables, list("class" = "Classification"))
+
+  }
 
   # Create formula
-  metric_formula <- as.formula(paste0("~misterRS:::.metric_fun(", paste(paste(names(las_variables), '=', las_variables), collapse = ", ") ,")"))
+  metric_formula <- as.formula(paste0(
+    "~misterRS:::.metric_fun(",
+
+    # LAS Variables
+    paste(paste(names(las_variables), '=', las_variables), collapse = ", "),
+
+    # Variables calculated by threshold
+    if(!is.null(by_thresh)) paste0(", by_thresh=c('", paste(by_thresh, collapse = "', '") , "')"),
+
+    # Classified switches
+    if(is_full_classified) paste0(", ground_classification = TRUE"),
+    if(is_ground_classified) paste0(", full_classification = TRUE"),
+    ")"))
 
   # Create empty result
   empty_input  <- lapply(las_variables, function(x) if(is.character(x)) 0 else x)
@@ -358,7 +379,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   ### CREATE WORKER ----
 
   # Run process
-  tile_worker <-function(tile_name){
+  tile_worker <- function(tile_name){
 
     # Get tile
     tile <- ts[tile_name]
@@ -397,8 +418,11 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
           if(!all(is.na(las_tile[[seg_id]]))){
 
+            # Compute RGB indices
+            if(is_rgb) las_tile <- .las_rgb_metrics(las_tile)
+
             # Compute cloud statistics within segments
-            las_metrics <- as.data.frame(lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id))
+            las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()
 
             # Remove unneeded columns
             las_metrics <- las_metrics[, !names(las_metrics) %in% "geometry"]
@@ -450,23 +474,39 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 }
 
 
+.las_rgb_metrics <- function(las){
 
-.metric_fun <- function(..., ground_classification = FALSE, full_classification = FALSE){
+  las$R[las$R == 0] <- as.integer(1)
+  las$G[las$G == 0] <- as.integer(1)
+  las$B[las$B == 0] <- as.integer(1)
 
-  p <- list(...)
-#
-#   if(!"Z" %in% names(p)) stop("Needs at least Z values")
-#
-#   if(any(!names(p) %in% c("Z", "R", "G", "B", "Classification", "Intensity"))){
-#     stop("Unrecognized LAS file type")
-#   }
 
+  spec_indices <- list(
+    'NGI' = (las$G - las$R) / (las$G + las$R),
+    'NGB' = (las$G - las$B) / (las$G + las$B),
+    'NRB' = (las$R - las$B) / (las$R + las$B),
+    'VAg' = (las$G - las$R) / (las$G + las$R - las$B + 0.01),
+    'GLI' = (2 * las$G - las$R - las$B) / (2 * las$G + las$R + las$B)
+  )
+
+  spec_indices <- lapply(spec_indices, function(index) replace(index, !is.finite(index), NA))
+
+  for(index_name in names(spec_indices)){
+    las <- lidR::add_attribute(las, spec_indices[[index_name]], index_name)
+  }
+
+  return(las)
+}
+
+.metric_fun <- function(..., by_thresh = NULL, ground_classification = FALSE, full_classification = FALSE){
+
+  p <- data.frame(...)
 
   # Count number of points
-  all <- length(p$Z)
+  p_length <- length(p$Z)
 
   # Compute Z percentiles
-  z_thresh <- quantile(p$Z, c(.5, .75, .9)) %>% setNames(paste0("p", gsub("%", "", names(.))))
+  z_threshs <- quantile(p$Z, c(.5, .75, .9)) %>% setNames(paste0("p", gsub("%", "", names(.))))
 
   # Stats for Z
   stats_out <- with(p,{
@@ -475,83 +515,51 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
       Z_mn   = mean(Z),
       Z_sd   = sd(Z),
       Z_iq   = IQR(Z),
-      Z_p50  = z_thresh["p50"],
-      Z_p75  = z_thresh["p75"],
-      Z_p90  = z_thresh["p90"],
+      Z_p50  = z_threshs["p50"],
+      Z_p75  = z_threshs["p75"],
+      Z_p90  = z_threshs["p90"],
 
-      Z_over1 = length(Z[Z>1]) / all,
-      Z_over2 = length(Z[Z>2]) / all,
-      Z_over3 = length(Z[Z>3]) / all
+      Z_over1 = length(Z[Z>1]) / p_length,
+      Z_over2 = length(Z[Z>2]) / p_length,
+      Z_over3 = length(Z[Z>3]) / p_length
     )
   })
 
-  # Create spectral indices
-  if(all(c("R", "G", "B") %in% names(p))){
 
-    p <- within(p,{
+  # Subset variables according to z thresholds
+  p_threshs <- lapply(names(z_threshs), function(z_thresh_name){
 
-      # These proportions don't like 0 values
-      R[R == 0] <- 1
-      B[B == 0] <- 1
-      G[G == 0] <- 1
+    z_thresh <- z_threshs[z_thresh_name]
 
-      # Spectral indices
-      #RG    = R/G
-      #RB    = R/B
-      NGI = (G - R) / (G + R)     # Normalized Green Red Difference Index (NGRDI)
-      NGB = (G - B) / (G + B)
-      NRB = (R - B) / (R + B)
-      VAg = (G - R) / (G + R - B + 0.01) #	Visible Atmospherically Resistant Index (VARIg)
-      GLI   = (2 * G - R - B) / (2 * G + R + B) # Green Leaf Index (GLI)
+    p_thresh <- p[p$Z >= z_thresh, by_thresh]
 
-    })
+    names(p_thresh) <- paste0(names(p_thresh), "_", z_thresh_name)
 
-    # Remove non-finite values
-    p <- lapply(p, function(pp) replace(pp, !is.finite(pp), NA))
-  }
+    return(p_thresh)
+
+  })
+  p_threshs <- c(list(p[,by_thresh]), p_threshs)
 
 
-  # Get variables for which stats will be computed by threshhold
-  by_thresh <- setdiff(names(p), c("Z", "class"))
-
-  if(length(by_thresh) > 0){
-
-    # Subset variables according to z thresholds
-    p_thresh <- unlist(lapply(names(z_thresh), function(z_percentile_name){
-
-      z_percentile <- z_thresh[z_percentile_name]
-      z_sub <- p$Z >= z_percentile
-      p_sub <- lapply(p[by_thresh], function(pp){pp[z_sub]})
-      names(p_sub) <- paste0(names(p_sub), "_", z_percentile_name)
-
-      return(p_sub)
-
-    }), recursive=FALSE)
-    p_thresh <- c(p[by_thresh], p_thresh)
-
-    # Calculate stats for threshholded variables
-    stats_thresh <- do.call(cbind, lapply(names(p_thresh), function(p_name){
-      v <- p_thresh[[p_name]]
-      data.frame(
-        mn = mean(v),
-        mx = max(v)
-      ) %>% setNames(paste0(p_name, "_", names(.)))
-    }))
-
-    stats_out <- cbind(stats_out, stats_thresh)
-  }
+  stats_thresh <- data.frame( as.list(do.call(c, lapply(p_threshs, function(p_thresh){
+    c(
+      apply(p_thresh, 2, mean) %>% setNames(paste0(names(.), "_mn")),
+      apply(p_thresh, 2, max)  %>% setNames(paste0(names(.), "_mx"))
+    )
+  }))))
+  stats_out <- cbind(stats_out, stats_thresh)
 
   # Ground classification
   if(ground_classification){
 
-    if(all == 0){
+    if(p_length == 0){
 
       stats_grnd <- data.frame(grnd = 0)
 
     }else{
 
       p_grnd <- p$class[p$class %in% 2]
-      stats_grnd <- data.frame(grnd = length(p_grnd) / all)
+      stats_grnd <- data.frame(grnd = length(p_grnd) / p_length)
 
     }
 
@@ -561,15 +569,15 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   # Full classification
   if(full_classification){
 
-    stats_class <- do.call(cbind, lapply(c(0,1,2,3), function(thresh){
+    stats_class <- do.call(cbind, lapply(c(0,1,2,3), function(z_thresh){
 
-      v <- p$class
+      p_class <- p$class
 
-      if(thresh > 0) v <- v[p$Z > thresh]
+      if(z_thresh > 0) p_class <- p_class[p$Z > z_thresh]
 
-      v_length <- length(v)
+      p_class_length <- length(p_class)
 
-      if(v_length == 0){
+      if(p_class_length == 0){
 
         stats <- data.frame(
           lvg   = 0,
@@ -579,24 +587,23 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
       }else{
 
-        lvg   = length(v[v %in% 3])
-        hvg   = length(v[v %in% c(4,5)])
-        bld   = length(v[v %in% 6])
+        lvg   = length(p_class[p_class %in% 3])
+        hvg   = length(p_class[p_class %in% c(4,5)])
+        bld   = length(p_class[p_class %in% 6])
 
         stats <- data.frame(
-          lvg   = lvg  / v_length, # Percentage of low vegetation
-          hvg   = hvg  / v_length, # Percentage of high vegetation
-          bld   = bld  / v_length  # Percentage of building points
+          lvg = lvg  / p_class_length, # Percentage of low vegetation
+          hvg = hvg  / p_class_length, # Percentage of high vegetation
+          bld = bld  / p_class_length  # Percentage of building points
         )
       }
 
-      if(thresh > 0) names(stats) <- paste0(names(stats), "_over", thresh)
+      if(z_thresh > 0) names(stats) <- paste0(names(stats), "_over", z_thresh)
 
       return(stats)
     }))
 
     stats_out <- cbind(stats_out, stats_class)
-
   }
 
   return(stats_out)
