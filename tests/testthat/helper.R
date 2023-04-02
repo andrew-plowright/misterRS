@@ -6,7 +6,7 @@ local_misterRS_env <- function(envir = parent.frame()) {
     misterRS.clusters   = 1,
     misterRS.verbosity  = FALSE,
     misterRS.crs        = 26917,
-    misterRS.ts = readRDS("test_data/tilescheme/tile_scheme.rds")
+    misterRS.ts = readRDS("test_rsds/tilescheme/tile_scheme.rds")
   ),
   .local_envir = envir)
 

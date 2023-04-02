@@ -87,10 +87,8 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1,
 #'
 #' @export
 
-surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
+surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
                      res = 0.25, z_min = 0, z_max = 80,
-                     max_edge =c(0, 1), subcircle = 0,
-                     thresholds = c(0, 2, 5, 10, 15, 20, 25, 30, 35, 40),
                      LAS_select = "xyzcr", LAS_classes = NULL,
                      tile_names = NULL, overwrite = FALSE){
 
@@ -146,15 +144,6 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds,
       out_DSM <- terra::setValues(out_template, NA)
 
     }else{
-
-      ### IMPORTANT NOTE:
-      #
-      # These settings produced some ugly DSM artifacts
-      # The 'Max Edge' setting might need to be changed
-      # The 'pitfree' algorithm is probably best, but do more tests next time to figure out best parameters
-
-      # Set algorithm
-      alg <- lidR::pitfree(thresholds = thresholds, max_edge = max_edge, subcircle = subcircle)
 
       # Generate surface
       out_DSM <- lidR::rasterize_canopy(LAStile, res = out_template, algorithm = alg)

@@ -10,7 +10,7 @@ test_that("Projects are archived correctly", {
 
   # Set directories
   datasets <- c("ndsm", "ortho") %>% setNames(.,.)
-  in_dirs <- lapply(datasets, function(dataset) file.path("test_data", dataset))
+  in_dirs <- lapply(datasets, function(dataset) file.path("test_rsds", dataset))
   for(dir in in_dirs) file.copy(dir, temp_dir, recursive = TRUE)
   out_dirs <- lapply(datasets, function(dataset) file.path(temp_dir, dataset))
 
