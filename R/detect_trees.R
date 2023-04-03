@@ -21,6 +21,9 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt,
   # Get tile scheme
   ts <- .get_tilescheme()
 
+  # Get projection
+  proj <- getOption("misterRS.crs")
+
   # Get file paths
   CHM_paths <- .get_rsds_tilepaths(chm_rsds)
   out_paths <- .get_rsds_tilepaths(ttops_rsds)
@@ -43,20 +46,19 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt,
     buff <- ts[tile_name][["buffs"]]
 
     # Read raster
-    CHM  <- raster::raster(CHM_path)
+    CHM  <- terra::rast(CHM_path)
 
     # Function for creating blank treetop SHP file
-    noTrees <- function(e){
-      sp::SpatialPointsDataFrame(
-        sp::SpatialPoints(data.frame(x = 0, y = 0), proj4string = raster::crs(CHM))[-1,],
-        data.frame(height = numeric(), winRadius = numeric(), treeID = integer())
-      )}
+    no_ttops <- sf::st_sf(
+      geometry = sf::st_sfc(crs = sf::st_crs( proj)),
+      list(treeID = integer(), height = numeric(), winRadius = numeric())
+    )
 
     # Detect new treetops
-    det_ttops <- tryCatch(ForestTools::vwf(CHM, win_fun, min_hgt), error = noTrees)
+    det_ttops <- tryCatch(ForestTools::vwf(CHM, win_fun, min_hgt), error = no_ttops)
 
     # Save output
-    APfun::APSHPsave( det_ttops, out_path, overwrite = overwrite)
+    sf::st_write(det_ttops, out_path, delete_dsn = overwrite, quiet = TRUE)
 
     if(file.exists(out_path)){
       return("Success")

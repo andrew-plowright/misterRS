@@ -134,7 +134,6 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NU
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
-
   # Run process
   tile_worker <-function(tile_name){
 

@@ -52,8 +52,10 @@
 
 .get_rsds_mosaicpath <- function(rsds){
 
+  ext <- if( rsds@ext == 'shp') 'gpkg' else rsds@ext
+
   # Get file path
-  mosaicPath <- file.path(rsds@dir, paste0(rsds@id, ".", rsds@ext))
+  mosaicPath <- file.path(rsds@dir, paste0(rsds@id, ".", ext))
 
   # Get absolute path
   mosaicPath <- suppressMessages(R.utils::getAbsolutePath(mosaicPath))

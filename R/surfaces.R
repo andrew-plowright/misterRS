@@ -151,7 +151,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
       if(is.null(out_DSM)) stop("Failed to create DSM file")
 
       # Add random layer to eliminate adjacent cells with identical values
-      out_DSM <- out_DSM + terra::setValues(out_template,  runif(terra::ncell(out_DSM), min = 0, max = 0.0001))
+      out_DSM <- out_DSM + terra::setValues(out_template,  runif(terra::ncell(out_DSM), min = 0, max = 0.001))
 
       # Fill in gaps
       out_DSM[is.na(out_DSM)] <- 0
