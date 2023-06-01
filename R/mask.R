@@ -4,7 +4,7 @@
 #'
 #' @export
 
-mask <- function(in_rsds, out_rsds, mask_rsds,
+mask_rs <- function(in_rsds, out_rsds, mask_rsds,
                  mask_na = FALSE, tile_names = NULL,
                  overwrite = FALSE, use_neibs = FALSE){
 

@@ -55,7 +55,7 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt,
     )
 
     # Detect new treetops
-    det_ttops <- tryCatch(ForestTools::vwf(CHM, win_fun, min_hgt), error = no_ttops)
+    det_ttops <- tryCatch(ForestTools::vwf(CHM, win_fun, min_hgt), error = function(e) no_ttops)
 
     # Save output
     sf::st_write(det_ttops, out_path, delete_dsn = overwrite, quiet = TRUE)

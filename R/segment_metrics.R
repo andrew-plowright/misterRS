@@ -247,7 +247,7 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
       empty_metrics
     }
 
-    write.csv(tile_metrics, out_path, row.names = FALSE)
+    write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
 
     if(file.exists(out_path)) "Success" else "FAILED"
   }
@@ -329,6 +329,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   las_variables <- list("Z" = "Z")
   las_select    <- c("xyz")
   by_thresh     <- NULL
+  formula_args  <- NULL
 
   if(is_rgb){
     las_select    <- paste0(las_select, c("RGB"))
@@ -345,6 +346,11 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     las_select    <- paste0(las_select, c("c"))
     las_variables <- c(las_variables, list("class" = "Classification"))
 
+    if(is_full_classified)   formula_args <- c(formula_args, "full_classification = TRUE")
+    if(is_ground_classified) formula_args <- c(formula_args, "ground_classification = TRUE")
+  }
+  if(!is.null(by_thresh)){
+    formula_args <- c(formula_args, paste0("by_thresh=c('", paste(by_thresh, collapse = "', '") , "')"))
   }
 
   # Create formula
@@ -354,25 +360,21 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
     # LAS Variables
     paste(paste(names(las_variables), '=', las_variables), collapse = ", "),
 
-    # Variables calculated by threshold
-    if(!is.null(by_thresh)) paste0(", by_thresh=c('", paste(by_thresh, collapse = "', '") , "')"),
+    # Other arguments
+    if(!is.null(formula_args)) paste0(", ", paste(formula_args, collapse = ", ")),
 
-    # Classified switches
-    if(is_full_classified) paste0(", ground_classification = TRUE"),
-    if(is_ground_classified) paste0(", full_classification = TRUE"),
-    ")"))
+    ")"
+  ))
 
   # Create empty result
-  empty_input  <- lapply(las_variables, function(x) if(is.character(x)) 0 else x)
-  empty_result <- do.call(misterRS:::.metric_fun, empty_input)
+  empty_result <- eval(lazyeval::as_call(metric_formula), envir = setNames(rep(list(0), length(las_variables)), las_variables))
   empty_result[] <- NA
-
 
   cat(
     "  Intensity           : ", is_intensity, "\n",
     "  Classified (Ground) : ", is_ground_classified, "\n",
     "  Classified (Full)   : ", is_full_classified, "\n",
-    "  RGB                 : " , is_rgb, "\n",
+    "  RGB                 : ", is_rgb, "\n",
     "\n", sep = ""
   )
 
@@ -425,7 +427,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
             las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()
 
             # Remove unneeded columns
-            las_metrics <- las_metrics[, !names(las_metrics) %in% "geometry"]
+            las_metrics <- las_metrics[, !names(las_metrics) %in% "geometry", drop = FALSE]
 
             # Reorder
             las_metrics <- las_metrics[match(seg_dbf[[seg_id]], las_metrics[[seg_id]]),]
@@ -531,14 +533,14 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
     z_thresh <- z_threshs[z_thresh_name]
 
-    p_thresh <- p[p$Z >= z_thresh, by_thresh]
+    p_thresh <- p[p$Z >= z_thresh, by_thresh, drop = FALSE]
 
     names(p_thresh) <- paste0(names(p_thresh), "_", z_thresh_name)
 
     return(p_thresh)
 
   })
-  p_threshs <- c(list(p[,by_thresh]), p_threshs)
+  p_threshs <- c(list(p[,by_thresh, drop = FALSE]), p_threshs)
 
 
   stats_thresh <- data.frame( as.list(do.call(c, lapply(p_threshs, function(p_thresh){

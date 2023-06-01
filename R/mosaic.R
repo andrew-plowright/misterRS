@@ -2,7 +2,7 @@
 #'
 #' @export
 
-mosaic <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, overwrite = FALSE, tile_names = NULL){
+mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, overwrite = FALSE, tile_names = NULL){
 
   process_timer <- .headline("MOSAIC")
 

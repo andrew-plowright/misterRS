@@ -8,12 +8,12 @@
 		"shortcut_str": "D"
 	},
 	{
-		"name": "Confiferous",
+		"name": "Coniferous",
 		"map_lyr_name": "",
 		"default_values": {
 			"segClass": "C"
 		},
-		"shortcut_str": "C"
+		"shortcut_str": "F"
 	},
 	{
 		"name": "Cherry",
@@ -48,12 +48,12 @@
 		"shortcut_str": "Shift+D"
 	},
 	{
-		"name": "Confiferous (Poly)",
+		"name": "Coniferous (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
 			"segClass": "C"
 		},
-		"shortcut_str": "Shift+C"
+		"shortcut_str": "Shift+F"
 	},
 	{
 		"name": "Cherry (Poly)",

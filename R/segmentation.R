@@ -225,7 +225,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NU
 #' @export
 
 segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
-                                  minCrownHgt = 0.2,
+                                  minCrownHgt = 0.3,
                                   tile_names = NULL, overwrite = FALSE){
 
   process_timer <- .headline("WATERSHED SEGMENTATION")
@@ -259,6 +259,7 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
 
     # Get tile
     tile <- sf::st_as_sf(ts[tile_name][["tiles"]])
+    nbuff <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
     # Read in files
     CHM <- terra::rast(CHM_path)
@@ -269,8 +270,8 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
       # Apply 'marker-controlled watershed segmentation' algorithm
       seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
 
-      # Subset only those segments that have treetops within tile boundaries
-      ttops_tile   <- ttops[tile,]
+      # Subset only those segments that have treetops within non-buffered tile boundaries
+      ttops_tile   <- ttops[nbuff,]
       seg_poly_tile <- seg_poly[match(ttops_tile$treeID, seg_poly$treeID),]
 
       # Seg poly attributes

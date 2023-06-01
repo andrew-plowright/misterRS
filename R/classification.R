@@ -342,11 +342,10 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
       votes   <- randomForest:::predict.randomForest(classifier, seg_data, type = "vote")
       elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
       seg_poly[["segClass"]] <- elected
-      if(length(elected) > 0){
-        seg_poly[["votePrc"]]  <- sapply(1:length(elected), function(i){
-          el <- elected[i]
-          if(is.na(el)) NA else votes[i, el]
-        })
+      seg_poly[["votePrc"]]  <- if(length(elected) > 0){
+       sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
+      }else{
+        numeric()
       }
 
       # Manual edits

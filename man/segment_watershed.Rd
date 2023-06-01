@@ -8,7 +8,7 @@ segment_watershed(
   out_rsds,
   chm_rsds,
   ttops_rsds,
-  minCrownHgt = 0.2,
+  minCrownHgt = 0.3,
   tile_names = NULL,
   overwrite = FALSE
 )
