@@ -3,7 +3,7 @@
 		"name": "Deciduous",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "D"
+			"segClass": "'D'"
 		},
 		"shortcut_str": "D"
 	},
@@ -11,7 +11,7 @@
 		"name": "Coniferous",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "C"
+			"segClass": "'C'"
 		},
 		"shortcut_str": "F"
 	},
@@ -19,7 +19,7 @@
 		"name": "Cherry",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "H"
+			"segClass": "'H'"
 		},
 		"shortcut_str": "H"
 	},
@@ -27,7 +27,7 @@
 		"name": "Dead",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "E"
+			"segClass": "'E'"
 		},
 		"shortcut_str": "E"
 	},
@@ -35,7 +35,7 @@
 		"name": "Building",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "B"
+			"segClass": "'B'"
 		},
 		"shortcut_str": "B"
 	},
@@ -43,7 +43,7 @@
 		"name": "Deciduous (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "D"
+			"segClass": "'D'"
 		},
 		"shortcut_str": "Shift+D"
 	},
@@ -51,7 +51,7 @@
 		"name": "Coniferous (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "C"
+			"segClass": "'C'"
 		},
 		"shortcut_str": "Shift+F"
 	},
@@ -59,7 +59,7 @@
 		"name": "Cherry (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "H"
+			"segClass": "'H'"
 		},
 		"shortcut_str": "Shift+H"
 	},
@@ -67,7 +67,7 @@
 		"name": "Dead (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "E"
+			"segClass": "'E'"
 		},
 		"shortcut_str": "Shift+E"
 	},
@@ -75,7 +75,7 @@
 		"name": "Building (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "B"
+			"segClass": "'B'"
 		},
 		"shortcut_str": "Shift+B"
 	}

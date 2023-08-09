@@ -3,7 +3,7 @@
 		"name": "Building (Point)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "B"
+			"segClass": "'B'"
 		},
 		"shortcut_str": "B"
 	},
@@ -11,7 +11,7 @@
 		"name": "Canopy (Point)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "C"
+			"segClass": "'C'"
 		},
 		"shortcut_str": "C"
 	},
@@ -19,7 +19,7 @@
 		"name": "Cherry (Point)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "H"
+			"segClass": "'H'"
 		},
 		"shortcut_str": "H"
 	},
@@ -27,7 +27,7 @@
 		"name": "Ground (Point)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "G"
+			"segClass": "'G'"
 		},
 		"shortcut_str": "G"
 	},
@@ -35,7 +35,7 @@
 		"name": "Powerline (Point)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "P"
+			"segClass": "'P'"
 		},
 		"shortcut_str": "P"
 	},
@@ -43,7 +43,7 @@
 		"name": "Building (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "B"
+			"segClass": "'B'"
 		},
 		"shortcut_str": "Shift+B"
 	},
@@ -51,7 +51,7 @@
 		"name": "Canopy (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "C"
+			"segClass": "'C'"
 		},
 		"shortcut_str": "Shift+C"
 	},
@@ -59,7 +59,7 @@
 		"name": "Cherry (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "H"
+			"segClass": "'H'"
 		},
 		"shortcut_str": "Shift+H"
 	},
@@ -67,7 +67,7 @@
 		"name": "Ground (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "G"
+			"segClass": "'G'"
 		},
 		"shortcut_str": "Shift+G"
 	},
@@ -75,7 +75,7 @@
 		"name": "Powerline (Poly)",
 		"map_lyr_name": "",
 		"default_values": {
-			"segClass": "P"
+			"segClass": "'P'"
 		},
 		"shortcut_str": "Shift+P"
 	}
