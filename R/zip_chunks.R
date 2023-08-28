@@ -2,7 +2,7 @@
 #'
 #' @export
 
-zip_chunks <- function(in_rsds, out_dir, prefix, chunk_size = 100){
+zip_chunks <- function(in_rsds, out_dir, prefix, chunk_size = 50){
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 
@@ -21,7 +21,7 @@ zip_chunks <- function(in_rsds, out_dir, prefix, chunk_size = 100){
 
     cat("  Zipping chunk", i, "\n", sep="")
 
-    out_file <- file.path(out_dir, paste0(prefix, i, ".zip"))
+    out_file <- file.path(out_dir, paste0(prefix, i, "of", n_chunks, ".zip"))
 
     zip(
       zipfile = out_file,

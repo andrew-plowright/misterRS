@@ -69,7 +69,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes, canopy_edi
       terra::crop(terra::ext(buff))
 
     # Create matrix for converting clsses into binary canopy mask
-    convert_matrix <- matrix(c(ras_classes$value, as.numeric(ras_classes$category %in% canopy_classes)),ncol = 2)
+    convert_matrix <- matrix(c(ras_classes$value, as.numeric(ras_classes[,2] %in% canopy_classes)),ncol = 2)
 
     # Reclassify raster
     canopy_ras <- terra::classify(seg_class_ras, convert_matrix)

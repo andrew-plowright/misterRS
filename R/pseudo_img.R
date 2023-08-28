@@ -54,12 +54,12 @@ pseudo_img <- function(inputs, out_rsds,  tile_names = NULL, overwrite = FALSE){
     out_file  <- out_files[tile_name]
 
     # Create raster stack
-    ras_stack <- do.call(raster::stack, lapply(1:length(inputs), function(i){
+    ras_stack <- do.call(c, lapply(1:length(inputs), function(i){
 
       # Read in band
       input <- inputs[[i]]
       in_file <- in_files[[i]][tile_name]
-      in_ras <- raster::raster(in_file, band = input$band)
+      in_ras <- terra::rast(in_file, lyrs = input$band)
 
       # Remove NA values
       in_ras[is.na(in_ras)] <- 0
@@ -74,7 +74,7 @@ pseudo_img <- function(inputs, out_rsds,  tile_names = NULL, overwrite = FALSE){
     }))
 
     # Write output
-    raster::writeRaster(ras_stack, filename = out_file, datatype = "INT1U", overwrite = overwrite)
+    terra::writeRaster(ras_stack, filename = out_file, datatype = "INT1U", overwrite = overwrite)
 
     if(file.exists(out_file)){
       return("Success")

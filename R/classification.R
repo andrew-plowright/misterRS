@@ -447,15 +447,18 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
     seg_poly <- sf::st_read(seg_class_poly_path, quiet = TRUE)
 
     # Get unclassified raster segments
-    seg_ras <- raster::raster(seg_ras_path)
+    seg_ras <- terra::rast(seg_ras_path)
 
-    # Convert 'seg_ras' segment numbers to class numbers
-    seg_class_ras <- raster::setValues(seg_ras, factor(
-      seg_poly[["segClass"]][match(seg_ras[], seg_poly[[seg_id]])],
-      levels = seg_classes))
+    seg_class_ras <- terra::setValues(
+      seg_ras,
+      factor(
+        seg_poly[["segClass"]][match(seg_ras[], seg_poly[[seg_id]])],
+        levels = seg_classes
+        )
+      )
 
     # Save output
-    raster::writeRaster(seg_class_ras, out_path, overwrite = overwrite, datatype = "INT1U")
+    terra::writeRaster(seg_class_ras, out_path, overwrite = overwrite, datatype = "INT1U")
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
