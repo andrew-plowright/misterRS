@@ -2,17 +2,17 @@
 #'
 #' @export
 
-zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 50){
-
-  cat("ZIP CHUNKS", "\n\n",
-      "  Chunk size : ", chunk_size,"\n",
-      "  Chunk no.  : ", ceiling(length(tile_paths) / chunk_size),
-      "\n\n", sep=""
-  )
+zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 30){
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 
   in_tile_paths <- .get_rsds_tilepaths(in_rsds)
+
+  cat("ZIP CHUNKS", "\n\n",
+      "  Chunk size : ", chunk_size,"\n",
+      "  Chunk no.  : ", ceiling(length(in_tile_paths) / chunk_size),
+      "\n\n", sep=""
+  )
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -45,6 +45,7 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
 
       out_file <- file.path(temp_dir, paste0(tile_name, ".tif"))
 
+      # Crop to selected extent
       gpal2::gdalwarp(
         te = ext,
         in_tile_paths[tile_name],
