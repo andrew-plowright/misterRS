@@ -29,6 +29,8 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
 
   }else if(overlap %in% c("nbuffs", "tiles")){
 
+    cat("  Overlap setting: '", overlap, "'\n", "  Cropping tiles...", "\n", sep= "")
+
     # Get tiles
     ts <- .get_tilescheme()
 

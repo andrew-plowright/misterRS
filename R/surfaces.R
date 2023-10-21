@@ -134,8 +134,9 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
 
     # Normalize LAS tile
     if(is_nDSM & !is.null(LAStile)){
+
       DEM_path <- DEM_paths[tile_name]
-      LAStile <- .normalize_las(LAStile, DEM_path = DEM_path, z_min, z_max)
+      LAStile %<>% .normalize_las(DEM_path = DEM_path, z_min, z_max)
     }
 
     if(is.null(LAStile)){

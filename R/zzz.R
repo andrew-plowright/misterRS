@@ -21,7 +21,9 @@
     misterRS.orfeo      = orfeoPath,
     misterRS.verbosity  = TRUE,
     misterRS.crs        = NA,
-    misterRS.ts = NULL
+    misterRS.ts         = NULL,
+    lidR.progress       = FALSE,
+    lidR.verbose        = FALSE
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])
