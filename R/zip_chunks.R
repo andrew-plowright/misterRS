@@ -2,7 +2,7 @@
 #'
 #' @export
 
-zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 30){
+zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 25){
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 

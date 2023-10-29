@@ -11,6 +11,10 @@ training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id,
   # Check if data for this training dataset already exists
   has_data <- "data" %in% sf::st_layers(training_data@file_path)$name
 
+  if(any(sapply(metrics, class) != "rsds")){
+    stop("The 'metrics' parameter should be a list of 'rsds' class objects")
+  }
+
   if(has_data & !overwrite){
 
     cat("Training data table for '", training_data@id, "' already exists. Set 'overwrite' to TRUE", "\n")
