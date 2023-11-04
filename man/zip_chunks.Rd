@@ -4,7 +4,7 @@
 \alias{zip_chunks}
 \title{Zip a RSDS by chunks}
 \usage{
-zip_chunks(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 30)
+zip_chunks(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 25)
 }
 \description{
 Zip a RSDS by chunks
