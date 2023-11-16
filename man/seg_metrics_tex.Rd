@@ -11,10 +11,9 @@ seg_metrics_tex(
   out_rsds,
   seg_id,
   band = 1,
-  tile_names = NULL,
-  overwrite = FALSE,
   prefix = "",
-  n_grey = 16
+  n_grey = 16,
+  ...
 )
 }
 \description{

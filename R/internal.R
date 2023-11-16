@@ -111,8 +111,6 @@
 
   }else{
 
-    if(clusters > 1) cat("  Clusters         : ", clusters, "\n", sep = "")
-
     # Wrap worker function in 'tryCatch'
     workerE <- function(tile_name){ rr <- tryCatch({ worker(tile_name) }, error = function(e){e})}
 
@@ -161,6 +159,7 @@
   }
 }
 
+
 .progbar <- function(n, width = 80){
 
   if(n == 0){
@@ -182,7 +181,11 @@
 }
 
 
-.tile_queue <- function(tile_paths, overwrite, tile_names = NULL, verbose = getOption("misterRS.verbosity")){
+.tile_queue <- function(tile_paths,
+                        overwrite = getOption("misterRS.overwrite"),
+                        tile_names = getOption("misterRS.tile_names"),
+                        clusters = getOption("misterRS.clusters"),
+                        verbose = getOption("misterRS.verbose")){
 
   selected_tiles <- if(is.null(tile_names)){
 
@@ -208,6 +211,7 @@
   if(verbose){
     cat(
       "  Overwrite        : ", overwrite, "\n",
+      "  Clusters         : ", clusters, "\n",
       "  Total tiles      : ", length(tile_paths), "\n",
       "  Selected tiles   : ", length(selected_tiles),  "\n",
       "  Queued tiles     : ", length(proc_tiles),      "\n",

@@ -12,9 +12,8 @@ seg_metrics_spec(
   bands = c(R = 1, G = 2, B = 3),
   zonalFun = c("mean", "sd"),
   seg_id,
-  tile_names = NULL,
-  overwrite = FALSE,
-  prefix = NULL
+  prefix = NULL,
+  ...
 )
 }
 \description{

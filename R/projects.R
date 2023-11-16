@@ -63,7 +63,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
 
     dir.create(source_dir, showWarnings = FALSE)
     for(source_sub_dir in source_sub_dirs){
-      cat("    ", source_sub_dir, "\n", sep = "")
+      cat("    ... ", source_sub_dir, "\n", sep = "")
       dir.create(file.path(source_dir, source_sub_dir), showWarnings = FALSE)
     }
     cat("\n")
@@ -72,7 +72,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
         project_dir, "\n", sep="")
     dir.create(project_dir, showWarnings = FALSE)
     for(project_sub_dir in project_sub_dirs){
-      cat("    ", project_sub_dir, "\n", sep = "")
+      cat("    ... ", project_sub_dir, "\n", sep = "")
       dir.create(file.path(project_dir, project_sub_dir), showWarnings = FALSE)
     }
     cat("\n")

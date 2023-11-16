@@ -2,8 +2,11 @@
 #'
 #' @export
 
-seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg_id, band = 1,
-                          tile_names = NULL, overwrite = FALSE, prefix = "", n_grey = 16){
+seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
+                            seg_id, band = 1,
+                            prefix = "", n_grey = 16, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("SEGMENT METRICS - TEXTURAL")
 
@@ -99,7 +102,7 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+    queued_tiles <- .tile_queue(out_paths)
 
     # Process
     process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -119,7 +122,9 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds, seg
 
 seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
-                           seg_id,  tile_names = NULL, overwrite = FALSE, prefix = NULL){
+                           seg_id, prefix = NULL, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("SEGMENT METRICS - SPECTRAL")
 
@@ -255,7 +260,7 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -276,7 +281,9 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
                           z_min, z_max,
                           seg_id, prefix = NULL,
                           is_ground_classified = NULL, is_full_classified = NULL, is_rgb = NULL, is_intensity = NULL,
-                          tile_names = NULL, overwrite = FALSE){
+                          ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("SEGMENT METRICS - LAS")
 
@@ -463,7 +470,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

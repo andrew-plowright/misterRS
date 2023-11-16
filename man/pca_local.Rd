@@ -9,9 +9,8 @@ pca_local(
   out_rsds,
   n_comp = 2,
   in_bands = c(1, 2, 3),
-  tile_names = NULL,
-  overwrite = FALSE,
-  spca = TRUE
+  spca = TRUE,
+  ...
 )
 }
 \description{

@@ -14,8 +14,7 @@ surface_dsm(
   z_max = 80,
   LAS_select = "xyzcr",
   LAS_classes = NULL,
-  tile_names = NULL,
-  overwrite = FALSE
+  ...
 )
 }
 \description{

@@ -11,8 +11,7 @@ classify_seg_poly(
   class_edits,
   metrics,
   seg_id,
-  tile_names = NULL,
-  overwrite = FALSE
+  ...
 )
 }
 \description{

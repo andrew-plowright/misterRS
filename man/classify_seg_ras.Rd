@@ -10,8 +10,7 @@ classify_seg_ras(
   seg_class_ras_rsds,
   seg_classes,
   seg_id,
-  tile_names = NULL,
-  overwrite = FALSE
+  ...
 )
 }
 \description{

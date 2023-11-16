@@ -7,8 +7,10 @@
 #'
 #' @export
 
-pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),
-                tile_names = NULL, overwrite = FALSE, spca = TRUE){
+pca_local <- function(img_rsds, out_rsds,
+                      n_comp = 2, in_bands = c(1,2,3), spca = TRUE, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("PRINCIPAL COMPONENT ANALYSIS")
 
@@ -64,7 +66,7 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -87,8 +89,10 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),
 #'
 #' @export
 
-pca_global <- function(img_rsds, out_rsds, PCA_model, n_comp = 2, in_bands = c(1,2,3),
-                tile_names = NULL, overwrite = FALSE){
+pca_global <- function(img_rsds, out_rsds, PCA_model,
+                       n_comp = 2, in_bands = c(1,2,3), ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("PRINCIPAL COMPONENT ANALYSIS")
 
@@ -133,7 +137,7 @@ pca_global <- function(img_rsds, out_rsds, PCA_model, n_comp = 2, in_bands = c(1
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

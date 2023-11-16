@@ -6,9 +6,10 @@
 #'
 #' @export
 
-canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes, canopy_edits = NULL, openings = 1, opening_radius = 0.5,
-                           tile_names = NULL, overwrite = FALSE){
+canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
+                        canopy_edits = NULL, openings = 1, opening_radius = 0.5, ...){
 
+  .env_misterRS(list(...))
 
   process_timer <- .headline("CANOPY MASK")
 
@@ -128,7 +129,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes, canopy_edi
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

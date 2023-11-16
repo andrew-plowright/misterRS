@@ -3,8 +3,9 @@
 #' @export
 
 merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
-                    id_field = NULL, tile_names = NULL, overwrite = FALSE){
+                    id_field = NULL, ...){
 
+  .env_misterRS(list(...))
 
   process_timer <- .headline("MERGE")
 
@@ -82,7 +83,7 @@ merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

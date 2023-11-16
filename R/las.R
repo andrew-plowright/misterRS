@@ -130,10 +130,10 @@ las_qc <- function(las_cat){
 las_coverage <- function(in_cat, boundary){
 
   # Get boundary
-  boundary <- sf::st_read(p$raw$boundary, quiet = TRUE)
+  boundary <- sf::st_read(boundary, quiet = TRUE)
 
   # Get LAS geometry
-  las_geom <- las_cat@data$geometry
+  las_geom <- in_cat@data$geometry
 
   # Check which tiles intersect project boundary
   intersects_boundary = lengths(sf::st_intersects(las_geom, boundary)) > 0
@@ -143,7 +143,7 @@ las_coverage <- function(in_cat, boundary){
     las_geom,
     data.frame(
       intersects_boundary = intersects_boundary,
-      filename = las_cat@data$filename
+      filename = in_cat@data$filename
   ))
 
   # Dissolve LAS tile coverage

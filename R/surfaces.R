@@ -3,8 +3,9 @@
 #'
 #' @export
 
-surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1,
-                        tile_names = NULL, overwrite = FALSE){
+surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("DIGITAL ELEVATION MODEL")
 
@@ -68,7 +69,7 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -89,8 +90,9 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1,
 
 surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
                      res = 0.25, z_min = 0, z_max = 80,
-                     LAS_select = "xyzcr", LAS_classes = NULL,
-                     tile_names = NULL, overwrite = FALSE){
+                     LAS_select = "xyzcr", LAS_classes = NULL, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("DIGITAL SURFACE MODEL")
 
@@ -169,7 +171,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

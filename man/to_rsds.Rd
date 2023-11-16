@@ -4,14 +4,7 @@
 \alias{to_rsds}
 \title{Convert raster file(s) to tiled RS dataset}
 \usage{
-to_rsds(
-  in_files,
-  out_rsds,
-  res,
-  bands = NULL,
-  tile_names = NULL,
-  overwrite = FALSE
-)
+to_rsds(in_files, out_rsds, res, bands = NULL, ...)
 }
 \description{
 Convert raster file(s) to tiled RS dataset

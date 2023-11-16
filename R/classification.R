@@ -271,9 +271,10 @@ classifier_create <- function(training_data, classifier_file = NULL, seg_id, pre
 #'
 #' @export
 
-classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsds, class_edits, metrics, seg_id,
-                             tile_names = NULL, overwrite = FALSE){
+classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsds,
+                              class_edits, metrics, seg_id, ...){
 
+  .env_misterRS(list(...))
 
   process_timer <- .headline("CLASSIFY POLYGON SEGMENTS")
 
@@ -395,7 +396,7 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    proc_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+    proc_tiles <- .tile_queue(out_paths)
 
     # Process
     process_status <- .exe_tile_worker(proc_tiles, tile_worker)
@@ -416,9 +417,10 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
 #'
 #' @export
 
-classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rsds, seg_classes, seg_id,
-                           tile_names = NULL, overwrite = FALSE){
+classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rsds,
+                             seg_classes, seg_id, ...){
 
+  .env_misterRS(list(...))
 
   process_timer <- .headline("CLASSIFY RASTER SEGMENTS")
 
@@ -471,7 +473,7 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  proc_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  proc_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(proc_tiles, tile_worker)

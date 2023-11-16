@@ -2,8 +2,9 @@
 #'
 #' @export
 
-to_rsds <- function(in_files, out_rsds, res, bands = NULL,
-                   tile_names = NULL, overwrite = FALSE){
+to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("CONVERT TO RS DATASET")
 
@@ -79,7 +80,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

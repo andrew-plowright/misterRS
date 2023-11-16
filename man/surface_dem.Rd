@@ -4,14 +4,7 @@
 \alias{surface_dem}
 \title{Digital Elevation Model}
 \usage{
-surface_dem(
-  in_cat,
-  out_rsds,
-  LAS_select = "xyzc",
-  res = 1,
-  tile_names = NULL,
-  overwrite = FALSE
-)
+surface_dem(in_cat, out_rsds, LAS_select = "xyzc", res = 1, ...)
 }
 \description{
 Digital Elevation Model

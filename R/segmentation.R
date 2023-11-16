@@ -114,7 +114,9 @@ segment_mss <- function(img_rsds, out_gpkg,
 #'
 #' @export
 
-tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NULL, overwrite = FALSE){
+tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("TILE POLYGONS")
 
@@ -207,7 +209,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NU
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -225,8 +227,9 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", tile_names = NU
 #' @export
 
 segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
-                                  minCrownHgt = 0.3,
-                                  tile_names = NULL, overwrite = FALSE){
+                                  minCrownHgt = 0.3, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("WATERSHED SEGMENTATION")
 
@@ -300,7 +303,7 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -319,7 +322,9 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
 #' @export
 
 poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
-                          tile_names = NULL, overwrite = FALSE){
+                          ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("RASTER SEGMENTS")
 
@@ -362,7 +367,7 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

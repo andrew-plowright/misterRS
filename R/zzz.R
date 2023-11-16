@@ -25,12 +25,16 @@
   op.misterRS <- list(
     misterRS.clusters      = 1,
     misterRS.orfeo         = orfeoPath,
-    misterRS.verbosity     = TRUE,
+    misterRS.verbose       = TRUE,
+    misterRS.overwrite     = FALSE,
+    misterRS.tile_names    = NULL,
+    misterRS.clusters      = 1,
     misterRS.crs           = NA,
     misterRS.ts            = NULL,
     misterRS.projects_root = projects_root,
     misterRS.project_register = projects_log,
     misterRS.syncback_exe  = syncback_exe,
+    rgdal_show_exportToProj4_warnings="none",
     lidR.progress          = FALSE,
     lidR.verbose           = FALSE
   )

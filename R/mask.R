@@ -5,9 +5,9 @@
 #' @export
 
 mask_rs <- function(in_rsds, out_rsds, mask_rsds,
-                 mask_na = FALSE, tile_names = NULL,
-                 overwrite = FALSE, use_neibs = FALSE){
+                 mask_na = FALSE, use_neibs = FALSE, ...){
 
+  .env_misterRS(list(...))
 
   process_timer <- .headline("MASK RSDS")
 
@@ -74,7 +74,7 @@ mask_rs <- function(in_rsds, out_rsds, mask_rsds,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

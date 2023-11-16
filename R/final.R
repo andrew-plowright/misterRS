@@ -10,7 +10,9 @@
 #' @export
 
 final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file,
-                        boundary_buff = 0){
+                        boundary_buff = 0, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("FINAL CANOPY")
 
@@ -34,7 +36,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   # Get file paths
   trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
   tile_names          <- names(trees_class_ras_paths)
-  canopyMask_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
+  out_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
 
   ### BOUNDARY ----
@@ -58,7 +60,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 
     # File paths
     trees_class_ras_path <- trees_class_ras_paths[tile_name]
-    out_path          <- canopyMask_paths[tile_name]
+    out_path          <- out_paths[tile_name]
     boundary_tif_path  <- file.path(dirs$boundary_tif, paste0(tile_name, ".tif"))
 
     # Read seg class raster
@@ -99,7 +101,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   ### APPLY WORKER ----
 
     # Get tiles for processing
-    queued_tiles <- .tile_queue(canopyMask_paths, overwrite = TRUE, tile_names)
+    queued_tiles <- .tile_queue(out_paths)
 
     # Process
     process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -109,7 +111,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 
   ### MERGE ----
 
-    tempVRT <- .mosaic_vrt(canopyMask_paths, ts, overlap = "buffs" )
+    tempVRT <- .mosaic_vrt(out_paths, ts, overlap = "buffs" )
 
     gpal2::gdal_translate(
       co = c("BIGTIFF=YES", "COMPRESS=LZW"),
@@ -133,8 +135,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 #' @export
 
 final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, out_file,
-                     boundary_buff = 0,
-                     tile_names = NULL){
+                     boundary_buff = 0, ...){
 
   process_timer <- .headline("FINAL CANOPY HEIGHT MODEL")
 
@@ -159,7 +160,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
   ndsm_paths         <- .get_rsds_tilepaths(ndsm_rsds)
   tile_names          <- names(trees_class_ras_paths)
-  CHMmask_paths      <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
+  out_paths      <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
 
   ### BOUNDARY ----
@@ -183,7 +184,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
     # File paths
     trees_class_ras_path <- trees_class_ras_paths[tile_name]
-    out_path          <- CHMmask_paths[tile_name]
+    out_path          <- out_paths[tile_name]
     ndsm_path         <- ndsm_paths[tile_name]
     boundary_tif_path  <- file.path(dirs$boundary_tif, paste0(tile_name, ".tif"))
 
@@ -227,7 +228,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(CHMmask_paths, overwrite = TRUE, tile_names)
+  queued_tiles <- .tile_queue(out_paths, overwrite = TRUE)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -237,7 +238,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
   ### MERGE ----
 
-  tempVRT <- .mosaic_vrt(CHMmask_paths, ts, overlap = "nbuffs" )
+  tempVRT <- .mosaic_vrt(out_paths, ts, overlap = "nbuffs" )
 
   gpal2::gdal_translate(
     co = c("BIGTIFF=YES", "COMPRESS=LZW"),

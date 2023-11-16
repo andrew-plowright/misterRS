@@ -4,15 +4,7 @@
 \alias{merge_rs}
 \title{Merge multiple RSDS into a single one according to zones}
 \usage{
-merge_rs(
-  in_rsds,
-  out_rsds,
-  zones_path,
-  zone_field,
-  id_field = NULL,
-  tile_names = NULL,
-  overwrite = FALSE
-)
+merge_rs(in_rsds, out_rsds, zones_path, zone_field, id_field = NULL, ...)
 }
 \description{
 Merge multiple RSDS into a single one according to zones

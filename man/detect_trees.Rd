@@ -4,14 +4,7 @@
 \alias{detect_trees}
 \title{Detect trees}
 \usage{
-detect_trees(
-  chm_rsds,
-  ttops_rsds,
-  win_fun,
-  min_hgt,
-  tile_names = NULL,
-  overwrite = FALSE
-)
+detect_trees(chm_rsds, ttops_rsds, win_fun, min_hgt, ...)
 }
 \description{
 Uses the variable window filter (VWF) algorithm

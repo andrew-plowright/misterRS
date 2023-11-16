@@ -27,7 +27,9 @@
 #' }
 #' @export
 
-pseudo_img <- function(inputs, out_rsds,  tile_names = NULL, overwrite = FALSE){
+pseudo_img <- function(inputs, out_rsds, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("PSEUDO-IMAGE")
 
@@ -87,7 +89,7 @@ pseudo_img <- function(inputs, out_rsds,  tile_names = NULL, overwrite = FALSE){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

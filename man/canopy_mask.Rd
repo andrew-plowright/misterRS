@@ -11,8 +11,7 @@ canopy_mask(
   canopy_edits = NULL,
   openings = 1,
   opening_radius = 0.5,
-  tile_names = NULL,
-  overwrite = FALSE
+  ...
 )
 }
 \arguments{

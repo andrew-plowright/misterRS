@@ -1,8 +1,9 @@
 #' Difference between two raster
 #' @export
 
-ras_diff <- function(A_rsds, B_rsds, out_rsds,
-                      tile_names = NULL, overwrite = FALSE){
+ras_diff <- function(A_rsds, B_rsds, out_rsds, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("RASTER DIFFERENCE")
 
@@ -39,7 +40,7 @@ ras_diff <- function(A_rsds, B_rsds, out_rsds,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_files)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

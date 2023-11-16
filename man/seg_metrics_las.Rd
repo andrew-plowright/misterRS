@@ -18,8 +18,7 @@ seg_metrics_las(
   is_full_classified = NULL,
   is_rgb = NULL,
   is_intensity = NULL,
-  tile_names = NULL,
-  overwrite = FALSE
+  ...
 )
 }
 \description{

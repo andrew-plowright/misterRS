@@ -4,8 +4,9 @@
 #'
 #' @export
 
-detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt,
-                tile_names = NULL, overwrite = FALSE){
+detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("DETECT TREES")
 
@@ -71,14 +72,14 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- misterRS:::.tile_queue(out_paths, overwrite, tile_names)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
-  process_status <- misterRS:::.exe_tile_worker(queued_tiles, tile_worker)
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
   # Report
-  misterRS:::.print_process_status(process_status)
+  .print_process_status(process_status)
 
   # Conclude
-  misterRS:::.conclusion(process_timer)
+  .conclusion(process_timer)
 }

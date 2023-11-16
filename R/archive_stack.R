@@ -1,6 +1,6 @@
 #' @export
 
-archive_stack <- function(rsds_list, prompt = TRUE, verbose = getOption('misterRS.verbosity')){
+archive_stack <- function(rsds_list, prompt = TRUE, verbose = getOption('misterRS.verbose')){
 
   if(verbose) cat("ARCHIVING STACK FILES\n\n")
 

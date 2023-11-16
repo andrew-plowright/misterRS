@@ -9,7 +9,8 @@ final_canopy(
   canopyClasses,
   boundary,
   out_file,
-  boundary_buff = 0
+  boundary_buff = 0,
+  ...
 )
 }
 \description{

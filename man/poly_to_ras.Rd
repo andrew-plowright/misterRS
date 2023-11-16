@@ -4,14 +4,7 @@
 \alias{poly_to_ras}
 \title{Rasterize polygonal segments}
 \usage{
-poly_to_ras(
-  seg_poly_rsds,
-  seg_ras_rsds,
-  res,
-  seg_id = "polyID",
-  tile_names = NULL,
-  overwrite = FALSE
-)
+poly_to_ras(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID", ...)
 }
 \description{
 Rasterize polygonal segments

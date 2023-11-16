@@ -4,7 +4,7 @@
 \alias{pseudo_img}
 \title{Pseudo image}
 \usage{
-pseudo_img(inputs, out_rsds, tile_names = NULL, overwrite = FALSE)
+pseudo_img(inputs, out_rsds, ...)
 }
 \description{
 Create a 3-band pseudo image using bands from several different images or surfaces. These can (and should) be rescaled to an 8-bit image (values from 0 to 255)
