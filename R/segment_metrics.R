@@ -18,9 +18,9 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
     .check_extension(out_rsds,    "csv")
 
     # Check complete inputs
-    .check_complete_input(seg_ras_rsds,  tile_names)
-    .check_complete_input(seg_poly_rsds, tile_names)
-    .check_complete_input(img_rsds,     tile_names)
+    .check_complete_input(seg_ras_rsds)
+    .check_complete_input(seg_poly_rsds)
+    .check_complete_input(img_rsds)
 
     # Get file paths
     seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
@@ -136,9 +136,9 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
   .check_extension(out_rsds,    "csv")
 
   # Check complete inputs
-  .check_complete_input(seg_ras_rsds,  tile_names)
-  .check_complete_input(seg_poly_rsds, tile_names)
-  .check_complete_input(img_rsds,   tile_names)
+  .check_complete_input(seg_ras_rsds)
+  .check_complete_input(seg_poly_rsds)
+  .check_complete_input(img_rsds)
 
   # Get file paths
   seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
@@ -294,9 +294,9 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   .check_extension(out_rsds,    "csv")
 
   # Check input RSDS are complete
-  .check_complete_input(seg_ras_rsds,  tile_names)
-  .check_complete_input(seg_poly_rsds, tile_names)
-  .check_complete_input(dem_rsds,     tile_names)
+  .check_complete_input(seg_ras_rsds)
+  .check_complete_input(seg_poly_rsds)
+  .check_complete_input(dem_rsds)
 
   # Get file paths
   seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)

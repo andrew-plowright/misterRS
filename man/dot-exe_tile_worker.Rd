@@ -4,7 +4,7 @@
 \alias{.exe_tile_worker}
 \title{Run a worker in parallel or serial}
 \usage{
-.exe_tile_worker(tile_names, worker, ...)
+.exe_tile_worker(tile_names, worker)
 }
 \description{
 Run a worker in parallel or serial

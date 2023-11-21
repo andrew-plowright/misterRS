@@ -16,10 +16,13 @@ segment_mss <- function(img_rsds, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
                  writeVectoreMode = "ulu",
                  seg_id = "polyID",
-                 tile_names = NULL,
-                 min_per_tile_est = 4.3){
+                 min_per_tile_est = 4.3, ...){
 
   process_timer <- .headline("MEAN SHIFT SEGMENTATION")
+
+  .env_misterRS(list(...))
+
+  tile_names <- getOption("misterRS.tile_names")
 
   ### INPUT CHECKS ----
 
@@ -28,7 +31,7 @@ segment_mss <- function(img_rsds, out_gpkg,
 
   .check_extension(img_rsds, "tif")
 
-  .check_complete_input(img_rsds, tile_names)
+  .check_complete_input(img_rsds)
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -239,8 +242,8 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
   .check_extension(out_rsds, "shp")
 
   # Check that inputs are complete
-  .check_complete_input(chm_rsds,   tile_names)
-  .check_complete_input(ttops_rsds, tile_names)
+  .check_complete_input(chm_rsds)
+  .check_complete_input(ttops_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -330,7 +333,7 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(seg_poly_rsds, tile_names)
+  .check_complete_input(seg_poly_rsds)
 
   .check_extension(seg_ras_rsds, "tif")
 

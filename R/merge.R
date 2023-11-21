@@ -12,7 +12,7 @@ merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
   ### INPUT CHECKS ----
 
   for(in_rsds_i in in_rsds){
-    .check_complete_input(in_rsds_i,  tile_names)
+    .check_complete_input(in_rsds_i)
     .check_extension(in_rsds_i,  "shp")
   }
   .check_extension(out_rsds,  "shp")

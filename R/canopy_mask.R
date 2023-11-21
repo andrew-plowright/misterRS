@@ -20,7 +20,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
   .check_extension(out_rsds,   "tif")
 
   # Check that inputs are complete
-  .check_complete_input(seg_class_ras_rsds, tile_names)
+  .check_complete_input(seg_class_ras_rsds)
 
   # Get file paths
   seg_class_ras_paths <- .get_rsds_tilepaths(seg_class_ras_rsds)
@@ -35,15 +35,13 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
     # Temporary folder
     edit_folder <- file.path(tempdir(), "canopy_edits")
     dir.create(edit_folder, showWarnings = FALSE)
-    on.exit(unlink(edit_folder, recursive = TRUE))
+    withr::defer(unlink(edit_folder, recursive = TRUE))
 
     # Read canopy edits
     edits <- sf::st_read(canopy_edits, quiet = T)
 
     if(!all(edits$canopy %in% c(1,0))) stop("All values in the 'canopy' column should be either 1 or 0")
   }
-
-
 
   ### CREATE WORKER ----
 

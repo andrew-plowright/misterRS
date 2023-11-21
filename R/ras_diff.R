@@ -11,8 +11,8 @@ ras_diff <- function(A_rsds, B_rsds, out_rsds, ...){
 
   .check_same_ts(A_rsds, B_rsds, out_rsds)
 
-  .check_complete_input(A_rsds, tile_names)
-  .check_complete_input(B_rsds, tile_names)
+  .check_complete_input(A_rsds)
+  .check_complete_input(B_rsds)
 
   out_files <- .get_rsds_tilepaths(out_rsds)
   A_files   <- .get_rsds_tilepaths(A_rsds)

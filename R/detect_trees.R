@@ -17,7 +17,7 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
   .check_extension(ttops_rsds, "shp")
 
   # Check that inputs are complete
-  .check_complete_input(chm_rsds, tile_names)
+  .check_complete_input(chm_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()

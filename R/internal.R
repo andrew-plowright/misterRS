@@ -1,6 +1,8 @@
-.check_complete_input <- function(RSDS, tile_names = NULL){
+.check_complete_input <- function(RSDS){
 
   filePaths <- .get_rsds_tilepaths(RSDS)
+
+  tile_names <- getOption("misterRS.tile_names")
 
   if(!is.null(tile_names)){
 
@@ -96,14 +98,29 @@
 }
 
 
+#' Set local options
+
+.env_misterRS <- function(options){
+
+  if(length(options) > 0){
+
+    names(options) <- paste0("misterRS.", names(options))
+
+    withr::local_options(options, .local_envir = parent.frame())
+  }
+}
+
+
 #' Run a worker in parallel or serial
 #'
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_worker <-function(tile_names, worker, ...){
+.exe_tile_worker <-function(tile_names, worker){
 
   clusters = getOption("misterRS.clusters")
+
+  assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
 
   if(length(tile_names) == 0){
 
@@ -137,8 +154,9 @@
       # Force the evaluation of all arguments given in the parent frame
       # NOTE: Because R uses 'lazyload', some arguments (or "promises") given in the original function
       # are not evaluated immediately. For whatever reason, %dopar% doesn't like this, and is unable
-      # to evaluate these promises. The line below "forces" their evaluation.
-      for(v in names(formals(sys.function(-1)))) eval(parse(text = v),  sys.frame(-1))
+      # to evaluate these promises. The two lines below "forces" their evaluation.
+      func_args <- setdiff(names(formals(sys.function(-1))), "...")
+      for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
 
       rr <- fe %dopar% workerE(tile_name)
 
@@ -333,8 +351,8 @@
   if(any(!file.exists(las_files))) stop("Missing LAS files")
 
   # Create extent filter from buffer extent
-  buff_xt   <- raster::extent(buff_sf)
-  buff_filt <- paste("-keep_xy", buff_xt@xmin, buff_xt@ymin, buff_xt@xmax, buff_xt@ymax)
+  buff_xt   <- terra::ext(buff_sf)
+  buff_filt <- paste("-keep_xy", buff_xt[1], buff_xt[3], buff_xt[2], buff_xt[4])
 
   # Create class filter
   class_filt <- if(!is.null(classes)) paste(c("-keep_class", classes), collapse = " ")

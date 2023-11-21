@@ -2,9 +2,14 @@
 #'
 #' @export
 
-mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, overwrite = FALSE, tile_names = NULL){
+mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, ...){
+
+  .env_misterRS(list(...))
 
   process_timer <- .headline("MOSAIC")
+
+  overwrite <- getOption("misterRS.overwrite")
+  tile_names <- getOption("misterRS.tile_names")
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -25,7 +30,7 @@ mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL
   ext <- rsds@ext
 
   # Check input
-  .check_complete_input(rsds, tile_names = tile_names)
+  .check_complete_input(rsds)
 
   # Get input paths
   in_paths <- .get_rsds_tilepaths(rsds)

@@ -19,8 +19,8 @@ mask_rs <- function(in_rsds, out_rsds, mask_rsds,
   .check_extension(mask_rsds, "tif")
 
   # Check that inputs are complete
-  .check_complete_input(in_rsds,   tile_names)
-  .check_complete_input(mask_rsds, tile_names)
+  .check_complete_input(in_rsds)
+  .check_complete_input(mask_rsds)
 
   # Get paths
   in_paths   <- .get_rsds_tilepaths(in_rsds)

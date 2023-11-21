@@ -111,7 +111,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
   .check_extension(out_rsds, "tif")
   if(is_nDSM){
     .check_extension(dem_rsds, "tif")
-    .check_complete_input(dem_rsds, tile_names)
+    .check_complete_input(dem_rsds)
   }
 
   # Get file paths

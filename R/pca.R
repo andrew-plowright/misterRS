@@ -16,7 +16,7 @@ pca_local <- function(img_rsds, out_rsds,
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds, tile_names)
+  .check_complete_input(img_rsds)
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -98,7 +98,7 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds, tile_names)
+  .check_complete_input(img_rsds)
 
   # Get tiles
   ts <- .get_tilescheme()

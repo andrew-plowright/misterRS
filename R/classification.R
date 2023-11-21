@@ -286,8 +286,8 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
     for(RS in metrics) .check_extension(RS, c("csv"))
 
     # Check that inputs are complete
-    .check_complete_input(seg_poly_rsds, tile_names)
-    for(RS in metrics) .check_complete_input(RS, tile_names)
+    .check_complete_input(seg_poly_rsds)
+    for(RS in metrics) .check_complete_input(RS)
 
     # Get CRS
     proj <- getOption("misterRS.crs")
@@ -432,8 +432,8 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
   .check_extension(seg_ras_rsds,        "tif")
 
   # Check that inputs are complete
-  .check_complete_input(seg_class_poly_rsds, tile_names)
-  .check_complete_input(seg_ras_rsds,       tile_names)
+  .check_complete_input(seg_class_poly_rsds)
+  .check_complete_input(seg_ras_rsds)
 
   seg_class_poly_paths <- .get_rsds_tilepaths(seg_class_poly_rsds)
   seg_ras_paths        <- .get_rsds_tilepaths(seg_ras_rsds)

@@ -36,7 +36,7 @@ pseudo_img <- function(inputs, out_rsds, ...){
   ### INPUT CHECKS ----
 
   for(input in inputs){
-    .check_complete_input(input$rsds,  tile_names)
+    .check_complete_input(input$rsds)
     .check_extension(input$rsds,  "tif")
   }
   .check_extension(out_rsds,  "tif")

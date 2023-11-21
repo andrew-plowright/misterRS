@@ -10,16 +10,16 @@
 #' @export
 
 final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file,
-                        boundary_buff = 0, ...){
+                        boundary_buff = 0){
 
-  .env_misterRS(list(...))
+  .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
 
   process_timer <- .headline("FINAL CANOPY")
 
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds, tile_names)
+  .check_complete_input(trees_class_ras_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -35,7 +35,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 
   # Get file paths
   trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
-  tile_names          <- names(trees_class_ras_paths)
+  tile_names  <- names(trees_class_ras_paths)
   out_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
 
@@ -135,14 +135,16 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 #' @export
 
 final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, out_file,
-                     boundary_buff = 0, ...){
+                     boundary_buff = 0){
 
   process_timer <- .headline("FINAL CANOPY HEIGHT MODEL")
+
+  .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
 
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds, tile_names)
+  .check_complete_input(trees_class_ras_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -158,9 +160,9 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
   # Get file paths
   trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
-  ndsm_paths         <- .get_rsds_tilepaths(ndsm_rsds)
-  tile_names          <- names(trees_class_ras_paths)
-  out_paths      <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
+  ndsm_paths <- .get_rsds_tilepaths(ndsm_rsds)
+  tile_names <- names(trees_class_ras_paths)
+  out_paths  <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
 
   ### BOUNDARY ----
@@ -228,7 +230,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths, overwrite = TRUE)
+  queued_tiles <- .tile_queue(out_paths)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -265,10 +267,12 @@ final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, 
 
   process_timer <- .headline("FINAL TREES")
 
+  .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
+
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_poly_rsds, tile_names)
+  .check_complete_input(trees_class_poly_rsds)
 
   # Create temporary directories
   dirs <- list(
@@ -279,7 +283,7 @@ final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, 
 
   # Get file paths
   trees_class_poly_paths <- .get_rsds_tilepaths(trees_class_poly_rsds)
-  outTrees_gpkg       <- file.path(dirs$temproot, "outTrees.gpkg")
+  outTrees_gpkg <- file.path(dirs$temproot, "outTrees.gpkg")
 
   # Select tiles
   selected_tiles <- if(is.null(tile_names)){

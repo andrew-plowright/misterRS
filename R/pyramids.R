@@ -37,8 +37,7 @@ pyramids <- function(rsds, overwrite = FALSE){
     gpal2::gdaladdo(
       r = "average",
       ro = TRUE,
-      procFile,
-      c(2,4,8,16,32,64)
+      procFile
     )
 
     pb$tick()
