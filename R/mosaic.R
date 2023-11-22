@@ -158,10 +158,10 @@ mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL
   # Create VRT tiles with non-overlapping buffer
   for(tile_name in names(tilePaths)){
 
-    tile <- ts[tile_name,]
+    tile <- sf::st_as_sf(ts[tile_name,][[overlap]])
 
     gpal2::gdalbuildvrt(
-      te = raster::extent(tile[[overlap]]),
+      te = terra::ext(tile),
       temp_tiles[tile_name],
       tilePaths[tile_name]
     )

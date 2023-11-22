@@ -64,35 +64,35 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
     boundary_tif_path  <- file.path(dirs$boundary_tif, paste0(tile_name, ".tif"))
 
     # Read seg class raster
-    trees_class_ras <- raster::raster(trees_class_ras_path)
+    trees_class_ras <- terra::rast(trees_class_ras_path)
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
       a = "Mask",
       a_nodata = 0,
       co = c("COMPRESS=LZW"),
-      te = raster::extent(trees_class_ras),
-      tr = raster::res(trees_class_ras),
+      te = terra::ext(trees_class_ras),
+      tr = terra::res(trees_class_ras),
       ot = "UInt16",
       boundary_mask_path,
       boundary_tif_path
     )
 
     # Read boundary mask tile
-    boundary_mask <- raster::raster(boundary_tif_path)
+    boundary_mask <- terra::rast(boundary_tif_path)
 
     # Apply boundary
     trees_class_ras[is.na(boundary_mask)] <- NA
 
     # Remove 'NotTree' classes
-    attTable <- trees_class_ras@data@attributes[[1]]
-    canopyClassesNum <- attTable[match(canopyClasses, as.character(attTable$category)), "ID"]
-    canopyClass <- raster::match(trees_class_ras, canopyClassesNum)
+    attTable <- terra::cats(trees_class_ras)[[1]]
+    canopyClassesNum <- attTable[match(canopyClasses, as.character(attTable[,2])), 1]
+    canopyClass <- terra::match(trees_class_ras, canopyClassesNum)
 
     canopyClass[!is.na(canopyClass)] <- 1
 
     # Write file
-    raster::writeRaster(canopyClass, out_path, datatype = "INT1U")
+    terra::writeRaster(canopyClass, out_path, datatype = "INT1U")
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 
@@ -186,42 +186,42 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
     # File paths
     trees_class_ras_path <- trees_class_ras_paths[tile_name]
-    out_path          <- out_paths[tile_name]
-    ndsm_path         <- ndsm_paths[tile_name]
-    boundary_tif_path  <- file.path(dirs$boundary_tif, paste0(tile_name, ".tif"))
+    out_path             <- out_paths[tile_name]
+    ndsm_path            <- ndsm_paths[tile_name]
+    boundary_tif_path    <- file.path(dirs$boundary_tif, paste0(tile_name, ".tif"))
 
     # Read seg class raster and nDSM
-    trees_class_ras <- raster::raster(trees_class_ras_path)
-    nDSM         <- raster::raster(nDSM_path)
+    trees_class_ras <- terra::rast(trees_class_ras_path)
+    nDSM         <- terra::rast(ndsm_path)
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
       a = "Mask",
       a_nodata = 0,
       co = c("COMPRESS=LZW"),
-      te = raster::extent(trees_class_ras),
-      tr = raster::res(trees_class_ras),
+      te = terra::ext(trees_class_ras),
+      tr = terra::res(trees_class_ras),
       ot = "UInt16",
       boundary_mask_path,
       boundary_tif_path
     )
 
     # Read boundary mask tile
-    boundary_mask <- raster::raster(boundary_tif_path)
+    boundary_mask <- terra::rast(boundary_tif_path)
 
     # Apply boundary
     nDSM[is.na(boundary_mask)] <- NA
 
     # Remove 'NotTree' classes
-    attTable <- trees_class_ras@data@attributes[[1]]
-    canopyClassesNum <- attTable[match(canopyClasses, as.character(attTable$category)), "ID"]
-    canopyClass <- raster::match(trees_class_ras, canopyClassesNum)
+    attTable <- terra::cats(trees_class_ras)[[1]]
+    canopyClassesNum <- attTable[match(canopyClasses, as.character(attTable[,2])), 1]
+    canopyClass <- terra::match(trees_class_ras, canopyClassesNum)
 
     # Mask DSM
     nDSM[is.na(canopyClass)] <- NA
 
     # Write file
-    raster::writeRaster(nDSM, out_path)
+    terra::writeRaster(nDSM, out_path)
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

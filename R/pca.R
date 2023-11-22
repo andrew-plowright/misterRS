@@ -4,11 +4,9 @@
 #' This means that the tiles don't necessarily match very well (edge effects are present),
 #' but it does maximize local variation.
 #'
-#'
 #' @export
 
-pca_local <- function(img_rsds, out_rsds,
-                      n_comp = 2, in_bands = c(1,2,3), spca = TRUE, ...){
+pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...){
 
   .env_misterRS(list(...))
 
@@ -33,28 +31,16 @@ pca_local <- function(img_rsds, out_rsds,
     out_file <- out_files[tile_name]
 
     # NOTE: Don't include the fourth band (the alpha band) or it'll mess things up
-    in_ras <- raster::brick(in_file)[[in_bands]]
+    in_ras <- terra::rast(in_file)[[in_bands]]
 
-    # Generate PCA
-    # NOTE: 'maskCheck = FALSE' saves processing time but assumes that there's no NA values
-    PCAras <- try(RStoolbox::rasterPCA(in_ras, nComp = n_comp, spca = spca, maskCheck = FALSE), silent = T)
+    # Calculate PCA model
+    pca <- prcomp(in_ras)
 
-    # Manage errors
-    if("try-error" %in% class(PCAras) ){
-
-      if(attr(PCAras,"condition")$message == "cannot use 'cor = TRUE' with a constant variable"){
-
-        # Return dummy raster
-        PCAras <- list(map = in_ras[[1:n_comp]])
-        PCAras$map <- raster::setValues(PCAras$map[[c(1,2)]],0)
-        PCAras$map <- setNames(PCAras$map, paste0("PC", 1:n_comp))
-      }else{
-        stop(PCAras, call. = FALSE)
-      }
-    }
+    # Apply model to raster
+    pca_ras <- terra::predict(in_ras, pca, index = 1:n_comp)
 
     # Write PCA
-    raster::writeRaster(PCAras$map, out_file, overwrite = overwrite)
+    terra::writeRaster(pca_ras, out_file, overwrite = overwrite)
 
     if(file.exists(out_file)){
       return("Success")

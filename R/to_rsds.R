@@ -59,12 +59,12 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
   tile_worker <-function(tile_name){
 
     # Get tile
-    tile <- ts[tile_name,]
+    tile <- sf::st_as_sf(ts[tile_name,])
 
     # Resample
     gpal2::gdalwarp(
       t_srs     = paste0("EPSG:", crs),
-      te        = raster::extent(tile[["buffs"]]),
+      te        = terra::ext(tile[["buffs"]]),
       tr        = c(res, res),
       r         = "bilinear",
       overwrite = overwrite,

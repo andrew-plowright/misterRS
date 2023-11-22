@@ -190,11 +190,11 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
     tile_metrics <- if(nrow(seg_dbf) > 0){
 
       # Read ortho and segment raster
-      o <- raster::brick(ortho_path)
-      seg_ras <- raster::raster(seg_ras_path)
+      o <- terra::rast(ortho_path)
+      seg_ras <- terra::rast(seg_ras_path)
 
       # Subset bands
-      if(max(bands) > raster::nlayers(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
+      if(max(bands) >  terra::nlyr(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
       o <- o[[bands]]
       names(o) <- met_names_prefix[names(bands)]
 
@@ -229,7 +229,7 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 
       # Compute standard metrics
       specMetrics <- do.call(cbind, lapply(zonalFun, function(zf){
-        specMetrics <- raster::zonal(o, seg_ras, fun = zf)
+        specMetrics <- terra::zonal(o, seg_ras, fun = zf)
         colnames(specMetrics) <- paste0(c("zone", names(o)), "_", zf)
         return(specMetrics)
       }))

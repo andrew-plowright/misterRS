@@ -242,6 +242,33 @@
 }
 
 
+.raster_files <- function(file_path){
+
+  raster_extensions <- list(
+    "tif" = c("tif.aux.xml", "aux.xml", "ovr", "tif.ovr", "tfw")
+  )
+
+  possible_files <- file_path
+
+  in_ext <- tools::file_ext(file_path)
+
+  if(in_ext %in% names(raster_extensions)){
+
+    file_ext <- raster_extensions[[in_ext]]
+
+    extended_files <- paste0(tools::file_path_sans_ext(file_path), ".", file_ext)
+
+    possible_files <- c(possible_files, extended_files)
+
+  }
+
+
+  existing_files <- possible_files[file.exists(possible_files)]
+
+
+  return(existing_files)
+}
+
 .read_poly_attributes <- function(path){
 
   fileext <- toupper(tools::file_ext(path))

@@ -12,29 +12,26 @@ Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
 Imports:
-    raster,
     sf,
-    APfun,
-    RSQLite,
+    terra,
     lwgeom,
-    sp,
-    rgdal,
-    R.utils,
+    lidR,
+    randomForest,
+    gpal2,
+    Biocomb,
+    RSQLite,
     foreach,
     parallel,
     doSNOW,
     progress,
-    crayon,
     foreign,
-    lidR,
-    moonBook,
+    R.utils,
     dplyr,
     tidyr,
-    ggplot2,
-    randomForest,
     withr,
-    gpal2,
-    Biocomb
+    crayon,
+    moonBook,
+    ggplot2
 Suggests: 
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

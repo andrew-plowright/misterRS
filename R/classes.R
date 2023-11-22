@@ -136,16 +136,16 @@ setClass(
 
 setMethod("show", "class_edits", function(object){
 
+  vec_num <- 0
   if(file.exists(object@SHPfile)){
-    info <- suppressWarnings(rgdal::ogrInfo(object@SHPfile))
-    vecNum <- info$nrows
-  }else{
-    vecNum <- 0
+
+    info <- sf::st_layers(object@SHPfile)
+    vec_num <- info$features[1]
   }
 
   cat(
     "CLASSIFICATION EDITS", "\n",
-    "Vectors : ", vecNum,"\n",
+    "Vectors : ", vec_num,"\n",
     sep = ""
   )
 })

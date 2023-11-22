@@ -203,8 +203,7 @@ hillshade <- function(rsds){
 
     if(overwrite){
 
-      del_files <- c(APfun::APrasterFiles(in_file), paste0(in_file, ".ovr"))
-      unlink(del_files)
+      unlink(.raster_files(in_file))
 
     }else stop("Output file exists. Set 'overwrite' to TRUE")
 

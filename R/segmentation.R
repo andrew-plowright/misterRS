@@ -350,14 +350,14 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
     in_path  <- in_paths[tile_name]
     out_path <- out_paths[tile_name]
 
-    tile <- ts[tile_name][["buffs"]]
+    tile <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
       a = seg_id,
       a_nodata = 0,
       co = c("COMPRESS=LZW"),
-      te = raster::extent(tile),
+      te = terra::ext(tile),
       tr = c(res,res),
       ot = "UInt32",
       in_path,

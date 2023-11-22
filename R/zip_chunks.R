@@ -43,13 +43,13 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
 
     sapply(tile_names, function(tile_name){
 
-      ext <- raster::extent(ts[tile_name][[overlap]])
+      tile <- ts[tile_name][[overlap]]
 
       out_file <- file.path(temp_dir, paste0(tile_name, ".tif"))
 
       # Crop to selected extent
       gpal2::gdalwarp(
-        te = ext,
+        te = terra::ext(tile),
         in_tile_paths[tile_name],
         out_file
       )
