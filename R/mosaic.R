@@ -58,8 +58,7 @@ mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL
     gpal2::gdaladdo(
       r = "average",
       ro = TRUE,
-      outFile,
-      c(2,4,8,16,32,64)
+      outFile
     )
 
   # Merge shape files

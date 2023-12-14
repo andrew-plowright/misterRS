@@ -122,8 +122,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
     gpal2::gdaladdo(
       r = "average",
       ro = TRUE,
-      R.utils::getAbsolutePath(out_file),
-      c(2,4,8,16,32,64)
+      R.utils::getAbsolutePath(out_file)
     )
 
     # Conclude
@@ -251,8 +250,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   gpal2::gdaladdo(
     r = "average",
     ro = TRUE,
-    R.utils::getAbsolutePath(out_file),
-    c(2,4,8,16,32,64)
+    R.utils::getAbsolutePath(out_file)
   )
 
   # Conclude

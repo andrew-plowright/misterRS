@@ -223,8 +223,7 @@ hillshade <- function(rsds){
   gpal2::gdaladdo(
     r = "average",
     ro = TRUE,
-    out_file,
-    c(2,4,8,16,32,64)
+    out_file
   )
 
   .conclusion(process_timer)

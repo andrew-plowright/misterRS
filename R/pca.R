@@ -142,7 +142,7 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 #'
 #' @export
 
-pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T, spca = FALSE){
+pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
 
   process_timer <- .headline("PCA MODEL")
 
@@ -161,7 +161,6 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
 
   # Assign each sample its tile
   samples[["tile_name"]] <- ts[["tiles"]]$tileName[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
-
 
   # Get unique tiles
   unique_tiles <- unique(samples[["tile_name"]])

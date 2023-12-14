@@ -9,8 +9,7 @@ pca_model(
   out_file,
   nSamples = NULL,
   in_bands = c(1, 2, 3),
-  removeBlack = T,
-  spca = FALSE
+  removeBlack = T
 )
 }
 \description{

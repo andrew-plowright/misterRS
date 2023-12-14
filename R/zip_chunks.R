@@ -37,7 +37,7 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
     # Create temporary directory
     temp_dir <- file.path(tempdir(), "zip_chunks")
     dir.create(temp_dir, showWarnings = FALSE)
-    withr::defer(unlink(temp_dir, recursive = TRUE), envir = parent.frame(1))
+    withr::defer(unlink(temp_dir, recursive = TRUE))
 
     tile_names <- setNames(names(in_tile_paths), names(in_tile_paths))
 

@@ -137,7 +137,7 @@
     # Generate 'foreach' statement
     fe <- foreach::foreach(
       tile_name = tile_names,
-      .packages = c("raster"),
+      #.packages = c("raster"),
       .errorhandling = 'pass',
       .options.snow = list(
         progress = function(n) pb$tick()
