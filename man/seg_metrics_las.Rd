@@ -5,11 +5,11 @@
 \title{Segment Metrics - LAS}
 \usage{
 seg_metrics_las(
-  seg_ras_rsds,
-  seg_poly_rsds,
+  seg_rts,
+  seg_poly_vts,
   in_cat,
-  dem_rsds,
-  out_rsds,
+  dem_rts,
+  out_rts,
   z_min,
   z_max,
   seg_id,

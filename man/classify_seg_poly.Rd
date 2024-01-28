@@ -6,8 +6,8 @@
 \usage{
 classify_seg_poly(
   classifier_file,
-  seg_poly_rsds,
-  seg_class_poly_rsds,
+  seg_poly_vts,
+  seg_class_poly_vts,
   class_edits,
   metrics,
   seg_id,

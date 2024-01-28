@@ -61,6 +61,36 @@ setClass(
   )
 )
 
+setMethod("show", "vts", function(object){
+
+
+  cat(
+    "REMOTE SENSING DATASET", "\n",
+    "ID      : ", object@id ,  "\n",
+    "Name    : ", object@name, "\n",
+    "Dir     : ", object@dir,  "\n",
+    sep = ""
+  )
+
+})
+
+
+#' Raster tileset
+#' @export
+
+vts <- function(id, name, dir){
+
+  # Create folder
+  if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+
+  # Create tile folder
+  dir_tiles <- file.path(dir, "tiles")
+  if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
+
+  # Create new object
+  new("vts", id = id, name = name, dir = dir)
+}
+
 
 #' Training Data (class)
 #' @export

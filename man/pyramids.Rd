@@ -4,7 +4,7 @@
 \alias{pyramids}
 \title{Generate pyramids}
 \usage{
-pyramids(rsds, overwrite = FALSE)
+pyramids(in_rts, overwrite = FALSE)
 }
 \description{
 Generate pyramids

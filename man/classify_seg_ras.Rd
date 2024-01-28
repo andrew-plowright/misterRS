@@ -5,9 +5,9 @@
 \title{Classify raster segments}
 \usage{
 classify_seg_ras(
-  seg_class_poly_rsds,
-  seg_ras_rsds,
-  seg_class_ras_rsds,
+  seg_class_poly_vts,
+  seg_rts,
+  seg_class_rts,
   seg_classes,
   seg_id,
   ...

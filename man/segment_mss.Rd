@@ -5,7 +5,7 @@
 \title{Mean Segment Shift 2 - Segment Into Single GeoPackage}
 \usage{
 segment_mss(
-  img_rsds,
+  img_rts,
   out_gpkg,
   spat = 19.5,
   spec = 17,

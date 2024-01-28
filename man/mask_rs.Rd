@@ -4,7 +4,7 @@
 \alias{mask_rs}
 \title{Mask}
 \usage{
-mask_rs(in_rsds, out_rsds, mask_rsds, mask_na = FALSE, use_neibs = FALSE, ...)
+mask_rs(in_rts, out_rts, mask_rts, mask_na = FALSE, use_neibs = FALSE, ...)
 }
 \arguments{
 \item{use_neibs}{logical. Set to TRUE if you wish to use include buffered sections from neighbouring tiles.}

@@ -6,8 +6,8 @@
 \usage{
 surface_dsm(
   in_cat,
-  dem_rsds = NULL,
-  out_rsds,
+  dem_rts = NULL,
+  out_rts,
   alg,
   res = 0.25,
   z_min = 0,
@@ -18,5 +18,5 @@ surface_dsm(
 )
 }
 \description{
-Generate a DSM. If \code{dem_rsds} is provided, it will generate a normalized DSM (nDSM)
+Generate a DSM. If \code{dem_rts} is provided, it will generate a normalized DSM (nDSM)
 }

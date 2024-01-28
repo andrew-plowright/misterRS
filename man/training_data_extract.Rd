@@ -6,7 +6,7 @@
 \usage{
 training_data_extract(
   training_data,
-  seg_poly_rsds,
+  seg_poly_vts,
   metrics,
   seg_id,
   overwrite = FALSE
