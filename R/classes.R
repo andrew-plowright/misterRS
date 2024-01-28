@@ -41,7 +41,7 @@ rts <- function(id, name, dir, ext){
 
   # Create tile folder
   dir_tiles <- file.path(dir, "tiles")
-  if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
+  if(!dir.exists(dir_tiles)) dir.create(dir_tiles, recursive = TRUE)
 
   # Create new object
   new("rts", id = id, name = name, dir = dir, ext = ext)
@@ -57,7 +57,8 @@ setClass(
   representation(
     id   = 'character',
     name = 'character',
-    dir  = 'character'
+    dir  = 'character',
+    gpkg = 'character'
   )
 )
 
@@ -78,17 +79,24 @@ setMethod("show", "vts", function(object){
 #' Raster tileset
 #' @export
 
-vts <- function(id, name, dir){
+vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
-  # Create tile folder
-  dir_tiles <- file.path(dir, "tiles")
-  if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
+  # vts_path <- file.path(dir, paste0(id, ".gpkg"))
+  #
+  # if(!file.exists(vts_path)){
+  #
+  #   blank_sf <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(tile_name = character()))
+  #
+  #   sf::st_write(blank_sf,  vts_path, quiet = TRUE, layer = "layer",  delete_layer = TRUE)
+  # }
+
+  gpkg <- file.path(dir, paste0(id, ".gpkg"))
 
   # Create new object
-  new("vts", id = id, name = name, dir = dir)
+  new("vts", id = id, name = name, dir = dir, gpkg = gpkg)
 }
 
 

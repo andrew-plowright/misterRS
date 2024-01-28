@@ -57,6 +57,42 @@
 }
 
 
+
+.vts_write <- function(in_sf, out_vts, tile_name, overwrite = FALSE){
+
+  in_sf[["tile_name"]] <- tile_name
+
+
+  if(!file.exists(out_vts@gpkg)){
+
+    sf::st_write(in_sf, out_vts@gpkg, layer="layer", quiet=TRUE)
+
+  }else{
+
+    con = DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
+    withr::defer(DBI::dbDisconnect(con))
+
+    # Does tile already exist?
+    has_tile <- .vts_has_tile(con, tile_name)
+
+    if(has_tile){
+      if(overwrite){
+        DBI::dbExecute(con, paste0("DELETE FROM layer WHERE tile_name = '", tile_name,"'"))
+      }else{
+        stop("Tile already exists")
+      }
+    }
+
+    sf::st_write(in_sf, out_vts@gpkg, layer="layer", append = TRUE, quiet = TRUE)
+  }
+
+}
+
+.vts_has_tile <- function(con, tile_name){
+
+  DBI::dbGetQuery(con, paste0("SELECT COUNT(1) FROM layer WHERE tile_name = '", tile_name,"'"))[,1] != 0
+}
+
 .headline <- function(headline){
 
   cat(
@@ -190,47 +226,81 @@
 }
 
 
-.tile_queue <- function(tile_paths,
+.tile_queue <- function(xts,
                         overwrite = getOption("misterRS.overwrite"),
-                        tile_names = getOption("misterRS.tile_names"),
+                        selected_tiles = getOption("misterRS.tile_names"),
                         clusters = getOption("misterRS.clusters"),
                         verbose = getOption("misterRS.verbose")){
 
-  selected_tiles <- if(is.null(tile_names)){
+  in_class <- class(xts)
 
-    names(tile_paths)
+  ts <- .get_tilescheme()
+
+  # Get selected tiles
+  if(is.null(selected_tiles)){
+
+    # If set to NULL, process all tiles
+    selected_tiles <- ts$tileName
 
   }else{
 
-    notExist <- !tile_names %in% names(tile_paths)
-    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(tile_names[notExist], collapse = "\n  "))
+    # If specific tiles have been selected, verify that they exist in the tile scheme
+    notExist <- !selected_tiles %in% ts$tileName
+    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[notExist], collapse = "\n  "))
 
-    tile_names
   }
 
-  proc_tiles <- if(overwrite){
+  # Choose which tiles to process
+  proc_tiles <- selected_tiles
 
-    selected_tiles
+  # If not overwriting, subset only non-existent tiles
+  if(length(proc_tiles) > 0){
 
-  }else{
+    if(in_class == "vts"){
 
-    selected_tiles[!file.exists(tile_paths[selected_tiles])]
+      if(!overwrite){
+        con = DBI::dbConnect(RSQLite::SQLite(),dbname= xts@gpkg)
+        withr::defer(DBI::dbDisconnect(con))
+
+        tile_count <- DBI::dbGetQuery(
+          con,paste0(
+            "WITH st(tile_name) AS (VALUES ('", paste(proc_tiles, collapse="'), ('"), "'))
+          SELECT st.tile_name, count(layer.tile_name) as count FROM st left join layer on st.tile_name = layer.tile_name
+          GROUP BY st.tile_name")
+        )
+
+        proc_tiles <- tile_count[tile_count$count == 0, "tile_name"]
+      }
+
+
+    }else if(in_class == "rts"){
+
+      if(!overwrite){
+
+        tile_paths   <- .rts_tile_paths(xts)
+
+        proc_tiles <- proc_tiles[!file.exists(tile_paths[proc_tiles])]
+      }
+
+    }else stop("Invalid input")
   }
 
   if(verbose){
     cat(
       "  Overwrite        : ", overwrite, "\n",
       "  Clusters         : ", clusters, "\n",
-      "  Total tiles      : ", length(tile_paths), "\n",
+      "  Total tiles      : ", length(ts), "\n",
       "  Selected tiles   : ", length(selected_tiles),  "\n",
       "  Queued tiles     : ", length(proc_tiles),      "\n",
       sep = ""
     )
   }
 
-
   return(proc_tiles)
 }
+
+
+
 
 
 .raster_files <- function(file_path){

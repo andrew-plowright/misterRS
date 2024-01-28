@@ -4,7 +4,7 @@
 \alias{vts}
 \title{Raster tileset}
 \usage{
-vts(id, name, dir)
+vts(id, name, dir, gpkg, proj = getOption("misterRS.crs"))
 }
 \description{
 Raster tileset

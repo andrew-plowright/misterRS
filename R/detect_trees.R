@@ -23,7 +23,6 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   # Get file paths
   CHM_paths <- .rts_tile_paths(chm_rts)
-  out_paths <- .rts_tile_paths(ttops_vts)
 
   # Write function
   win_fun_text <- deparse(win_fun)[2]
@@ -36,39 +35,36 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
     # Paths
     CHM_path  <- CHM_paths[tile_name]
-    out_path  <- out_paths[tile_name]
 
     # Get tile and buff
-    tile <- ts[tile_name][["tiles"]]
-    buff <- ts[tile_name][["buffs"]]
+    tile <- sf::st_as_sf(ts[tile_name][["tiles"]])
 
     # Read raster
     CHM  <- terra::rast(CHM_path)
 
     # Function for creating blank treetop SHP file
-    no_ttops <- sf::st_sf(
-      geometry = sf::st_sfc(crs = sf::st_crs( proj)),
-      list(treeID = integer(), height = numeric(), winRadius = numeric())
-    )
+    # no_ttops <- sf::st_sf(
+    #   geometry = sf::st_sfc(crs = sf::st_crs( proj)),
+    #   list(treeID = integer(), height = numeric(), winRadius = numeric())
+    # )
 
     # Detect new treetops
     det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
 
-    # Save output
-    sf::st_write(det_ttops, out_path, delete_dsn = overwrite, quiet = TRUE)
+    # Subset treetops
+    det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
 
-    if(file.exists(out_path)){
-      return("Success")
-    }else{
-      stop("Failed to create tile")
-    }
+    # Write
+    .vts_write(det_ttops, ttops_vts, tile_name, overwrite = overwrite)
+
+    return("Success")
   }
 
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(ttops_vts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
