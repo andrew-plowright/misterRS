@@ -4,7 +4,7 @@
 \alias{rsds}
 \title{Remote Sensing Dataset}
 \usage{
-rsds(id, name, dir, ext, archive = FALSE)
+rsds(id, name, dir, ext)
 }
 \description{
 Remote Sensing Dataset

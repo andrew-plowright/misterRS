@@ -35,8 +35,7 @@
     misterRS.project_register = projects_log,
     misterRS.syncback_exe  = syncback_exe,
     lidR.progress          = FALSE,
-    lidR.verbose           = FALSE,
-
+    lidR.verbose           = FALSE
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])

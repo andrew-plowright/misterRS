@@ -9,8 +9,7 @@ setClass(
     id   = 'character',
     name = 'character',
     dir  = 'character',
-    ext  = 'character',
-    archive = 'logical'
+    ext  = 'character'
   )
 )
 
@@ -26,7 +25,6 @@ setMethod("show", "rsds", function(object){
     "Dir     : ", object@dir,  "\n",
     "Ext     : ", object@ext,  "\n",
     "Tiles   : ", length(filePaths[file.exists(filePaths)]), "/", length(filePaths), "\n",
-    "Archive : ", object@archive, "\n",
     sep = ""
   )
 
@@ -35,7 +33,7 @@ setMethod("show", "rsds", function(object){
 #' Remote Sensing Dataset
 #' @export
 
-rsds <- function(id, name, dir, ext, archive = FALSE){
+rsds <- function(id, name, dir, ext){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
@@ -45,7 +43,7 @@ rsds <- function(id, name, dir, ext, archive = FALSE){
   if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
 
   # Create new object
-  new("rsds", id = id, name = name, dir = dir, ext = ext, archive = archive)
+  new("rsds", id = id, name = name, dir = dir, ext = ext)
 }
 
 
