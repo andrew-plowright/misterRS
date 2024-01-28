@@ -21,8 +21,8 @@ merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
   #ts <- .get_tilescheme()
 
   # Get file paths
-  out_files  <- .get_rsds_tilepaths(out_rsds)
-  in_files <- lapply(in_rsds, function(in_rsds_i){.get_rsds_tilepaths(in_rsds_i)})
+  out_files  <- .rsds_tile_paths(out_rsds)
+  in_files <- lapply(in_rsds, function(in_rsds_i){.rsds_tile_paths(in_rsds_i)})
 
   # Read zones
   zones <- sf::st_read(zones_path, quiet = TRUE)

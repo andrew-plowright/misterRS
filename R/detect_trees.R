@@ -26,8 +26,8 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
   proj <- getOption("misterRS.crs")
 
   # Get file paths
-  CHM_paths <- .get_rsds_tilepaths(chm_rsds)
-  out_paths <- .get_rsds_tilepaths(ttops_rsds)
+  CHM_paths <- .rsds_tile_paths(chm_rsds)
+  out_paths <- .rsds_tile_paths(ttops_rsds)
 
   # Write function
   win_fun_text <- deparse(win_fun)[2]
@@ -56,7 +56,7 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
     )
 
     # Detect new treetops
-    det_ttops <- tryCatch(ForestTools::vwf(CHM, win_fun, min_hgt), error = function(e) no_ttops)
+    det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
 
     # Save output
     sf::st_write(det_ttops, out_path, delete_dsn = overwrite, quiet = TRUE)

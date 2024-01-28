@@ -34,7 +34,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
+  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
   tile_names  <- names(trees_class_ras_paths)
   out_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -158,8 +158,8 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .get_rsds_tilepaths(trees_class_ras_rsds)
-  ndsm_paths <- .get_rsds_tilepaths(ndsm_rsds)
+  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
+  ndsm_paths <- .rsds_tile_paths(ndsm_rsds)
   tile_names <- names(trees_class_ras_paths)
   out_paths  <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -280,7 +280,7 @@ final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, 
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_poly_paths <- .get_rsds_tilepaths(trees_class_poly_rsds)
+  trees_class_poly_paths <- .rsds_tile_paths(trees_class_poly_rsds)
   outTrees_gpkg <- file.path(dirs$temproot, "outTrees.gpkg")
 
   # Select tiles

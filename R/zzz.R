@@ -34,10 +34,13 @@
     misterRS.projects_root = projects_root,
     misterRS.project_register = projects_log,
     misterRS.syncback_exe  = syncback_exe,
-    rgdal_show_exportToProj4_warnings="none",
     lidR.progress          = FALSE,
-    lidR.verbose           = FALSE
+    lidR.verbose           = FALSE,
+
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])
+
+  # Terra options
+  terra::terraOptions(progress=0)
 }

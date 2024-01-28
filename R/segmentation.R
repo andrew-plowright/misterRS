@@ -39,7 +39,7 @@ segment_mss <- function(img_rsds, out_gpkg,
 
   ### CREATE VRT MOSAIC ----
 
-  tile_paths <- .get_rsds_tilepaths(img_rsds)
+  tile_paths <- .rsds_tile_paths(img_rsds)
   if(!is.null(tile_names)) tile_paths <- tile_paths[tile_names]
   mosaic_vrt <- .mosaic_vrt(tile_paths, ts, overlap = "nbuffs")
 
@@ -134,7 +134,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
   ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
 
   # Get output paths
-  out_paths <- .get_rsds_tilepaths(seg_poly_rsds)
+  out_paths <- .rsds_tile_paths(seg_poly_rsds)
 
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
@@ -249,9 +249,9 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
   ts <- .get_tilescheme()
 
   # Get file paths
-  CHM_paths   <- .get_rsds_tilepaths(chm_rsds)
-  ttops_paths <- .get_rsds_tilepaths(ttops_rsds)
-  out_paths   <- .get_rsds_tilepaths(out_rsds)
+  CHM_paths   <- .rsds_tile_paths(chm_rsds)
+  ttops_paths <- .rsds_tile_paths(ttops_rsds)
+  out_paths   <- .rsds_tile_paths(out_rsds)
 
   ### CREATE WORKER ----
 
@@ -340,8 +340,8 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
   ts <- .get_tilescheme()
 
   # Get output file paths
-  in_paths  <- .get_rsds_tilepaths(seg_poly_rsds)
-  out_paths <- .get_rsds_tilepaths(seg_ras_rsds)
+  in_paths  <- .rsds_tile_paths(seg_poly_rsds)
+  out_paths <- .rsds_tile_paths(seg_ras_rsds)
 
   ### CREATE WORKER ----
 

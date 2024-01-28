@@ -17,7 +17,7 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
   ts <- .get_tilescheme()
 
   # Get output file paths
-  out_files <- .get_rsds_tilepaths(out_rsds)
+  out_files <- .rsds_tile_paths(out_rsds)
 
   # # Get CRS
   crs <- getOption("misterRS.crs")
@@ -115,8 +115,8 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
   }
 
   # Get file paths
-  out_files <- .get_rsds_tilepaths(out_rsds)
-  if(is_nDSM) DEM_paths <- .get_rsds_tilepaths(dem_rsds)
+  out_files <- .rsds_tile_paths(out_rsds)
+  if(is_nDSM) DEM_paths <- .rsds_tile_paths(dem_rsds)
 
   ### CYCLE THROUGH TILES ----
 
@@ -144,7 +144,8 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
     if(is.null(LAStile)){
 
       # Blank nDSM
-      out_DSM <- terra::setValues(out_template, NA)
+      blank_value <- if(is_nDSM) 0 else NA
+      out_DSM <- terra::setValues(out_template, blank_value)
 
     }else{
 
@@ -157,8 +158,9 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
       out_DSM <- out_DSM + terra::setValues(out_template,  runif(terra::ncell(out_DSM), min = 0, max = 0.001))
 
       # Fill in gaps
-      out_DSM[is.na(out_DSM)] <- 0
-
+      if(is_nDSM){
+        out_DSM[is.na(out_DSM)] <- 0
+      }
     }
 
     # Write DSM
@@ -193,7 +195,7 @@ hillshade <- function(rsds){
 
   process_timer <- .headline("HILLSHADE")
 
-  in_file <- .get_rsds_mosaicpath(rsds)
+  in_file <- .rsds_mosaic_path(rsds)
 
   if(!file.exists(in_file)) stop("No mosaic file found")
 

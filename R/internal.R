@@ -1,6 +1,6 @@
 .check_complete_input <- function(RSDS){
 
-  filePaths <- .get_rsds_tilepaths(RSDS)
+  filePaths <- .rsds_tile_paths(RSDS)
 
   tile_names <- getOption("misterRS.tile_names")
 
@@ -13,7 +13,7 @@
   }
 
 
-  if(!all(file.exists(filePaths))) stop("Input RSDS '", RSDS@name, "' is in_complete", call. = FALSE)
+  if(!all(file.exists(filePaths))) stop("Input RSDS '", RSDS@name, "' is in complete", call. = FALSE)
 }
 
 
@@ -34,7 +34,7 @@
 }
 
 
-.get_rsds_tilepaths <- function(rsds){
+.rsds_tile_paths <- function(rsds){
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -52,17 +52,30 @@
 
 }
 
-.get_rsds_mosaicpath <- function(rsds){
+.rsds_mosaic_path <- function(rsds){
 
   ext <- if( rsds@ext == 'shp') 'gpkg' else rsds@ext
 
   # Get file path
-  mosaicPath <- file.path(rsds@dir, paste0(rsds@id, ".", ext))
+  mosaic_path <- file.path(rsds@dir, paste0(rsds@id, ".", ext))
 
   # Get absolute path
-  mosaicPath <- suppressMessages(R.utils::getAbsolutePath(mosaicPath))
+  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
 
-  return(mosaicPath)
+  return(mosaic_path)
+}
+
+
+
+.rsds_metadata_path <- function(rsds){
+
+  # Get file path
+  metadata_path <- file.path(rsds@dir, paste0(rsds@id, "_metadata.json"))
+
+  # Get absolute path
+  metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
+
+  return(metadata_path)
 }
 
 

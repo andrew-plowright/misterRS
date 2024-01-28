@@ -15,7 +15,7 @@ mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL
   ts <- .get_tilescheme()
 
   # Get output file
-  if(is.null(outFile)) outFile <- .get_rsds_mosaicpath(rsds)
+  if(is.null(outFile)) outFile <- .rsds_mosaic_path(rsds)
 
   if(!dir.exists(dirname(outFile))) stop("Output directory not found")
 
@@ -33,7 +33,7 @@ mosaic_rs <- function(rsds, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL
   .check_complete_input(rsds)
 
   # Get input paths
-  in_paths <- .get_rsds_tilepaths(rsds)
+  in_paths <- .rsds_tile_paths(rsds)
   if(!is.null(tile_names)) in_paths <- in_paths[tile_names]
 
   # Merge rasters

@@ -20,8 +20,8 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
   ts <- .get_tilescheme()
 
   # Get file paths
-  out_files   <- .get_rsds_tilepaths(out_rsds)
-  ortho_files <- .get_rsds_tilepaths(img_rsds)
+  out_files   <- .rsds_tile_paths(out_rsds)
+  ortho_files <- .rsds_tile_paths(img_rsds)
 
   ### PROCESS ----
 
@@ -90,8 +90,8 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
   ts <- .get_tilescheme()
 
   # Get file paths
-  out_files   <- .get_rsds_tilepaths(out_rsds)
-  ortho_files <- .get_rsds_tilepaths(img_rsds)
+  out_files   <- .rsds_tile_paths(out_rsds)
+  ortho_files <- .rsds_tile_paths(img_rsds)
 
   # Read model
   model <- readRDS(PCA_model)
@@ -147,7 +147,7 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
   process_timer <- .headline("PCA MODEL")
 
   # Get paths
-  in_paths <- .get_rsds_tilepaths(img_rsds)
+  in_paths <- .rsds_tile_paths(img_rsds)
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -198,7 +198,7 @@ pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), 
   # Remove NAs
   remove_nas <- apply(samples_vals, 1, function(x) any(is.na(x)))
   samples_vals <- samples_vals[!remove_nas,]
-  cat("  Removing NA px   : ", length(remove_nas[remove_nas]), "\n", sep = "")
+  cat("  Removing NA px    : ", length(remove_nas[remove_nas]), "\n", sep = "")
 
   # Remove black points
   if(removeBlack){

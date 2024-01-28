@@ -17,7 +17,7 @@ setClass(
 
 setMethod("show", "rsds", function(object){
 
-  filePaths <- .get_rsds_tilepaths(object)
+  filePaths <- .rsds_tile_paths(object)
 
   cat(
     "REMOTE SENSING DATASET", "\n",

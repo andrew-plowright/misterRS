@@ -6,7 +6,7 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 
-  in_tile_paths <- .get_rsds_tilepaths(in_rsds)
+  in_tile_paths <- .rsds_tile_paths(in_rsds)
 
   cat("ZIP CHUNKS", "\n\n",
       "  Chunk size : ", chunk_size,"\n",

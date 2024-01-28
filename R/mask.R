@@ -23,9 +23,9 @@ mask_rs <- function(in_rsds, out_rsds, mask_rsds,
   .check_complete_input(mask_rsds)
 
   # Get paths
-  in_paths   <- .get_rsds_tilepaths(in_rsds)
-  out_paths  <- .get_rsds_tilepaths(out_rsds)
-  mask_paths <- .get_rsds_tilepaths(mask_rsds)
+  in_paths   <- .rsds_tile_paths(in_rsds)
+  out_paths  <- .rsds_tile_paths(out_rsds)
+  mask_paths <- .rsds_tile_paths(mask_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()

@@ -11,6 +11,7 @@ seg_metrics_tex(
   out_rsds,
   seg_id,
   band = 1,
+  discretize_range = NULL,
   prefix = "",
   n_grey = 16,
   ...

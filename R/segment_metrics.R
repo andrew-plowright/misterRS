@@ -3,7 +3,7 @@
 #' @export
 
 seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
-                            seg_id, band = 1,
+                            seg_id, band = 1, discretize_range = NULL,
                             prefix = "", n_grey = 16, ...){
 
   .env_misterRS(list(...))
@@ -23,19 +23,24 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
     .check_complete_input(img_rsds)
 
     # Get file paths
-    seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
-    seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-    img_paths      <- .get_rsds_tilepaths(img_rsds)
-    out_paths      <- .get_rsds_tilepaths(out_rsds)
+    seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
+    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
+    img_paths      <- .rsds_tile_paths(img_rsds)
+    out_paths      <- .rsds_tile_paths(out_rsds)
 
     # Get tilepaths
     ts <- .get_tilescheme()
 
     cat("  Image            :", img_rsds@name, "\n")
 
+  ### GET RANGE ----
+    if(is.null(discretize_range)){
+      discretize_range <- unlist(.metadata(img_rsds, "range")[[band]])
+    }
+
   ### CREATE EMPTY METRICS TABLE ----
 
-    met_names <- names(ForestTools:::.glcm_stats(1))
+    met_names <- names( GLCMTextures::glcm_metrics(matrix()))
     met_names  <- c(seg_id, gsub("^glcm_", paste0(prefix, "glcm_"),  met_names))
     empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names), nrow = 0)), met_names)
 
@@ -66,28 +71,35 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
         # Get image
         img  <- terra::rast(img_path, lyrs = band)
 
+        # Cap min.max va
+        img[img < min(discretize_range)] <- min(discretize_range)
+        img[img > max(discretize_range)] <- max(discretize_range)
+
         # Get minimum value and adjust value range (cannot have negative values)
-        min_value <- terra::global(img, "min", na.rm = TRUE)[,1]
-        img <- img - min_value
+        #min_value <- terra::global(img, "min", na.rm = TRUE)[,1]
+        #img <- img - min_value
 
         # Remove values below 0 (cannot have NA values)
-        img[is.na(img)] <- 0
+        #img[is.na(img)] <- 0
 
         # Compute GLCMs
-        glcm <- ForestTools::glcm(img, seg_ras, n_grey = n_grey)
+        glcm_metrics <- ForestTools::glcm(img, seg_ras, n_grey = n_grey, discretize_range = discretize_range)
+
+        # Remove NAs
+        glcm_metrics[is.na(glcm_metrics)] <- 0
 
         # Add prefix
-        names(glcm)  <- gsub("^glcm_", paste0(prefix, "glcm_"),  names(glcm))
+        names(glcm_metrics)  <- gsub("^glcm_", paste0(prefix, "glcm_"),  names(glcm_metrics))
 
         # Add segment ID
-        glcm <- cbind(row.names(glcm), glcm)
-        colnames(glcm)[1] <- seg_id
+        glcm_metrics <- cbind(row.names(glcm_metrics), glcm_metrics)
+        colnames(glcm_metrics)[1] <- seg_id
 
         # Reorder to match 'seg_dbf'
-        glcm             <- glcm[as.character(seg_dbf[[seg_id]]),]
-        glcm[[seg_id]]   <- seg_dbf[[seg_id]]
+        glcm_metrics             <- glcm_metrics[as.character(seg_dbf[[seg_id]]),]
+        glcm_metrics[[seg_id]]   <- seg_dbf[[seg_id]]
 
-        glcm
+        glcm_metrics
 
       # Return empty table of metrics
       }else empty_metrics
@@ -141,10 +153,10 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
   .check_complete_input(img_rsds)
 
   # Get file paths
-  seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
-  seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-  ortho_paths   <- .get_rsds_tilepaths(img_rsds)
-  out_paths     <- .get_rsds_tilepaths(out_rsds)
+  seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
+  seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
+  ortho_paths   <- .rsds_tile_paths(img_rsds)
+  out_paths     <- .rsds_tile_paths(out_rsds)
 
   # Get tilepaths
   ts <- .get_tilescheme()
@@ -299,10 +311,10 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
   .check_complete_input(dem_rsds)
 
   # Get file paths
-  seg_ras_paths  <- .get_rsds_tilepaths(seg_ras_rsds)
-  seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-  DEM_paths      <- .get_rsds_tilepaths(dem_rsds)
-  out_paths      <- .get_rsds_tilepaths(out_rsds)
+  seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
+  seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
+  DEM_paths      <- .rsds_tile_paths(dem_rsds)
+  out_paths      <- .rsds_tile_paths(out_rsds)
 
   # Get tile scheme
   ts <- .get_tilescheme()

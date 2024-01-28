@@ -14,9 +14,9 @@ ras_diff <- function(A_rsds, B_rsds, out_rsds, ...){
   .check_complete_input(A_rsds)
   .check_complete_input(B_rsds)
 
-  out_files <- .get_rsds_tilepaths(out_rsds)
-  A_files   <- .get_rsds_tilepaths(A_rsds)
-  B_files   <- .get_rsds_tilepaths(B_rsds)
+  out_files <- .rsds_tile_paths(out_rsds)
+  A_files   <- .rsds_tile_paths(A_rsds)
+  B_files   <- .rsds_tile_paths(B_rsds)
 
   ### CREATE WORKER ----
 

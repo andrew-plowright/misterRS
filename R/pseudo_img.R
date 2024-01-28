@@ -45,8 +45,8 @@ pseudo_img <- function(inputs, out_rsds, ...){
   ts <- .get_tilescheme()
 
   # Get file paths
-  out_files  <- .get_rsds_tilepaths(out_rsds)
-  in_files <- lapply(inputs, function(input){.get_rsds_tilepaths(input$rsds)})
+  out_files  <- .rsds_tile_paths(out_rsds)
+  in_files <- lapply(inputs, function(input){.rsds_tile_paths(input$rsds)})
 
   ### CREATE WORKER ----
 

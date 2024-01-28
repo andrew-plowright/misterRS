@@ -23,8 +23,8 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
   .check_complete_input(seg_class_ras_rsds)
 
   # Get file paths
-  seg_class_ras_paths <- .get_rsds_tilepaths(seg_class_ras_rsds)
-  out_paths           <- .get_rsds_tilepaths(out_rsds)
+  seg_class_ras_paths <- .rsds_tile_paths(seg_class_ras_rsds)
+  out_paths           <- .rsds_tile_paths(out_rsds)
 
   ts <- .get_tilescheme()
 

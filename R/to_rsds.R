@@ -22,7 +22,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
   crs <- getOption('misterRS.crs')
 
   # Get tile names
-  out_files <- .get_rsds_tilepaths(out_rsds)
+  out_files <- .rsds_tile_paths(out_rsds)
 
   if(in_ext == "tif"){
 
@@ -59,12 +59,12 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
   tile_worker <-function(tile_name){
 
     # Get tile
-    tile <- sf::st_as_sf(ts[tile_name,])
+    tile <- sf::st_as_sf(ts[tile_name,][["buffs"]])
 
     # Resample
     gpal2::gdalwarp(
       t_srs     = paste0("EPSG:", crs),
-      te        = terra::ext(tile[["buffs"]]),
+      te        = terra::ext(tile),
       tr        = c(res, res),
       r         = "bilinear",
       overwrite = overwrite,

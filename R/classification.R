@@ -30,8 +30,8 @@ training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id,
     crs <- getOption("misterRS.crs")
 
     # Get metric paths
-    met_paths <- lapply(metrics, .get_rsds_tilepaths)
-    seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
+    met_paths <- lapply(metrics, .rsds_tile_paths)
+    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
 
     # Check extensions
     .check_extension(seg_poly_rsds, c("shp", "gpkg"))
@@ -297,9 +297,9 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
     tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
     # Get file paths
-    seg_poly_paths <- .get_rsds_tilepaths(seg_poly_rsds)
-    out_paths     <- .get_rsds_tilepaths(seg_class_poly_rsds)
-    met_paths     <- lapply(metrics, .get_rsds_tilepaths)
+    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
+    out_paths     <- .rsds_tile_paths(seg_class_poly_rsds)
+    met_paths     <- lapply(metrics, .rsds_tile_paths)
 
     # Read classifier
     classifier <- readRDS(classifier_file)
@@ -435,9 +435,9 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
   .check_complete_input(seg_class_poly_rsds)
   .check_complete_input(seg_ras_rsds)
 
-  seg_class_poly_paths <- .get_rsds_tilepaths(seg_class_poly_rsds)
-  seg_ras_paths        <- .get_rsds_tilepaths(seg_ras_rsds)
-  out_paths            <- .get_rsds_tilepaths(seg_class_ras_rsds)
+  seg_class_poly_paths <- .rsds_tile_paths(seg_class_poly_rsds)
+  seg_ras_paths        <- .rsds_tile_paths(seg_ras_rsds)
+  out_paths            <- .rsds_tile_paths(seg_class_ras_rsds)
 
   ### CREATE WORKER ----
 

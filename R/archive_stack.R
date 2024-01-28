@@ -37,7 +37,7 @@ archive_stack <- function(rsds_list, prompt = TRUE, verbose = getOption('misterR
     if(verbose) cat(rs@id, "\n")
 
     # Delete mosaic
-    mosaic_paths <- .ras_aux_files(.get_rsds_mosaicpath(rs))
+    mosaic_paths <- .ras_aux_files(.rsds_mosaic_path(rs))
 
     if(length(mosaic_paths) > 1){
 
@@ -46,7 +46,7 @@ archive_stack <- function(rsds_list, prompt = TRUE, verbose = getOption('misterR
     }
 
     # Delete pyramids
-    pyramid_paths <- gsub(rs@ext, "ovr", .get_rsds_tilepaths(rs))
+    pyramid_paths <- gsub(rs@ext, "ovr", .rsds_tile_paths(rs))
     pyramid_paths <- pyramid_paths[file.exists(pyramid_paths)]
 
     if(length(pyramid_paths) > 1){
