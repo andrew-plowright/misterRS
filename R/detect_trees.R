@@ -4,7 +4,7 @@
 #'
 #' @export
 
-detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
+detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   .env_misterRS(list(...))
 
@@ -12,12 +12,8 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(chm_rsds,   "tif")
-  .check_extension(ttops_rsds, "shp")
-
   # Check that inputs are complete
-  .check_complete_input(chm_rsds)
+  .check_complete_input(chm_rts)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -26,12 +22,12 @@ detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
   proj <- getOption("misterRS.crs")
 
   # Get file paths
-  CHM_paths <- .rsds_tile_paths(chm_rsds)
-  out_paths <- .rsds_tile_paths(ttops_rsds)
+  CHM_paths <- .rts_tile_paths(chm_rts)
+  out_paths <- .rts_tile_paths(ttops_vts)
 
   # Write function
   win_fun_text <- deparse(win_fun)[2]
-  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_rsds@dir), "win_fun.txt")
+  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts@dir), "win_fun.txt")
   write(win_fun_text, win_fun_text_path)
 
   ### CREATE WORKER ----

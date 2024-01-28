@@ -2,7 +2,7 @@
 #'
 #' @export
 
-to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
+to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
 
   .env_misterRS(list(...))
 
@@ -22,7 +22,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
   crs <- getOption('misterRS.crs')
 
   # Get tile names
-  out_files <- .rsds_tile_paths(out_rsds)
+  out_files <- .rts_tile_paths(out_rts)
 
   if(in_ext == "tif"){
 

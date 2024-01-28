@@ -1,30 +1,21 @@
-.check_complete_input <- function(RSDS){
+.check_complete_input <- function(rts){
 
-  filePaths <- .rsds_tile_paths(RSDS)
+  filePaths <- .rts_tile_paths(rts)
 
   tile_names <- getOption("misterRS.tile_names")
 
   if(!is.null(tile_names)){
 
     notExist <- !tile_names %in% names(filePaths)
-    if(any(notExist)) stop("Following tile names do not exist for input '", RSDS@name ,"':\n  ", paste(tile_names[notExist], collapse = "\n  "))
+    if(any(notExist)) stop("Following tile names do not exist for input '", rts@name ,"':\n  ", paste(tile_names[notExist], collapse = "\n  "))
 
     filePaths <- filePaths[tile_names]
   }
 
 
-  if(!all(file.exists(filePaths))) stop("Input RSDS '", RSDS@name, "' is in complete", call. = FALSE)
+  if(!all(file.exists(filePaths))) stop("Input RTS '", rts@name, "' is in complete", call. = FALSE)
 }
 
-
-.check_extension <- function(RSDS, extension){
-
-    if(!any(RSDS@ext %in% extension)){
-
-    stop("Input RSDS '", RSDS@name, "' should have a '", paste(extension, collapse = "', '"), "' extension", call. = FALSE)
-
-    }
-}
 
 .get_tilescheme <- function(ts = getOption("misterRS.ts")){
 
@@ -34,13 +25,13 @@
 }
 
 
-.rsds_tile_paths <- function(rsds){
+.rts_tile_paths <- function(rts){
 
   # Get tile scheme
   ts <- .get_tilescheme()
 
   # Get file paths
-  tilePaths <- file.path(rsds@dir, "tiles", paste0(ts$tileName, ".", rsds@ext))
+  tilePaths <- file.path(rts@dir, "tiles", paste0(ts$tileName, ".", rts@ext))
 
   # Get absolute path
   tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
@@ -52,30 +43,17 @@
 
 }
 
-.rsds_mosaic_path <- function(rsds){
+.rts_mosaic_path <- function(rts){
 
-  ext <- if( rsds@ext == 'shp') 'gpkg' else rsds@ext
+  ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
 
   # Get file path
-  mosaic_path <- file.path(rsds@dir, paste0(rsds@id, ".", ext))
+  mosaic_path <- file.path(rts@dir, paste0(rts@id, ".", ext))
 
   # Get absolute path
   mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
 
   return(mosaic_path)
-}
-
-
-
-.rsds_metadata_path <- function(rsds){
-
-  # Get file path
-  metadata_path <- file.path(rsds@dir, paste0(rsds@id, "_metadata.json"))
-
-  # Get absolute path
-  metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
-
-  return(metadata_path)
 }
 
 
@@ -380,7 +358,7 @@
   # Reproject grid to tile
   las_grid <- sf::st_transform(las_grid, sf::st_crs(buff_sf))
 
-  # Get intersection between RSDS tile and LAS catalog
+  # Get intersection between tile and LAS catalog
   las_intrsc <- lengths(sf::st_intersects(las_grid, buff_sf)) > 0
 
   if(all(!las_intrsc)) return(NULL)

@@ -6,7 +6,7 @@
 #'
 #' @export
 
-canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
+canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
                         canopy_edits = NULL, openings = 1, opening_radius = 0.5, ...){
 
   .env_misterRS(list(...))
@@ -15,16 +15,12 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(seg_class_ras_rsds,  "tif")
-  .check_extension(out_rsds,   "tif")
-
   # Check that inputs are complete
-  .check_complete_input(seg_class_ras_rsds)
+  .check_complete_input(seg_class_ras_rts)
 
   # Get file paths
-  seg_class_ras_paths <- .rsds_tile_paths(seg_class_ras_rsds)
-  out_paths           <- .rsds_tile_paths(out_rsds)
+  seg_class_ras_paths <- .rts_tile_paths(seg_class_ras_rts)
+  out_paths           <- .rts_tile_paths(out_rts)
 
   ts <- .get_tilescheme()
 
@@ -59,7 +55,7 @@ canopy_mask <- function(seg_class_ras_rsds, out_rsds, canopy_classes,
 
     # Check if raster is classified
     ras_classes <- terra::cats(seg_class_ras_neibs[[tile_name]])[[1]]
-    if(is.null(ras_classes)) stop("'seg_class_ras_rsds' was an unclassified input")
+    if(is.null(ras_classes)) stop("'seg_class_ras_rts' was an unclassified input")
 
     # Merge and then crop
     seg_class_ras <- seg_class_ras_neibs %>%

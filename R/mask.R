@@ -4,28 +4,23 @@
 #'
 #' @export
 
-mask_rs <- function(in_rsds, out_rsds, mask_rsds,
+mask_rs <- function(in_rts, out_rts, mask_rts,
                  mask_na = FALSE, use_neibs = FALSE, ...){
 
   .env_misterRS(list(...))
 
-  process_timer <- .headline("MASK RSDS")
+  process_timer <- .headline("MASK")
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(in_rsds,   "tif")
-  .check_extension(out_rsds,  "tif")
-  .check_extension(mask_rsds, "tif")
-
   # Check that inputs are complete
-  .check_complete_input(in_rsds)
-  .check_complete_input(mask_rsds)
+  .check_complete_input(in_rts)
+  .check_complete_input(mask_rts)
 
   # Get paths
-  in_paths   <- .rsds_tile_paths(in_rsds)
-  out_paths  <- .rsds_tile_paths(out_rsds)
-  mask_paths <- .rsds_tile_paths(mask_rsds)
+  in_paths   <- .rts_tile_paths(in_rts)
+  out_paths  <- .rts_tile_paths(out_rts)
+  mask_paths <- .rts_tile_paths(mask_rts)
 
   # Get tile scheme
   ts <- .get_tilescheme()

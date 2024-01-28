@@ -1,7 +1,7 @@
 
-.metadata <- function(rsds, attribute){
+.metadata <- function(xts, attribute){
 
-  metadata <- .metadata_read(rsds)
+  metadata <- .metadata_read(xts)
 
   if(attribute %in% names(metadata)){
 
@@ -9,19 +9,30 @@
 
   }else{
 
-    metadata_attribute <- .metadata_calc(rsds, attribute)
+    metadata_attribute <- .metadata_calc(xts, attribute)
 
     metadata[[attribute]] <- metadata_attribute
 
-    .metadata_save(rsds, metadata)
+    .metadata_save(xts, metadata)
   }
 
   return(metadata_attribute)
 }
 
-.metadata_read <- function(rsds){
+.metadata_path <- function(xts){
 
-  metadata_path <- .rsds_metadata_path(rsds)
+  # Get file path
+  metadata_path <- file.path(xts@dir, paste0(rts@id, "_metadata.json"))
+
+  # Get absolute path
+  metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
+
+  return(metadata_path)
+}
+
+.metadata_read <- function(xts){
+
+  metadata_path <- .metadata_path(xts)
 
   if(file.exists(metadata_path)){
     metadata <- jsonlite::read_json(metadata_path)
@@ -31,26 +42,26 @@
   return(metadata)
 }
 
-.metadata_calc <- function(rsds, attribute){
+.metadata_calc <- function(xts, attribute){
   if(attribute == "range"){
-    value <- .rsds_range(rsds)
+    value <- .rts_range(xts)
   }else{
     stop("Unrecognized metadata attribute '", attribute, "'")
   }
   return(value)
 }
 
-.metadata_save <- function(rsds, metadata){
+.metadata_save <- function(xts, metadata){
 
-  metadata_path <- .rsds_metadata_path(rsds)
+  metadata_path <- .metadata_path(xts)
 
   jsonlite::write_json(metadata, metadata_path, auto_unbox=T)
 }
 
-# Compute the raster range of the RSDS
-.rsds_range <- function(rsds){
+# Compute the raster range of RTS
+.rts_range <- function(ts){
 
-  tile_paths <- .rsds_tile_paths(rsds)
+  tile_paths <- .rts_tile_paths(ts)
 
   mm <- lapply(tile_paths, function(path){
     ras <- terra::rast(path)

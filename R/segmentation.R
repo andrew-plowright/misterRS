@@ -12,7 +12,7 @@
 #'
 #' @export
 
-segment_mss <- function(img_rsds, out_gpkg,
+segment_mss <- function(img_rts, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
                  writeVectoreMode = "ulu",
                  seg_id = "polyID",
@@ -29,9 +29,7 @@ segment_mss <- function(img_rsds, out_gpkg,
   bin_file <- file.path(getOption("misterRS.orfeo"), "bin", "otbcli_Segmentation.bat")
   if(!file.exists(bin_file)) stop("Orfeo Toolbox binary not found '", bin_file, "'")
 
-  .check_extension(img_rsds, "tif")
-
-  .check_complete_input(img_rsds)
+  .check_complete_input(img_rts)
 
   # Get tiles
   ts <- .get_tilescheme()
@@ -39,7 +37,7 @@ segment_mss <- function(img_rsds, out_gpkg,
 
   ### CREATE VRT MOSAIC ----
 
-  tile_paths <- .rsds_tile_paths(img_rsds)
+  tile_paths <- .rts_tile_paths(img_rts)
   if(!is.null(tile_names)) tile_paths <- tile_paths[tile_names]
   mosaic_vrt <- .mosaic_vrt(tile_paths, ts, overlap = "nbuffs")
 
@@ -117,7 +115,7 @@ segment_mss <- function(img_rsds, out_gpkg,
 #'
 #' @export
 
-tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
+tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
 
   .env_misterRS(list(...))
 
@@ -134,7 +132,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
   ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
 
   # Get output paths
-  out_paths <- .rsds_tile_paths(seg_poly_rsds)
+  out_paths <- .rts_tile_paths(seg_poly_vts)
 
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
@@ -229,7 +227,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
 #'
 #' @export
 
-segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
+segment_watershed <- function(out_vts, chm_rts, ttops_vts,
                                   minCrownHgt = 0.3, ...){
 
   .env_misterRS(list(...))
@@ -238,20 +236,17 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(out_rsds, "shp")
-
   # Check that inputs are complete
-  .check_complete_input(chm_rsds)
-  .check_complete_input(ttops_rsds)
+  .check_complete_input(chm_rts)
+  .check_complete_input(ttops_vts)
 
   # Get tile scheme
   ts <- .get_tilescheme()
 
   # Get file paths
-  CHM_paths   <- .rsds_tile_paths(chm_rsds)
-  ttops_paths <- .rsds_tile_paths(ttops_rsds)
-  out_paths   <- .rsds_tile_paths(out_rsds)
+  CHM_paths   <- .rts_tile_paths(chm_rts)
+  ttops_paths <- .rts_tile_paths(ttops_vts)
+  out_paths   <- .rts_tile_paths(out_vts)
 
   ### CREATE WORKER ----
 
@@ -324,7 +319,7 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
 #'
 #' @export
 
-poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
+poly_to_ras <- function(seg_poly_vts, seg_rts, res, seg_id = "polyID",
                           ...){
 
   .env_misterRS(list(...))
@@ -333,15 +328,13 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(seg_poly_rsds)
-
-  .check_extension(seg_ras_rsds, "tif")
+  .check_complete_input(seg_poly_vts)
 
   ts <- .get_tilescheme()
 
   # Get output file paths
-  in_paths  <- .rsds_tile_paths(seg_poly_rsds)
-  out_paths <- .rsds_tile_paths(seg_ras_rsds)
+  in_paths  <- .rts_tile_paths(seg_poly_vts)
+  out_paths <- .rts_tile_paths(seg_rts)
 
   ### CREATE WORKER ----
 

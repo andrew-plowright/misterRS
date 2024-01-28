@@ -1,10 +1,10 @@
-#' Remote Sensing Dataset class
+#' Raster tileset
 #'
 #' @importClassesFrom TileManager tileScheme
 #' @export
 
 setClass(
-  "rsds",
+  "rts",
   representation(
     id   = 'character',
     name = 'character',
@@ -14,9 +14,9 @@ setClass(
 )
 
 
-setMethod("show", "rsds", function(object){
+setMethod("show", "rts", function(object){
 
-  filePaths <- .rsds_tile_paths(object)
+  filePaths <- .rts_tile_paths(object)
 
   cat(
     "REMOTE SENSING DATASET", "\n",
@@ -30,21 +30,36 @@ setMethod("show", "rsds", function(object){
 
 })
 
-#' Remote Sensing Dataset
+
+#' Raster tileset
 #' @export
 
-rsds <- function(id, name, dir, ext){
+rts <- function(id, name, dir, ext){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
   # Create tile folder
-  dirTiles <- file.path(dir, "tiles")
+  dir_tiles <- file.path(dir, "tiles")
   if(!dir.exists(dirTiles)) dir.create(dirTiles, recursive = TRUE)
 
   # Create new object
-  new("rsds", id = id, name = name, dir = dir, ext = ext)
+  new("rts", id = id, name = name, dir = dir, ext = ext)
 }
+
+
+#' Vetor tileset
+#'
+#' @export
+
+setClass(
+  "vts",
+  representation(
+    id   = 'character',
+    name = 'character',
+    dir  = 'character'
+  )
+)
 
 
 #' Training Data (class)

@@ -1,8 +1,8 @@
-#' Merge multiple RSDS into a single one according to zones
+#' Merge multiple VTS into a single one according to zones
 #'
 #' @export
 
-merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
+merge_vts <- function(in_vts, out_vts, zones_path, zone_field,
                     id_field = NULL, ...){
 
   .env_misterRS(list(...))
@@ -11,24 +11,20 @@ merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
 
   ### INPUT CHECKS ----
 
-  for(in_rsds_i in in_rsds){
-    .check_complete_input(in_rsds_i)
-    .check_extension(in_rsds_i,  "shp")
-  }
-  .check_extension(out_rsds,  "shp")
+  for(in_vts_i in in_vts) .check_complete_input(in_vts_i)
 
   # Get tiles
   #ts <- .get_tilescheme()
 
   # Get file paths
-  out_files  <- .rsds_tile_paths(out_rsds)
-  in_files <- lapply(in_rsds, function(in_rsds_i){.rsds_tile_paths(in_rsds_i)})
+  out_files  <- .rts_tile_paths(out_vts)
+  in_files <- lapply(in_vts, function(in_vts_i){.rts_tile_paths(in_vts_i)})
 
   # Read zones
   zones <- sf::st_read(zones_path, quiet = TRUE)
 
-  if(!all(setdiff(names(in_rsds), "<none>") %in% unique(zones[[zone_field]]))) stop(
-    "Could match list names of 'in_rsds' to the values in the '", zone_field,
+  if(!all(setdiff(names(in_vts), "<none>") %in% unique(zones[[zone_field]]))) stop(
+    "Could match list names of 'in_vts' to the values in the '", zone_field,
     "' attribute of '", basename(zones_path), "'")
 
   ### CREATE WORKER ----

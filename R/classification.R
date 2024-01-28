@@ -2,7 +2,7 @@
 #'
 #' @export
 
-training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id, overwrite = FALSE){
+training_data_extract <- function(training_data, seg_poly_vts, metrics, seg_id, overwrite = FALSE){
 
   process_timer <- .headline("EXTRACT TRAINING DATA")
 
@@ -10,10 +10,6 @@ training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id,
 
   # Check if data for this training dataset already exists
   has_data <- "data" %in% sf::st_layers(training_data@file_path)$name
-
-  if(any(sapply(metrics, class) != "rsds")){
-    stop("The 'metrics' parameter should be a list of 'rsds' class objects")
-  }
 
   if(has_data & !overwrite){
 
@@ -30,15 +26,11 @@ training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id,
     crs <- getOption("misterRS.crs")
 
     # Get metric paths
-    met_paths <- lapply(metrics, .rsds_tile_paths)
-    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-
-    # Check extensions
-    .check_extension(seg_poly_rsds, c("shp", "gpkg"))
-    for(RS in metrics) .check_extension(RS,  "csv")
+    met_paths <- lapply(metrics, .rts_tile_paths)
+    seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
 
     # Check that inputs are complete
-    .check_complete_input(seg_poly_rsds)
+    .check_complete_input(seg_poly_vts)
     for(metric_rs in metrics) .check_complete_input(metric_rs)
 
 
@@ -271,7 +263,7 @@ classifier_create <- function(training_data, classifier_file = NULL, seg_id, pre
 #'
 #' @export
 
-classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsds,
+classify_seg_poly <- function(classifier_file, seg_poly_vts, seg_class_poly_vts,
                               class_edits, metrics, seg_id, ...){
 
   .env_misterRS(list(...))
@@ -280,13 +272,8 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
 
   ### INPUT CHECKS ----
 
-    # Check extensions
-    .check_extension(seg_poly_rsds,       c("shp", "gpkg"))
-    .check_extension(seg_class_poly_rsds, c("shp", "gpkg"))
-    for(RS in metrics) .check_extension(RS, c("csv"))
-
     # Check that inputs are complete
-    .check_complete_input(seg_poly_rsds)
+    .check_complete_input(seg_poly_vts)
     for(RS in metrics) .check_complete_input(RS)
 
     # Get CRS
@@ -297,9 +284,9 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
     tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
     # Get file paths
-    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-    out_paths     <- .rsds_tile_paths(seg_class_poly_rsds)
-    met_paths     <- lapply(metrics, .rsds_tile_paths)
+    seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
+    out_paths     <- .rts_tile_paths(seg_class_poly_vts)
+    met_paths     <- lapply(metrics, .rts_tile_paths)
 
     # Read classifier
     classifier <- readRDS(classifier_file)
@@ -417,7 +404,7 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
 #'
 #' @export
 
-classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rsds,
+classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
                              seg_classes, seg_id, ...){
 
   .env_misterRS(list(...))
@@ -426,18 +413,13 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(seg_class_poly_rsds, "shp")
-  .check_extension(seg_class_ras_rsds,  "tif")
-  .check_extension(seg_ras_rsds,        "tif")
-
   # Check that inputs are complete
-  .check_complete_input(seg_class_poly_rsds)
-  .check_complete_input(seg_ras_rsds)
+  .check_complete_input(seg_class_poly_vts)
+  .check_complete_input(seg_rts)
 
-  seg_class_poly_paths <- .rsds_tile_paths(seg_class_poly_rsds)
-  seg_ras_paths        <- .rsds_tile_paths(seg_ras_rsds)
-  out_paths            <- .rsds_tile_paths(seg_class_ras_rsds)
+  seg_class_poly_paths <- .rts_tile_paths(seg_class_poly_vts)
+  seg_ras_paths        <- .rts_tile_paths(seg_rts)
+  out_paths            <- .rts_tile_paths(seg_class_rts)
 
   ### CREATE WORKER ----
 

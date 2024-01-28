@@ -6,7 +6,7 @@
 #'
 #' @export
 
-pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...){
+pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
 
   .env_misterRS(list(...))
 
@@ -14,14 +14,14 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds)
+  .check_complete_input(img_rts)
 
   # Get tiles
   ts <- .get_tilescheme()
 
   # Get file paths
-  out_files   <- .rsds_tile_paths(out_rsds)
-  ortho_files <- .rsds_tile_paths(img_rsds)
+  out_files   <- .rts_tile_paths(out_rts)
+  ortho_files <- .rts_tile_paths(img_rts)
 
   ### PROCESS ----
 
@@ -75,7 +75,7 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
 #'
 #' @export
 
-pca_global <- function(img_rsds, out_rsds, PCA_model,
+pca_global <- function(img_rts, out_rts, PCA_model,
                        n_comp = 2, in_bands = c(1,2,3), ...){
 
   .env_misterRS(list(...))
@@ -84,14 +84,14 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds)
+  .check_complete_input(img_rts)
 
   # Get tiles
   ts <- .get_tilescheme()
 
   # Get file paths
-  out_files   <- .rsds_tile_paths(out_rsds)
-  ortho_files <- .rsds_tile_paths(img_rsds)
+  out_files   <- .rts_tile_paths(out_rts)
+  ortho_files <- .rts_tile_paths(img_rts)
 
   # Read model
   model <- readRDS(PCA_model)
@@ -142,12 +142,12 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 #'
 #' @export
 
-pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
+pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
 
   process_timer <- .headline("PCA MODEL")
 
   # Get paths
-  in_paths <- .rsds_tile_paths(img_rsds)
+  in_paths <- .rts_tile_paths(img_rts)
 
   # Get tiles
   ts <- .get_tilescheme()

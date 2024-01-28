@@ -1,12 +1,12 @@
-#' Zip a RSDS by chunks
+#' Zip a RTS by chunks
 #'
 #' @export
 
-zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 25){
+zip_chunks <- function(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 25){
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 
-  in_tile_paths <- .rsds_tile_paths(in_rsds)
+  in_tile_paths <- .rts_tile_paths(in_rts)
 
   cat("ZIP CHUNKS", "\n\n",
       "  Chunk size : ", chunk_size,"\n",
@@ -18,8 +18,6 @@ zip_chunks <- function(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size =
   ts <- .get_tilescheme()
 
   if(!overlap %in% c("buffs", "nbuffs", "tiles")) stop("Invalid input for 'overlap'")
-
-  if(in_rsds@ext != "tif") stop("Only raster RSDS are currently supported")
 
   # Crop tiles if needed
   zip_tile_paths <- if(overlap == "buffs"){

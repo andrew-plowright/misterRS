@@ -9,7 +9,7 @@
 #'
 #' @export
 
-final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file,
+final_canopy <- function(trees_class_rts, canopyClasses, boundary, out_file,
                         boundary_buff = 0){
 
   .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
@@ -19,7 +19,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds)
+  .check_complete_input(trees_class_rts)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -34,7 +34,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
+  trees_class_ras_paths <- .rts_tile_paths(trees_class_rts)
   tile_names  <- names(trees_class_ras_paths)
   out_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -133,7 +133,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 
 #' @export
 
-final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, out_file,
+final_chm <- function(ndsm_rts, trees_class_rts, canopyClasses, boundary, out_file,
                      boundary_buff = 0){
 
   process_timer <- .headline("FINAL CANOPY HEIGHT MODEL")
@@ -143,7 +143,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds)
+  .check_complete_input(trees_class_rts)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -158,8 +158,8 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
-  ndsm_paths <- .rsds_tile_paths(ndsm_rsds)
+  trees_class_ras_paths <- .rts_tile_paths(trees_class_rts)
+  ndsm_paths <- .rts_tile_paths(ndsm_rts)
   tile_names <- names(trees_class_ras_paths)
   out_paths  <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -261,7 +261,7 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
 #' @export
 
-final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, tile_names = NULL){
+final_trees <- function(trees_class_poly_vts, reclassList, boundary, out_file, tile_names = NULL){
 
   process_timer <- .headline("FINAL TREES")
 
@@ -270,7 +270,7 @@ final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, 
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_poly_rsds)
+  .check_complete_input(trees_class_poly_vts)
 
   # Create temporary directories
   dirs <- list(
@@ -280,7 +280,7 @@ final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, 
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_poly_paths <- .rsds_tile_paths(trees_class_poly_rsds)
+  trees_class_poly_paths <- .rts_tile_paths(trees_class_poly_vts)
   outTrees_gpkg <- file.path(dirs$temproot, "outTrees.gpkg")
 
   # Select tiles

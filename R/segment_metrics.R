@@ -2,7 +2,7 @@
 #'
 #' @export
 
-seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
+seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
                             seg_id, band = 1, discretize_range = NULL,
                             prefix = "", n_grey = 16, ...){
 
@@ -12,30 +12,25 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 
   ### INPUT CHECKS ----
 
-    # Check extensions
-    .check_extension(seg_ras_rsds, "tif")
-    .check_extension(img_rsds,    "tif")
-    .check_extension(out_rsds,    "csv")
-
     # Check complete inputs
-    .check_complete_input(seg_ras_rsds)
-    .check_complete_input(seg_poly_rsds)
-    .check_complete_input(img_rsds)
+    .check_complete_input(seg_rts)
+    .check_complete_input(seg_poly_vts)
+    .check_complete_input(img_rts)
 
     # Get file paths
-    seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
-    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-    img_paths      <- .rsds_tile_paths(img_rsds)
-    out_paths      <- .rsds_tile_paths(out_rsds)
+    seg_ras_paths  <- .rts_tile_paths(seg_rts)
+    seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
+    img_paths      <- .rts_tile_paths(img_rts)
+    out_paths      <- .rts_tile_paths(out_rts)
 
     # Get tilepaths
     ts <- .get_tilescheme()
 
-    cat("  Image            :", img_rsds@name, "\n")
+    cat("  Image            :", img_rts@name, "\n")
 
   ### GET RANGE ----
     if(is.null(discretize_range)){
-      discretize_range <- unlist(.metadata(img_rsds, "range")[[band]])
+      discretize_range <- unlist(.metadata(img_rts, "range")[[band]])
     }
 
   ### CREATE EMPTY METRICS TABLE ----
@@ -60,7 +55,7 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 
       # Read segment DBF
       seg_dbf <- .read_poly_attributes(seg_poly_path)
-      if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+      if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
 
       # Compute metrics
       tile_metrics <- if(nrow(seg_dbf) > 0){
@@ -132,7 +127,7 @@ seg_metrics_tex <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 #'
 #' @export
 
-seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
+seg_metrics_spec <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
                            seg_id, prefix = NULL, ...){
 
@@ -142,21 +137,16 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(img_rsds,  "tif")
-  .check_extension(seg_ras_rsds, "tif")
-  .check_extension(out_rsds,    "csv")
-
   # Check complete inputs
-  .check_complete_input(seg_ras_rsds)
-  .check_complete_input(seg_poly_rsds)
-  .check_complete_input(img_rsds)
+  .check_complete_input(seg_rts)
+  .check_complete_input(seg_poly_vts)
+  .check_complete_input(img_rts)
 
   # Get file paths
-  seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
-  seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-  ortho_paths   <- .rsds_tile_paths(img_rsds)
-  out_paths     <- .rsds_tile_paths(out_rsds)
+  seg_ras_paths  <- .rts_tile_paths(seg_rts)
+  seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
+  ortho_paths   <- .rts_tile_paths(img_rts)
+  out_paths     <- .rts_tile_paths(out_rts)
 
   # Get tilepaths
   ts <- .get_tilescheme()
@@ -196,7 +186,7 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 
     # Read segment DBF
     seg_dbf <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
 
     # Compute tile metrics
     tile_metrics <- if(nrow(seg_dbf) > 0){
@@ -289,7 +279,7 @@ seg_metrics_spec <- function(seg_ras_rsds, seg_poly_rsds, img_rsds, out_rsds,
 #'
 #' @export
 
-seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_rsds,
+seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
                           z_min, z_max,
                           seg_id, prefix = NULL,
                           is_ground_classified = NULL, is_full_classified = NULL, is_rgb = NULL, is_intensity = NULL,
@@ -301,20 +291,16 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(seg_ras_rsds, "tif")
-  .check_extension(out_rsds,    "csv")
-
-  # Check input RSDS are complete
-  .check_complete_input(seg_ras_rsds)
-  .check_complete_input(seg_poly_rsds)
-  .check_complete_input(dem_rsds)
+  # Check inputs are complete
+  .check_complete_input(seg_rts)
+  .check_complete_input(seg_poly_vts)
+  .check_complete_input(dem_rts)
 
   # Get file paths
-  seg_ras_paths  <- .rsds_tile_paths(seg_ras_rsds)
-  seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-  DEM_paths      <- .rsds_tile_paths(dem_rsds)
-  out_paths      <- .rsds_tile_paths(out_rsds)
+  seg_ras_paths  <- .rts_tile_paths(seg_rts)
+  seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
+  DEM_paths      <- .rts_tile_paths(dem_rts)
+  out_paths      <- .rts_tile_paths(out_rts)
 
   # Get tile scheme
   ts <- .get_tilescheme()
@@ -413,7 +399,7 @@ seg_metrics_las <- function(seg_ras_rsds, seg_poly_rsds, in_cat, dem_rsds, out_r
 
     # Read segment DBF
     seg_dbf <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_rsds@name, "' dataset")
+    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
 
     # Compute tile metrics
     tile_metrics <- if(nrow(seg_dbf) > 0){
