@@ -16,13 +16,13 @@ canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(seg_class_ras_rts)
+  .complete_input(seg_class_ras_rts)
 
   # Get file paths
   seg_class_ras_paths <- .rts_tile_paths(seg_class_ras_rts)
   out_paths           <- .rts_tile_paths(out_rts)
 
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   if(!is.numeric(openings) || openings < 0) stop("Invalid input for 'openings':", openings)
 
@@ -50,7 +50,7 @@ canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Get neighbours
-    neib_names <- .tile_neibs(ts, tile_name)$tileName
+    neib_names <- .tile_neibs(tile_name)
     seg_class_ras_neibs <- lapply(seg_class_ras_paths[neib_names], terra::rast)
 
     # Check if raster is classified

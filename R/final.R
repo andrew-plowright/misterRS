@@ -19,10 +19,10 @@ final_canopy <- function(trees_class_rts, canopyClasses, boundary, out_file,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_rts)
+  .complete_input(trees_class_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Create temporary directories
   dirs <- list(
@@ -143,10 +143,10 @@ final_chm <- function(ndsm_rts, trees_class_rts, canopyClasses, boundary, out_fi
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_rts)
+  .complete_input(trees_class_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Create temporary directories
   dirs <- list(
@@ -270,7 +270,7 @@ final_trees <- function(trees_class_poly_vts, reclassList, boundary, out_file, t
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_poly_vts)
+  .complete_input(trees_class_poly_vts)
 
   # Create temporary directories
   dirs <- list(

@@ -13,9 +13,9 @@ seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
   ### INPUT CHECKS ----
 
     # Check complete inputs
-    .check_complete_input(seg_rts)
-    .check_complete_input(seg_poly_vts)
-    .check_complete_input(img_rts)
+    .complete_input(seg_rts)
+    .complete_input(seg_poly_vts)
+    .complete_input(img_rts)
 
     # Get file paths
     seg_ras_paths  <- .rts_tile_paths(seg_rts)
@@ -24,7 +24,7 @@ seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
     out_paths      <- .rts_tile_paths(out_rts)
 
     # Get tilepaths
-    ts <- .get_tilescheme()
+    ts <- .tilescheme()
 
     cat("  Image            :", img_rts@name, "\n")
 
@@ -127,7 +127,7 @@ seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
 #'
 #' @export
 
-seg_metrics_spec <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
+seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
                            seg_id, prefix = NULL, ...){
 
@@ -138,9 +138,9 @@ seg_metrics_spec <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
   ### INPUT CHECKS ----
 
   # Check complete inputs
-  .check_complete_input(seg_rts)
-  .check_complete_input(seg_poly_vts)
-  .check_complete_input(img_rts)
+  .complete_input(seg_rts)
+  .complete_input(seg_poly_vts)
+  .complete_input(img_rts)
 
   # Get file paths
   seg_ras_paths  <- .rts_tile_paths(seg_rts)
@@ -149,7 +149,7 @@ seg_metrics_spec <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
   out_paths     <- .rts_tile_paths(out_rts)
 
   # Get tilepaths
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   do_metrics_RGB <- all(c("R", "G", "B") %in% names(bands))
   do_metrics_IR  <- all(c("IR", "R")     %in% names(bands))
@@ -279,10 +279,10 @@ seg_metrics_spec <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
 #'
 #' @export
 
-seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
+seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
                           z_min, z_max,
                           seg_id, prefix = NULL,
-                          is_ground_classified = NULL, is_full_classified = NULL, is_rgb = NULL, is_intensity = NULL,
+                          ground_class = NULL, full_class = NULL, rgb = NULL, intensity = NULL,
                           ...){
 
   .env_misterRS(list(...))
@@ -292,9 +292,9 @@ seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
   ### INPUT CHECKS ----
 
   # Check inputs are complete
-  .check_complete_input(seg_rts)
-  .check_complete_input(seg_poly_vts)
-  .check_complete_input(dem_rts)
+  .complete_input(seg_rts)
+  .complete_input(seg_poly_vts)
+  .complete_input(dem_rts)
 
   # Get file paths
   seg_ras_paths  <- .rts_tile_paths(seg_rts)
@@ -303,30 +303,20 @@ seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
   out_paths      <- .rts_tile_paths(out_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   ### PREPARE DATA ----
 
   # Auto-detect classification and RGB
-  if(any(sapply(list(is_rgb, is_intensity, is_full_classified, is_ground_classified), is.null))){
+  if(any(sapply(list(rgb, intensity, full_class, ground_class), is.null))){
 
     testLAS <- lidR::readLAS(las_cat$filename[[1]])
 
-    if(is.null(is_full_classified)){
-      is_full_classified <- .is_las_full_classified(testLAS)
-    }
+    if(is.null(full_class)) full_class <- .is_las_full_classified(testLAS)
+    if(is.null(ground_class)) ground_class <- .is_las_ground_classified(testLAS)
+    if(is.null(rgb)) rgb <- .is_las_rgb(testLAS)
+    if(is.null(intensity)) intensity <- .is_las_intensity(testLAS)
 
-    if(is.null(is_ground_classified)){
-      is_ground_classified <- .is_las_ground_classified(testLAS)
-    }
-
-    if(is.null(is_rgb)){
-      is_rgb <- .is_las_rgb(testLAS)
-    }
-
-    if(is.null(is_intensity)){
-      is_intensity <- .is_las_intensity(testLAS)
-    }
   }
 
   # Variables that depend on classification and RGB setting
@@ -336,23 +326,23 @@ seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
   by_thresh     <- NULL
   formula_args  <- NULL
 
-  if(is_rgb){
+  if(rgb){
     las_select    <- paste0(las_select, c("RGB"))
     rgb_variables <- c("R", "G", "B", 'NGI' , 'NGB', 'NRB', 'VAg', 'GLI')
     las_variables <- c(las_variables, as.list(setNames(rgb_variables, rgb_variables)))
     by_thresh     <- c(by_thresh, rgb_variables)
   }
-  if(is_intensity){
+  if(intensity){
     las_select    <- paste0(las_select, c("i"))
     las_variables <- c(las_variables, list("I" = "Intensity"))
     by_thresh     <- c(by_thresh, "I")
   }
-  if(is_ground_classified | is_full_classified){
+  if(ground_class | full_class){
     las_select    <- paste0(las_select, c("c"))
     las_variables <- c(las_variables, list("class" = "Classification"))
 
-    if(is_full_classified)   formula_args <- c(formula_args, "full_classification = TRUE")
-    if(is_ground_classified) formula_args <- c(formula_args, "ground_classification = TRUE")
+    if(full_class)   formula_args <- c(formula_args, "full_classification = TRUE")
+    if(ground_class) formula_args <- c(formula_args, "ground_classification = TRUE")
   }
   if(!is.null(by_thresh)){
     formula_args <- c(formula_args, paste0("by_thresh=c('", paste(by_thresh, collapse = "', '") , "')"))
@@ -376,10 +366,10 @@ seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
   empty_result[] <- NA
 
   cat(
-    "  Intensity           : ", is_intensity, "\n",
-    "  Classified (Ground) : ", is_ground_classified, "\n",
-    "  Classified (Full)   : ", is_full_classified, "\n",
-    "  RGB                 : ", is_rgb, "\n",
+    "  Intensity           : ", intensity, "\n",
+    "  Classified (Ground) : ", ground_class, "\n",
+    "  Classified (Full)   : ", full_class, "\n",
+    "  RGB                 : ", rgb, "\n",
     "\n", sep = ""
   )
 
@@ -426,7 +416,7 @@ seg_metrics_las <- function(seg_rts, seg_poly_vts, in_cat, dem_rts, out_rts,
           if(!all(is.na(las_tile[[seg_id]]))){
 
             # Compute RGB indices
-            if(is_rgb) las_tile <- .las_rgb_metrics(las_tile)
+            if(rgb) las_tile <- .las_rgb_metrics(las_tile)
 
             # Compute cloud statistics within segments
             las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()

@@ -14,10 +14,10 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rts)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
   out_files   <- .rts_tile_paths(out_rts)
@@ -84,10 +84,10 @@ pca_global <- function(img_rts, out_rts, PCA_model,
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rts)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
   out_files   <- .rts_tile_paths(out_rts)
@@ -150,7 +150,7 @@ pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), r
   in_paths <- .rts_tile_paths(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
   tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
   # Default number of samples if it's not specified

@@ -34,7 +34,7 @@ setMethod("show", "rts", function(object){
 #' Raster tileset
 #' @export
 
-rts <- function(id, name, dir, ext){
+rts <- function(id, name, dir, ext ="tif"){
 
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)

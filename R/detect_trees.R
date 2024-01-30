@@ -13,10 +13,10 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(chm_rts)
+  .complete_input(chm_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get projection
   proj <- getOption("misterRS.crs")
@@ -37,7 +37,7 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
     CHM_path  <- CHM_paths[tile_name]
 
     # Get tile and buff
-    tile <- sf::st_as_sf(ts[tile_name][["tiles"]])
+    tile <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
     # Read raster
     CHM  <- terra::rast(CHM_path)

@@ -11,8 +11,8 @@ ras_diff <- function(A_rts, B_rts, out_rts, ...){
 
   .check_same_ts(A_rts, B_rts, out_rts)
 
-  .check_complete_input(A_rts)
-  .check_complete_input(B_rts)
+  .complete_input(A_rts)
+  .complete_input(B_rts)
 
   out_files <- .rts_tile_paths(out_rts)
   A_files   <- .rts_tile_paths(A_rts)

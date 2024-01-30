@@ -18,7 +18,7 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
   if(length(in_ext) > 1) stop("Cannot use multiple file extensions")
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
   crs <- getOption('misterRS.crs')
 
   # Get tile names
@@ -80,7 +80,7 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

@@ -1,23 +1,44 @@
-.check_complete_input <- function(rts){
+.complete_input <- function(xts, buffered = FALSE, selected_tiles = getOption("misterRS.tile_names")){
 
-  filePaths <- .rts_tile_paths(rts)
+  xts_class <- class(xts)
 
-  tile_names <- getOption("misterRS.tile_names")
+  ts <- .tilescheme()
 
-  if(!is.null(tile_names)){
+  # Get selected tiles
+  if(is.null(selected_tiles)){
 
-    notExist <- !tile_names %in% names(filePaths)
-    if(any(notExist)) stop("Following tile names do not exist for input '", rts@name ,"':\n  ", paste(tile_names[notExist], collapse = "\n  "))
+    # If set to NULL, process all tiles
+    selected_tiles <- ts$tileName
 
-    filePaths <- filePaths[tile_names]
+  }else{
+
+    # If specific tiles have been selected, verify that they exist in the tile scheme
+    tiles_dont_exist <- !selected_tiles %in% ts$tileName
+    if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
+
+    if(buffered) selected_tiles <- .tile_neibs(selected_tiles)
   }
 
+  if(xts_class == "vts"){
 
-  if(!all(file.exists(filePaths))) stop("Input RTS '", rts@name, "' is in complete", call. = FALSE)
+    has_tiles <- .vts_has_tiles(xts, selected_tiles)
+
+    incomplete <- length(has_tiles[!has_tiles]) > 0
+
+  }else if(xts_class == "rts"){
+
+
+    tile_paths <- .rts_tile_paths(xts)[selected_tiles]
+
+    incomplete <- !all(file.exists(tile_paths))
+
+  }else stop("Invalid input")
+
+  if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
 }
 
 
-.get_tilescheme <- function(ts = getOption("misterRS.ts")){
+.tilescheme <- function(ts = getOption("misterRS.ts")){
 
   if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
 
@@ -28,7 +49,7 @@
 .rts_tile_paths <- function(rts){
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
   tilePaths <- file.path(rts@dir, "tiles", paste0(ts$tileName, ".", rts@ext))
@@ -69,15 +90,17 @@
 
   }else{
 
-    con = DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
-    withr::defer(DBI::dbDisconnect(con))
-
     # Does tile already exist?
-    has_tile <- .vts_has_tile(con, tile_name)
+    has_tile <- .vts_has_tiles(out_vts, tile_name)
 
     if(has_tile){
       if(overwrite){
+
+        con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
+        withr::defer(DBI::dbDisconnect(con))
+
         DBI::dbExecute(con, paste0("DELETE FROM layer WHERE tile_name = '", tile_name,"'"))
+
       }else{
         stop("Tile already exists")
       }
@@ -88,10 +111,55 @@
 
 }
 
-.vts_has_tile <- function(con, tile_name){
+.vts_read <- function(vts, tile_name = NULL, geom = NULL){
 
-  DBI::dbGetQuery(con, paste0("SELECT COUNT(1) FROM layer WHERE tile_name = '", tile_name,"'"))[,1] != 0
+
+  if(is.null(tile_name) & is.null(geom)) stop("Subset VTS either by tile_name or by geometry")
+
+  # by tilename
+  if(!is.null(tile_name)){
+
+    sf::st_read(vts@gpkg, quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
+
+  }else if(!is.null(geom)){
+
+    bbox_wkt <- sf::st_as_text(sf::st_geometry(geom))
+
+    sf::st_read(vts@gpkg, quiet = TRUE, wkt_filter = bbox_wkt)
+  }
+
 }
+
+
+
+.vts_has_tiles <- function(vts, tile_names){
+
+  if(is.null(tile_names) | length(tile_names) == 0){
+
+    return(character())
+
+  }else{
+
+    if(!file.exists(vts@gpkg) || !("layer" %in% sf::st_layers(vts@gpkg)$name)){
+
+      return(setNames(rep(F, length(tile_names)), tile_names))
+
+    }else{
+
+      con <- DBI::dbConnect(RSQLite::SQLite(), dbname = vts@gpkg)
+      withr::defer(DBI::dbDisconnect(con))
+
+      has_tiles <- DBI::dbGetQuery(
+        con,paste0(
+          "WITH st(tile_name) AS (VALUES ('", paste(tile_names, collapse="'), ('"), "'))
+          SELECT st.tile_name, count(layer.tile_name) >0 as count FROM st left join layer on st.tile_name = layer.tile_name
+          GROUP BY st.tile_name")
+      )
+      return(setNames(has_tiles$count > 0, has_tiles$tile_name))
+    }
+  }
+}
+
 
 .headline <- function(headline){
 
@@ -234,7 +302,7 @@
 
   in_class <- class(xts)
 
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get selected tiles
   if(is.null(selected_tiles)){
@@ -245,8 +313,8 @@
   }else{
 
     # If specific tiles have been selected, verify that they exist in the tile scheme
-    notExist <- !selected_tiles %in% ts$tileName
-    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[notExist], collapse = "\n  "))
+    tiles_dont_exist <- !selected_tiles %in% ts$tileName
+    if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
 
   }
 
@@ -259,17 +327,10 @@
     if(in_class == "vts"){
 
       if(!overwrite){
-        con = DBI::dbConnect(RSQLite::SQLite(),dbname= xts@gpkg)
-        withr::defer(DBI::dbDisconnect(con))
 
-        tile_count <- DBI::dbGetQuery(
-          con,paste0(
-            "WITH st(tile_name) AS (VALUES ('", paste(proc_tiles, collapse="'), ('"), "'))
-          SELECT st.tile_name, count(layer.tile_name) as count FROM st left join layer on st.tile_name = layer.tile_name
-          GROUP BY st.tile_name")
-        )
+        has_tiles <- .vts_has_tiles(xts, proc_tiles)
 
-        proc_tiles <- tile_count[tile_count$count == 0, "tile_name"]
+        proc_tiles <- names(has_tiles)[!has_tiles]
       }
 
 
@@ -398,19 +459,38 @@
   }
 }
 
-.tile_neibs <- function(ts, tile_name, case = "queen"){
+.tile_neibs <- function(tile_names, case = "queen"){
 
-  tile <- ts@data[ts@data$tileName == tile_name,]
+  ts <- .tilescheme()
 
-  tile_names <- apply(
-    expand.grid(
-    R = tile$row + c(-1,0,1),
-    C = tile$col + c(-1,0,1)
-  ), 1, function(x) paste0("R", x[1], "C", x[2]))
+  mats <- if(case=="queen"){
+    list(
+      c(-1,-1), c(-1,0), c(-1,1),
+      c( 0,-1), c( 0,0), c( 0,1),
+      c( 1,-1), c( 1,0), c( 1,1)
+    )
+  }else{
+    list(
+                c(-1,0),
+      c( 0,-1), c( 0,0), c( 0,1),
+                c( 1,0),
+    )
+  }
 
-  if(case == "rook") tile_names <- tile_names[c(2, 4,5,6, 8)]
+  tiles <- ts@data[ts@data$tileName %in% tile_names, ]
 
-  return(ts[ts@data$tileName[ts@data$tileName %in% tile_names]])
+  potential_tiles <- lapply(1:nrow(tiles), function(i){lapply(mats, function(mat) tiles[i,c("row", "col")] + mat)}) %>%
+    unlist(recursive=FALSE) %>%
+    do.call(rbind, .) %>%
+    dplyr::distinct() %>%
+    dplyr::mutate(tileName = paste0("R", row, "C", col)) %>%
+    `[[`("tileName")
+
+  existing_tiles <- ts@data[["tileName"]]
+
+  neib_tiles <- potential_tiles[potential_tiles %in% existing_tiles]
+
+  return(neib_tiles)
 
 }
 

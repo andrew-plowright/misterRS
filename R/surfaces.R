@@ -3,7 +3,7 @@
 #'
 #' @export
 
-surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res =  1, ...){
+surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
 
   .env_misterRS(list(...))
 
@@ -12,13 +12,13 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res =  1, ...){
   ### INPUT CHECKS ----
 
   # Get tiles
-  ts <- .get_tilescheme()
-
-  # Get output file paths
-  out_files <- .rts_tile_paths(out_rts)
+  ts <- .tilescheme()
 
   # # Get CRS
   crs <- getOption("misterRS.crs")
+
+  # Get output file paths
+  out_files <- .rts_tile_paths(out_rts)
 
   ### CREATE WORKER ----
 
@@ -67,7 +67,7 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res =  1, ...){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -100,13 +100,13 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
   is_nDSM <- !is.null(dem_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # # Get CRS
   crs <- getOption("misterRS.crs")
 
   # Check inputs
-  if(is_nDSM) .check_complete_input(dem_rts)
+  if(is_nDSM) .complete_input(dem_rts)
 
   # Get file paths
   out_files <- .rts_tile_paths(out_rts)
@@ -167,7 +167,7 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

@@ -4,7 +4,7 @@
 \alias{rts}
 \title{Raster tileset}
 \usage{
-rts(id, name, dir, ext)
+rts(id, name, dir, ext = "tif")
 }
 \description{
 Raster tileset

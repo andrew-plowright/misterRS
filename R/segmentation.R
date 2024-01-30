@@ -29,10 +29,10 @@ segment_mss <- function(img_rts, out_gpkg,
   bin_file <- file.path(getOption("misterRS.orfeo"), "bin", "otbcli_Segmentation.bat")
   if(!file.exists(bin_file)) stop("Orfeo Toolbox binary not found '", bin_file, "'")
 
-  .check_complete_input(img_rts)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
 
   ### CREATE VRT MOSAIC ----
@@ -122,7 +122,7 @@ tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
   process_timer <- .headline("TILE POLYGONS")
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   crs <- getOption("misterRS.crs")
 
@@ -237,71 +237,63 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(chm_rts)
-  .check_complete_input(ttops_vts)
+  .complete_input(chm_rts)
+  .complete_input(ttops_vts, buffered = TRUE)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
   CHM_paths   <- .rts_tile_paths(chm_rts)
-  ttops_paths <- .rts_tile_paths(ttops_vts)
-  out_paths   <- .rts_tile_paths(out_vts)
 
   ### CREATE WORKER ----
 
   # Run process
   tile_worker <-function(tile_name){
 
-    # File paths
-    out_path   <- out_paths[tile_name]
-    ttops_path <- ttops_paths[tile_name]
-    CHM_path   <- CHM_paths[tile_name]
-
-    # Get tile
-    tile <- sf::st_as_sf(ts[tile_name][["tiles"]])
-    nbuff <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
-
-    # Read in files
+    # Read in CHM
+    CHM_path <- CHM_paths[tile_name]
     CHM <- terra::rast(CHM_path)
-    ttops <- sf::st_read(ttops_path, quiet = TRUE)
+
+    # Get buffered tile
+    buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
+
+    # Read treetops
+    ttops <-  .vts_read(ttops_vts, geom = buff)
 
     if(nrow(ttops) > 0){
+
+      # Awkward renumbering to enforce unique IDs
+      ttops_tile <- ttops[ttops$tile_name == tile_name,]
+      ttops_buff <- ttops[ttops$tile_name != tile_name,]
+      max_id <- max(ttops_tile[["treeID"]], na.rm=T)
+      ttops_buff[["treeID"]] <- 1:nrow(ttops_buff) + max_id
+      ttops <- rbind(ttops_tile, ttops_buff)
 
       # Apply 'marker-controlled watershed segmentation' algorithm
       seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
 
       # Subset only those segments that have treetops within non-buffered tile boundaries
-      ttops_tile   <- ttops[nbuff,]
-      seg_poly_tile <- seg_poly[match(ttops_tile$treeID, seg_poly$treeID),]
+      seg_poly_tile <-  seg_poly[match(ttops_tile[["treeID"]], seg_poly[["treeID"]]),]
 
       # Seg poly attributes
       seg_poly_tile[["height"]] <- ttops_tile$height
       seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
 
-      # Remove polygons with no 'treeID'
-      # (This happens when a treetop does not have an associated polygon)
-      seg_poly_tile <- seg_poly_tile[!is.na(seg_poly_tile$treeID),]
-
       # Subset desired columns
       seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
 
-    }else{
-
-      # Create blank polygons
-      seg_poly_tile <- sf::st_sf(data.frame(treeID = integer(), height = numeric(), crownArea = numeric()), geometry = sf::st_sfc(crs = sf::st_crs(ttops)))
+      .vts_write(seg_poly_tile, out_vts = out_vts, tile_name, overwrite=overwrite)
     }
 
     # Write file
-    sf::st_write(seg_poly_tile, out_path, layer_options = "SHPT=POLYGON", quiet = T, delete_dsn = overwrite & file.exists(out_path))
-
-    if(file.exists(out_path)) "Success" else stop("Failed to create output")
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_vts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -319,8 +311,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 #'
 #' @export
 
-poly_to_ras <- function(seg_poly_vts, seg_rts, res, seg_id = "polyID",
-                          ...){
+poly_to_ras <- function(in_vts, out_rts, res, seg_id = "polyID", ...){
 
   .env_misterRS(list(...))
 
@@ -328,19 +319,17 @@ poly_to_ras <- function(seg_poly_vts, seg_rts, res, seg_id = "polyID",
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(seg_poly_vts)
+  .complete_input(in_vts)
 
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get output file paths
-  in_paths  <- .rts_tile_paths(seg_poly_vts)
-  out_paths <- .rts_tile_paths(seg_rts)
+  out_paths <- .rts_tile_paths(out_rts)
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
-    in_path  <- in_paths[tile_name]
     out_path <- out_paths[tile_name]
 
     tile <- sf::st_as_sf(ts[tile_name][["buffs"]])
@@ -353,7 +342,8 @@ poly_to_ras <- function(seg_poly_vts, seg_rts, res, seg_id = "polyID",
       te = terra::ext(tile),
       tr = c(res,res),
       ot = "UInt32",
-      in_path,
+      sql = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name),
+      in_vts@gpkg,
       out_path
     )
 
@@ -363,7 +353,7 @@ poly_to_ras <- function(seg_poly_vts, seg_rts, res, seg_id = "polyID",
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

@@ -20,10 +20,10 @@ pseudo_img <- function(inputs, out_rts, ...){
 
   ### INPUT CHECKS ----
 
-  for(input in inputs) .check_complete_input(input$rts)
+  for(input in inputs) .complete_input(input$rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
   out_files  <- .rts_tile_paths(out_rts)

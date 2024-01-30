@@ -12,7 +12,7 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = N
   tile_names <- getOption("misterRS.tile_names")
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get output file
   if(is.null(outFile)) outFile <- .rts_mosaic_path(in_rts)
@@ -30,7 +30,7 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = N
   ext <- in_rts@ext
 
   # Check input
-  .check_complete_input(in_rts)
+  .complete_input(in_rts)
 
   # Get input paths
   in_paths <- .rts_tile_paths(in_rts)

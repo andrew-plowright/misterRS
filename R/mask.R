@@ -14,8 +14,8 @@ mask_rs <- function(in_rts, out_rts, mask_rts,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(in_rts)
-  .check_complete_input(mask_rts)
+  .complete_input(in_rts)
+  .complete_input(mask_rts)
 
   # Get paths
   in_paths   <- .rts_tile_paths(in_rts)
@@ -23,7 +23,7 @@ mask_rs <- function(in_rts, out_rts, mask_rts,
   mask_paths <- .rts_tile_paths(mask_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   ### CREATE WORKER ----
 
@@ -38,7 +38,7 @@ mask_rs <- function(in_rts, out_rts, mask_rts,
 
       buff <- sf::st_as_sf(ts[["buffs"]][ts[["buffs"]]$tileName == tile_name,])
 
-      neib_names <- .tile_neibs(ts, tile_name)$tileName
+      neib_names <- .tile_neibs(tile_name)
       mask_neibs <- lapply(mask_paths[neib_names], terra::rast)
 
       # Merge and then crop

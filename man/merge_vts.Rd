@@ -4,7 +4,7 @@
 \alias{merge_vts}
 \title{Merge multiple VTS into a single one according to zones}
 \usage{
-merge_vts(in_vts, out_vts, zones_path, zone_field, id_field = NULL, ...)
+merge_vts(in_vts_list, out_vts, zones_path, zone_field, id_field = NULL, ...)
 }
 \description{
 Merge multiple VTS into a single one according to zones

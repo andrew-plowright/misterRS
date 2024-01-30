@@ -15,7 +15,7 @@ zip_chunks <- function(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 
   )
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   if(!overlap %in% c("buffs", "nbuffs", "tiles")) stop("Invalid input for 'overlap'")
 
@@ -30,7 +30,7 @@ zip_chunks <- function(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 
     cat("  Overlap setting: '", overlap, "'\n", "  Cropping tiles...", "\n", sep= "")
 
     # Get tiles
-    ts <- .get_tilescheme()
+    ts <- .tilescheme()
 
     # Create temporary directory
     temp_dir <- file.path(tempdir(), "zip_chunks")

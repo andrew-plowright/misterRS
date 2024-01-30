@@ -18,7 +18,7 @@ training_data_extract <- function(training_data, seg_poly_vts, metrics, seg_id, 
   }else{
 
     # Get tile scheme
-    ts <- .get_tilescheme()
+    ts <- .tilescheme()
     tiles_sf <- sf::st_as_sf(ts[["tiles"]])
     buffs_sf <- sf::st_as_sf(ts[["buffs"]])
 
@@ -30,8 +30,8 @@ training_data_extract <- function(training_data, seg_poly_vts, metrics, seg_id, 
     seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
 
     # Check that inputs are complete
-    .check_complete_input(seg_poly_vts)
-    for(metric_rs in metrics) .check_complete_input(metric_rs)
+    .complete_input(seg_poly_vts)
+    for(metric_rs in metrics) .complete_input(metric_rs)
 
 
     ### READ TRAINING POINTS ----
@@ -273,14 +273,14 @@ classify_seg_poly <- function(classifier_file, seg_poly_vts, seg_class_poly_vts,
   ### INPUT CHECKS ----
 
     # Check that inputs are complete
-    .check_complete_input(seg_poly_vts)
-    for(RS in metrics) .check_complete_input(RS)
+    .complete_input(seg_poly_vts)
+    for(RS in metrics) .complete_input(RS)
 
     # Get CRS
     proj <- getOption("misterRS.crs")
 
     # Get tile scheme
-    ts <- .get_tilescheme()
+    ts <- .tilescheme()
     tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
     # Get file paths
@@ -414,8 +414,8 @@ classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(seg_class_poly_vts)
-  .check_complete_input(seg_rts)
+  .complete_input(seg_class_poly_vts)
+  .complete_input(seg_rts)
 
   seg_class_poly_paths <- .rts_tile_paths(seg_class_poly_vts)
   seg_ras_paths        <- .rts_tile_paths(seg_rts)
