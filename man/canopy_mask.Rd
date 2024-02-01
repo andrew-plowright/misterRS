@@ -5,7 +5,7 @@
 \title{Create canopy mask}
 \usage{
 canopy_mask(
-  seg_class_ras_rts,
+  seg_class_rts,
   out_rts,
   canopy_classes,
   canopy_edits = NULL,

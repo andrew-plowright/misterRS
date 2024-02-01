@@ -4,7 +4,7 @@
 #'
 #' @export
 
-mask_rs <- function(in_rts, out_rts, mask_rts,
+mask_rts <- function(in_rts, out_rts, mask_rts,
                  mask_na = FALSE, use_neibs = FALSE, ...){
 
   .env_misterRS(list(...))
@@ -38,7 +38,7 @@ mask_rs <- function(in_rts, out_rts, mask_rts,
 
       buff <- sf::st_as_sf(ts[["buffs"]][ts[["buffs"]]$tileName == tile_name,])
 
-      neib_names <- .tile_neibs(tile_name)
+      neib_names <- .tile_neibs(tile_name, ts)
       mask_neibs <- lapply(mask_paths[neib_names], terra::rast)
 
       # Merge and then crop
@@ -69,7 +69,7 @@ mask_rs <- function(in_rts, out_rts, mask_rts,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

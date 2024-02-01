@@ -10,6 +10,9 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   process_timer <- .headline("DETECT TREES")
 
+  # Override parallel processing
+  withr::local_options("misterRS.clusters" = 1)
+
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
@@ -33,29 +36,35 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   tile_worker <-function(tile_name){
 
-    # Paths
-    CHM_path  <- CHM_paths[tile_name]
-
     # Get tile and buff
     tile <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
-    # Read raster
-    CHM  <- terra::rast(CHM_path)
+    # Read CHM
+    CHM  <- terra::rast(CHM_paths[tile_name])
 
-    # Function for creating blank treetop SHP file
-    # no_ttops <- sf::st_sf(
-    #   geometry = sf::st_sfc(crs = sf::st_crs( proj)),
-    #   list(treeID = integer(), height = numeric(), winRadius = numeric())
-    # )
+    # Get CHM range
+    CHM_rng <- terra::minmax(CHM, compute = TRUE)[,1, drop = TRUE]
 
-    # Detect new treetops
-    det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
+    # Check if CHM has usable values
+    if(any(!is.finite(CHM_rng))){
 
-    # Subset treetops
-    det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
+      # Empty treetops with values
+      det_ttops <- sf::st_sf(
+        geometry = sf::st_sfc(crs = sf::st_crs( proj)),
+        list(treeID = integer(), height = numeric(), winRadius = numeric())
+      )
 
-    # Write
-    .vts_write(det_ttops, ttops_vts, tile_name, overwrite = overwrite)
+    }else{
+
+      # Detect new treetops
+      det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
+
+      # Subset treetops
+      det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
+
+    }
+
+    .vts_write(in_sf = det_ttops, out_vts = ttops_vts, tile_name = tile_name, overwrite = overwrite)
 
     return("Success")
   }

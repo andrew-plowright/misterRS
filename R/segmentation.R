@@ -234,14 +234,18 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 
   process_timer <- .headline("WATERSHED SEGMENTATION")
 
+  # Override parallel processing
+  withr::local_options("misterRS.clusters" = 1)
+
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
   .complete_input(chm_rts)
   .complete_input(ttops_vts, buffered = TRUE)
 
-  # Get tile scheme
+  # Get tile scheme and projection
   ts <- .tilescheme()
+  proj <- getOption("misterRS.crs")
 
   # Get file paths
   CHM_paths   <- .rts_tile_paths(chm_rts)
@@ -258,6 +262,9 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
     # Get buffered tile
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
+    # Empty output
+    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)),list(treeID = integer()))
+
     # Read treetops
     ttops <-  .vts_read(ttops_vts, geom = buff)
 
@@ -266,25 +273,34 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
       # Awkward renumbering to enforce unique IDs
       ttops_tile <- ttops[ttops$tile_name == tile_name,]
       ttops_buff <- ttops[ttops$tile_name != tile_name,]
-      max_id <- max(ttops_tile[["treeID"]], na.rm=T)
-      ttops_buff[["treeID"]] <- 1:nrow(ttops_buff) + max_id
-      ttops <- rbind(ttops_tile, ttops_buff)
 
-      # Apply 'marker-controlled watershed segmentation' algorithm
-      seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
+      if(nrow(ttops_tile) > 0){
 
-      # Subset only those segments that have treetops within non-buffered tile boundaries
-      seg_poly_tile <-  seg_poly[match(ttops_tile[["treeID"]], seg_poly[["treeID"]]),]
+        if(nrow(ttops_buff) > 0){
 
-      # Seg poly attributes
-      seg_poly_tile[["height"]] <- ttops_tile$height
-      seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
+          max_id <- max(ttops_tile[["treeID"]], na.rm=T)
 
-      # Subset desired columns
-      seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
+          ttops_buff[["treeID"]] <- 1:nrow(ttops_buff) + max_id
+        }
 
-      .vts_write(seg_poly_tile, out_vts = out_vts, tile_name, overwrite=overwrite)
+        ttops <- rbind(ttops_tile, ttops_buff)
+
+        # Apply 'marker-controlled watershed segmentation' algorithm
+        seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
+
+        # Subset only those segments that have treetops within non-buffered tile boundaries
+        seg_poly_tile <-  seg_poly[match(ttops_tile[["treeID"]], seg_poly[["treeID"]]),]
+
+        # Seg poly attributes
+        seg_poly_tile[["height"]] <- ttops_tile$height
+        seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
+
+        # Subset desired columns
+        seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
+      }
     }
+
+    .vts_write(in_sf = seg_poly_tile, out_vts = out_vts, tile_name = tile_name, overwrite=overwrite)
 
     # Write file
     return("Success")

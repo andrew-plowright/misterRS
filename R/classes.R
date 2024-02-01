@@ -55,21 +55,26 @@ rts <- function(id, name, dir, ext ="tif"){
 setClass(
   "vts",
   representation(
-    id   = 'character',
-    name = 'character',
-    dir  = 'character',
-    gpkg = 'character'
+    id       = 'character',
+    name     = 'character',
+    dir      = 'character',
+    gpkg     = 'character',
+    tile_reg = 'character'
   )
 )
 
 setMethod("show", "vts", function(object){
 
+  ts <- .tilescheme()
+
+  has_tiles <- .vts_has_tiles(object, ts$tileName)
 
   cat(
     "REMOTE SENSING DATASET", "\n",
     "ID      : ", object@id ,  "\n",
     "Name    : ", object@name, "\n",
     "Dir     : ", object@dir,  "\n",
+    "Tiles   : ", length(has_tiles[has_tiles]), "/", length(has_tiles), "\n",
     sep = ""
   )
 
@@ -84,19 +89,29 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   # Create folder
   if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
-  # vts_path <- file.path(dir, paste0(id, ".gpkg"))
-  #
-  # if(!file.exists(vts_path)){
-  #
-  #   blank_sf <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(tile_name = character()))
-  #
-  #   sf::st_write(blank_sf,  vts_path, quiet = TRUE, layer = "layer",  delete_layer = TRUE)
-  # }
+  # Set GeoPackage path
+  vts_path      <- file.path(dir, paste0(id, ".gpkg"))
+  tile_reg_path <- file.path(dir, paste0(id, "-tile_reg.sqlite"))
 
-  gpkg <- file.path(dir, paste0(id, ".gpkg"))
+  # Create GeoPackage
+  if(!file.exists(vts_path)){
+
+    blank_sf <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), list(tile_name = character()))
+
+    sf::st_write(blank_sf, vts_path, quiet = TRUE, layer = "empty")
+  }
+
+  # Create tile registry
+  if(!file.exists(tile_reg_path)){
+
+    con <- DBI::dbConnect(RSQLite::SQLite(), dbname = tile_reg_path)
+    withr::defer(DBI::dbDisconnect(con))
+
+    DBI::dbExecute(con, "CREATE TABLE tile_reg (tile_name varchar(50) NOT NULL, UNIQUE(tile_name))")
+  }
 
   # Create new object
-  new("vts", id = id, name = name, dir = dir, gpkg = gpkg)
+  new("vts", id = id, name = name, dir = dir, gpkg = vts_path, tile_reg = tile_reg_path)
 }
 
 

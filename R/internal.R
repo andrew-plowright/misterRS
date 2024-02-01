@@ -16,7 +16,7 @@
     tiles_dont_exist <- !selected_tiles %in% ts$tileName
     if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
 
-    if(buffered) selected_tiles <- .tile_neibs(selected_tiles)
+    if(buffered) selected_tiles <- .tile_neibs(selected_tiles, ts)
   }
 
   if(xts_class == "vts"){
@@ -26,7 +26,6 @@
     incomplete <- length(has_tiles[!has_tiles]) > 0
 
   }else if(xts_class == "rts"){
-
 
     tile_paths <- .rts_tile_paths(xts)[selected_tiles]
 
@@ -64,6 +63,7 @@
 
 }
 
+
 .rts_mosaic_path <- function(rts){
 
   ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
@@ -78,61 +78,76 @@
 }
 
 
-
 .vts_write <- function(in_sf, out_vts, tile_name, overwrite = FALSE){
 
-  in_sf[["tile_name"]] <- tile_name
+  if(overwrite){
 
-
-  if(!file.exists(out_vts@gpkg)){
-
-    sf::st_write(in_sf, out_vts@gpkg, layer="layer", quiet=TRUE)
+    .vts_tile_delete(out_vts, tile_name)
 
   }else{
 
-    # Does tile already exist?
     has_tile <- .vts_has_tiles(out_vts, tile_name)
-
-    if(has_tile){
-      if(overwrite){
-
-        con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
-        withr::defer(DBI::dbDisconnect(con))
-
-        DBI::dbExecute(con, paste0("DELETE FROM layer WHERE tile_name = '", tile_name,"'"))
-
-      }else{
-        stop("Tile already exists")
-      }
-    }
-
-    sf::st_write(in_sf, out_vts@gpkg, layer="layer", append = TRUE, quiet = TRUE)
+    if(has_tile) stop("Tile already exists")
   }
 
+  # Write geometry
+  if(nrow(in_sf) > 0){
+
+    in_sf[["tile_name"]] <- tile_name
+
+    sf::st_write(in_sf, out_vts@gpkg, layer="layer", append = TRUE, quiet=TRUE)
+
+  }
+
+  # Write to tile registry
+  .vts_tile_reg_add(out_vts, tile_name)
 }
 
-.vts_read <- function(vts, tile_name = NULL, geom = NULL){
 
+.vts_tile_delete <- function(in_vts, tile_name){
+
+  # Delete tiles from tile registry
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
+  DBI::dbExecute(con, sprintf("DELETE FROM tile_reg WHERE tile_name = '%s'", tile_name))
+  DBI::dbDisconnect(con)
+
+  # Delete geometry
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
+  if("layer"%in% DBI::dbListTables(con)){
+    DBI::dbExecute(con, sprintf("DELETE FROM layer WHERE tile_name = '%s'",    tile_name))
+  }
+  DBI::dbDisconnect(con)
+}
+
+
+.vts_tile_reg_add <- function(in_vts, tile_name){
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
+  DBI::dbExecute(con, sprintf("INSERT INTO tile_reg (tile_name) VALUES ('%s')", tile_name))
+  DBI::dbDisconnect(con)
+}
+
+
+.vts_read <- function(in_vts, tile_name = NULL, geom = NULL){
 
   if(is.null(tile_name) & is.null(geom)) stop("Subset VTS either by tile_name or by geometry")
 
   # by tilename
   if(!is.null(tile_name)){
 
-    sf::st_read(vts@gpkg, quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
+    sf::st_read(in_vts@gpkg, layer="layer", quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
 
   }else if(!is.null(geom)){
 
     bbox_wkt <- sf::st_as_text(sf::st_geometry(geom))
 
-    sf::st_read(vts@gpkg, quiet = TRUE, wkt_filter = bbox_wkt)
+    sf::st_read(in_vts@gpkg, layer="layer", quiet = TRUE, wkt_filter = bbox_wkt)
   }
 
 }
 
 
-
-.vts_has_tiles <- function(vts, tile_names){
+.vts_has_tiles <- function(in_vts, tile_names){
 
   if(is.null(tile_names) | length(tile_names) == 0){
 
@@ -140,24 +155,17 @@
 
   }else{
 
-    if(!file.exists(vts@gpkg) || !("layer" %in% sf::st_layers(vts@gpkg)$name)){
+    con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
+    withr::defer(DBI::dbDisconnect(con))
 
-      return(setNames(rep(F, length(tile_names)), tile_names))
+    existing_tiles <- DBI::dbGetQuery(con, "SELECT tile_name FROM tile_reg")[,1]
 
-    }else{
-
-      con <- DBI::dbConnect(RSQLite::SQLite(), dbname = vts@gpkg)
-      withr::defer(DBI::dbDisconnect(con))
-
-      has_tiles <- DBI::dbGetQuery(
-        con,paste0(
-          "WITH st(tile_name) AS (VALUES ('", paste(tile_names, collapse="'), ('"), "'))
-          SELECT st.tile_name, count(layer.tile_name) >0 as count FROM st left join layer on st.tile_name = layer.tile_name
-          GROUP BY st.tile_name")
-      )
-      return(setNames(has_tiles$count > 0, has_tiles$tile_name))
-    }
+    return(setNames(tile_names %in% existing_tiles, tile_names))
   }
+}
+
+.vts_has_output_layer <- function(in_vts){
+  "layer" %in% sf::st_layers(in_vts@gpkg)$name
 }
 
 
@@ -223,25 +231,37 @@
 
   }else{
 
-    # Wrap worker function in 'tryCatch'
-    workerE <- function(tile_name){ rr <- tryCatch({ worker(tile_name) }, error = function(e){e})}
-
     # Make progress bar
     pb <- .progbar(length(tile_names))
 
-    # Generate 'foreach' statement
-    fe <- foreach::foreach(
-      tile_name = tile_names,
-      #.packages = c("raster"),
-      .errorhandling = 'pass',
-      .options.snow = list(
-        progress = function(n) pb$tick()
-      )
-    )
+    # If only running one cluster or if only one tile needs processing, all tiles are executed in serial
+    if(clusters == 1 | length(tile_names) == 1){
 
-    # Execute in parallel
-    if(clusters > 1){
+      # Wrap worker in tryCatch
+      worker_ser <- function(tile_name){
+        r <- tryCatch({ worker(tile_name) }, error = function(e){e})
+        pb$tick()
+        return(r)
+      }
 
+      # Generate 'foreach' statement
+      fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
+
+      # Execute in serial
+      results <- fe_ser %do% worker_ser(tile_name)
+
+    }else{
+
+      # Wrap worker in tryCatch
+      worker_par <- function(tile_name){
+        r <- tryCatch({ worker(tile_name) }, error = function(e){e})
+        return(r)
+      }
+
+      # Generate 'foreach' statement
+      fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
+
+      # Register clusters
       cl <- parallel::makeCluster(clusters)
       doSNOW::registerDoSNOW(cl)
       on.exit(parallel::stopCluster(cl))
@@ -253,22 +273,14 @@
       func_args <- setdiff(names(formals(sys.function(-1))), "...")
       for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
 
-      rr <- fe %dopar% workerE(tile_name)
-
-      # Execute in serial
-    }else{
-
-      rr <- fe %do% {
-
-        result <- workerE(tile_name)
-        pb$tick()
-        return(result)
-      }
+      # Execute in parallel
+      results <- fe_par %dopar% worker_par(tile_name)
 
     }
 
-    return(setNames(rr, tile_names))
+    results <- setNames(results, tile_names)
 
+    return(results)
   }
 }
 
@@ -359,9 +371,6 @@
 
   return(proc_tiles)
 }
-
-
-
 
 
 .raster_files <- function(file_path){
@@ -459,9 +468,7 @@
   }
 }
 
-.tile_neibs <- function(tile_names, case = "queen"){
-
-  ts <- .tilescheme()
+.tile_neibs <- function(tile_names, ts, case = "queen"){
 
   mats <- if(case=="queen"){
     list(

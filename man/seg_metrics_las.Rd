@@ -6,7 +6,7 @@
 \usage{
 seg_metrics_las(
   seg_rts,
-  seg_poly_vts,
+  seg_vts,
   in_cat,
   dem_rts,
   out_rts,
@@ -14,10 +14,10 @@ seg_metrics_las(
   z_max,
   seg_id,
   prefix = NULL,
-  is_ground_classified = NULL,
-  is_full_classified = NULL,
-  is_rgb = NULL,
-  is_intensity = NULL,
+  ground_class = NULL,
+  full_class = NULL,
+  rgb = NULL,
+  intensity = NULL,
   ...
 )
 }

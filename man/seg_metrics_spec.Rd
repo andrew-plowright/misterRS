@@ -6,7 +6,7 @@
 \usage{
 seg_metrics_spec(
   seg_rts,
-  seg_poly_vts,
+  seg_vts,
   img_rts,
   out_rts,
   bands = c(R = 1, G = 2, B = 3),

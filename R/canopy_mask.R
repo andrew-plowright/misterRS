@@ -6,7 +6,7 @@
 #'
 #' @export
 
-canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
+canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
                         canopy_edits = NULL, openings = 1, opening_radius = 0.5, ...){
 
   .env_misterRS(list(...))
@@ -16,10 +16,10 @@ canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .complete_input(seg_class_ras_rts)
+  .complete_input(seg_class_rts, buffered = TRUE)
 
   # Get file paths
-  seg_class_ras_paths <- .rts_tile_paths(seg_class_ras_rts)
+  seg_class_ras_paths <- .rts_tile_paths(seg_class_rts)
   out_paths           <- .rts_tile_paths(out_rts)
 
   ts <- .tilescheme()
@@ -50,12 +50,12 @@ canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Get neighbours
-    neib_names <- .tile_neibs(tile_name)
+    neib_names <- .tile_neibs(tile_name, ts)
     seg_class_ras_neibs <- lapply(seg_class_ras_paths[neib_names], terra::rast)
 
     # Check if raster is classified
     ras_classes <- terra::cats(seg_class_ras_neibs[[tile_name]])[[1]]
-    if(is.null(ras_classes)) stop("'seg_class_ras_rts' was an unclassified input")
+    if(is.null(ras_classes)) stop("'seg_class_rts' was an unclassified input")
 
     # Merge and then crop
     seg_class_ras <- seg_class_ras_neibs %>%
@@ -123,7 +123,7 @@ canopy_mask <- function(seg_class_ras_rts, out_rts, canopy_classes,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

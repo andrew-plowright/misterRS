@@ -315,7 +315,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
     if(is.null(full_class)) full_class <- .is_las_full_classified(testLAS)
     if(is.null(ground_class)) ground_class <- .is_las_ground_classified(testLAS)
     if(is.null(rgb)) rgb <- .is_las_rgb(testLAS)
-    if(is.null(intensity)) intensity <- .is_las_intensity(testLAS)
+    # if(is.null(intensity)) intensity <- .is_las_intensity(testLAS)
 
   }
 
