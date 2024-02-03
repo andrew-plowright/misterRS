@@ -22,7 +22,7 @@
 .metadata_path <- function(xts){
 
   # Get file path
-  metadata_path <- file.path(xts@dir, paste0(rts@id, "_metadata.json"))
+  metadata_path <- file.path(xts@dir, paste0(xts@id, "_metadata.json"))
 
   # Get absolute path
   metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))

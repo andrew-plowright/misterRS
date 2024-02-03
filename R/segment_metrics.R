@@ -2,9 +2,8 @@
 #'
 #' @export
 
-seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
-                            seg_id, band = 1, discretize_range = NULL,
-                            prefix = "", n_grey = 16, ...){
+seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
+                            seg_id, band = 1, discretize_range = NULL, n_grey = 16, ...){
 
   .env_misterRS(list(...))
 
@@ -12,114 +11,114 @@ seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
 
   ### INPUT CHECKS ----
 
-    # Check complete inputs
-    .complete_input(seg_rts)
-    .complete_input(seg_poly_vts)
-    .complete_input(img_rts)
+  # Check complete inputs
+  .complete_input(seg_rts)
+  .complete_input(seg_vts)
+  .complete_input(img_rts)
 
-    # Get file paths
-    seg_ras_paths  <- .rts_tile_paths(seg_rts)
-    seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
-    img_paths      <- .rts_tile_paths(img_rts)
-    out_paths      <- .rts_tile_paths(out_rts)
+  # Get file paths
+  seg_ras_paths <- .rts_tile_paths(seg_rts)
+  img_paths     <- .rts_tile_paths(img_rts)
 
-    # Get tilepaths
-    ts <- .tilescheme()
+  # Get tilepaths
+  ts <- .tilescheme()
 
-    cat("  Image            :", img_rts@name, "\n")
+  cat("  Image            :", img_rts@name, "\n")
 
   ### GET RANGE ----
-    if(is.null(discretize_range)){
-      discretize_range <- unlist(.metadata(img_rts, "range")[[band]])
-    }
 
-  ### CREATE EMPTY METRICS TABLE ----
+  if(is.null(discretize_range)){
+    discretize_range <- unlist(.metadata(img_rts, "range")[[band]])
+  }
 
-    met_names <- names( GLCMTextures::glcm_metrics(matrix()))
-    met_names  <- c(seg_id, gsub("^glcm_", paste0(prefix, "glcm_"),  met_names))
-    empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names), nrow = 0)), met_names)
+  ### METRIC FIELDS ----
+
+  metric_fields <- names(GLCMTextures::glcm_metrics(matrix()))
+  metric_fields <- paste0(attribute_set, "_", metric_fields)
+
+  # Add columns to GPKG
+  .vts_add_fields(seg_vts, metric_fields)
+
+  # Add attribute set name to tile registry
+  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
 
   ### CREATE WORKER ----
 
-    # Run process
-    tile_worker <-function(tile_name){
+  # Run process
+  tile_worker <-function(tile_name){
 
-      # Get tile
-      tile <- ts[tile_name]
+    # Get tile
+    tile <- ts[tile_name]
 
-      # Get output file path
-      out_path      <- out_paths[tile_name]
-      img_path      <- img_paths[tile_name]
-      seg_ras_path  <- seg_ras_paths[tile_name]
-      seg_poly_path <- seg_poly_paths[tile_name]
+    # Get output file path
+    img_path      <- img_paths[tile_name]
+    seg_ras_path  <- seg_ras_paths[tile_name]
 
-      # Read segment DBF
-      seg_dbf <- .read_poly_attributes(seg_poly_path)
-      if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
+    # Get seg IDs
+    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
 
-      # Compute metrics
-      tile_metrics <- if(nrow(seg_dbf) > 0){
+    # Compute metrics
+    tile_metrics <- if(nrow(seg_ids) > 0){
 
-        # Read segments
-        seg_ras <- terra::rast(seg_ras_path)
+      # Read segments
+      seg_ras <- terra::rast(seg_ras_path)
 
-        # Get image
-        img  <- terra::rast(img_path, lyrs = band)
+      # Get image
+      img <- terra::rast(img_path, lyrs = band)
 
-        # Cap min.max va
-        img[img < min(discretize_range)] <- min(discretize_range)
-        img[img > max(discretize_range)] <- max(discretize_range)
+      # Cap min.max va
+      img[img < min(discretize_range)] <- min(discretize_range)
+      img[img > max(discretize_range)] <- max(discretize_range)
 
-        # Get minimum value and adjust value range (cannot have negative values)
-        #min_value <- terra::global(img, "min", na.rm = TRUE)[,1]
-        #img <- img - min_value
+      # Get minimum value and adjust value range (cannot have negative values)
+      #min_value <- terra::global(img, "min", na.rm = TRUE)[,1]
+      #img <- img - min_value
 
-        # Remove values below 0 (cannot have NA values)
-        #img[is.na(img)] <- 0
+      # Remove values below 0 (cannot have NA values)
+      #img[is.na(img)] <- 0
 
-        # Compute GLCMs
-        glcm_metrics <- ForestTools::glcm(img, seg_ras, n_grey = n_grey, discretize_range = discretize_range)
+      # Compute GLCMs
+      glcm_metrics <- ForestTools::glcm(img, seg_ras, n_grey = n_grey, discretize_range = discretize_range)
 
-        # Remove NAs
-        glcm_metrics[is.na(glcm_metrics)] <- 0
+      # Add prefix
+      names(glcm_metrics)  <- paste0(attribute_set, "_", names(glcm_metrics))
 
-        # Add prefix
-        names(glcm_metrics)  <- gsub("^glcm_", paste0(prefix, "glcm_"),  names(glcm_metrics))
+      # Reorder
+      glcm_metrics <- glcm_metrics[as.character(seg_ids[[seg_id]]),]
 
-        # Add segment ID
-        glcm_metrics <- cbind(row.names(glcm_metrics), glcm_metrics)
-        colnames(glcm_metrics)[1] <- seg_id
+      # Remove NAs
+      glcm_metrics[is.na(glcm_metrics)] <- 0
 
-        # Reorder to match 'seg_dbf'
-        glcm_metrics             <- glcm_metrics[as.character(seg_dbf[[seg_id]]),]
-        glcm_metrics[[seg_id]]   <- seg_dbf[[seg_id]]
+      # Attach to FID
+      glcm_metrics <- cbind(fid = seg_ids[["fid"]], glcm_metrics)
 
-        glcm_metrics
+      glcm_metrics
 
-      # Return empty table of metrics
-      }else empty_metrics
+    # Return empty table of metrics
+    }else NULL
 
-      # Write output
-      write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
+    # Write attributes
+    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
 
-      if(file.exists(out_path)) "Success" else "FAILED"
-    }
+
+    return("Success")
+  }
 
 
   ### APPLY WORKER ----
 
-    # Get tiles for processing
-    queued_tiles <- .tile_queue(out_paths)
+  # Get tiles for processing
+  queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
-    # Process
-    process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  # Process
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
-    # Report
-    .print_process_status(process_status)
+  # Report
+  .print_process_status(process_status)
 
-    # Conclude
-    .conclusion(process_timer)
-  }
+  # Conclude
+  .conclusion(process_timer)
+}
 
 
 
@@ -127,9 +126,9 @@ seg_metrics_tex <- function(seg_rts, seg_poly_vts, img_rts, out_rts,
 #'
 #' @export
 
-seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
+seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
-                           seg_id, prefix = NULL, ...){
+                           ...){
 
   .env_misterRS(list(...))
 
@@ -139,14 +138,12 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
 
   # Check complete inputs
   .complete_input(seg_rts)
-  .complete_input(seg_poly_vts)
+  .complete_input(seg_vts)
   .complete_input(img_rts)
 
   # Get file paths
-  seg_ras_paths  <- .rts_tile_paths(seg_rts)
-  seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
+  seg_ras_paths <- .rts_tile_paths(seg_rts)
   ortho_paths   <- .rts_tile_paths(img_rts)
-  out_paths     <- .rts_tile_paths(out_rts)
 
   # Get tilepaths
   ts <- .tilescheme()
@@ -154,20 +151,23 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
   do_metrics_RGB <- all(c("R", "G", "B") %in% names(bands))
   do_metrics_IR  <- all(c("IR", "R")     %in% names(bands))
 
-
   ### SET NAMES OF METRICS ----
 
   met_names_noprefix <- names(bands)
   if(do_metrics_RGB) met_names_noprefix <- c(met_names_noprefix, "GLI", "VARI", "NGRDI", "NGBDI", "NRBDI")
   if(do_metrics_IR)  met_names_noprefix <- c(met_names_noprefix, "NDVI", "EVI2", "MSAVI2", "SAVI")
 
-  met_names_prefix <- setNames(paste0(prefix, met_names_noprefix), met_names_noprefix)
+  # With prefixes
+  met_names_prefix <- setNames(paste0(attribute_set, "_", met_names_noprefix), met_names_noprefix)
 
+  # With zonal functions
+  met_names_full <- as.vector(outer(met_names_prefix, zonalFun, paste, sep="_"))
 
-  ### CREATE EMPTY METRICS TABLE ----
+  # Add columns to GPKG
+  .vts_add_fields(seg_vts, met_names_full)
 
-  met_names_final <- c(seg_id, apply(expand.grid(met_names_prefix, zonalFun), 1, paste, collapse="_"))
-  empty_metrics <- setNames(data.frame(matrix(ncol = length(met_names_final), nrow = 0)), met_names_final)
+  # Add attribute set name to tile registry
+  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
 
 
   ### CREATE WORKER ----
@@ -179,24 +179,21 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
     tile <- ts[tile_name]
 
     # Get output file path
-    out_path     <- out_paths[tile_name]
     ortho_path   <- ortho_paths[tile_name]
     seg_ras_path  <- seg_ras_paths[tile_name]
-    seg_poly_path <- seg_poly_paths[tile_name]
 
-    # Read segment DBF
-    seg_dbf <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
+    # Get seg IDs
+    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(seg_dbf) > 0){
+    tile_metrics <- if(nrow(seg_ids) > 0){
 
       # Read ortho and segment raster
       o <- terra::rast(ortho_path)
       seg_ras <- terra::rast(seg_ras_path)
 
       # Subset bands
-      if(max(bands) >  terra::nlyr(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
+      if(max(bands) > terra::nlyr(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
       o <- o[[bands]]
       names(o) <- met_names_prefix[names(bands)]
 
@@ -230,39 +227,41 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
       }
 
       # Compute standard metrics
-      specMetrics <- do.call(cbind, lapply(zonalFun, function(zf){
-        specMetrics <- terra::zonal(o, seg_ras, fun = zf)
-        colnames(specMetrics) <- paste0(c("zone", names(o)), "_", zf)
-        return(specMetrics)
+      spec_metrics <- do.call(cbind, lapply(zonalFun, function(zf){
+        spec_metrics <- terra::zonal(o, seg_ras, fun = zf)
+        colnames(spec_metrics) <- paste0(c("zone", names(o)), "_", zf)
+        return(spec_metrics)
       }))
 
+      # Set row names
+      row.names(spec_metrics) <- spec_metrics[,1]
+
       # Remove extra 'zone' colum
-      specMetrics <- data.frame(
-        zoneID = specMetrics[,1],
-        specMetrics[,!grepl("^zone_", colnames(specMetrics)), drop = FALSE]
-      )
+      spec_metrics <- spec_metrics[,!grepl("^zone_", colnames(spec_metrics)), drop = FALSE]
 
-      # Keep only segments found in 'seg_poly', and re-order them to match
-      names(specMetrics)[names(specMetrics) == "zoneID"] <- seg_id
-      row.names(specMetrics) <- specMetrics[[seg_id]]
-      specMetrics <- specMetrics[as.character(seg_dbf[[seg_id]]),]
-      specMetrics[[seg_id]] <- seg_dbf[[seg_id]]
+      # Reorder
+      spec_metrics <- spec_metrics[as.character(seg_ids[[seg_id]]),]
 
-      specMetrics
+      # Remove NAs
+      spec_metrics[is.na(spec_metrics)] <- 0
 
-    }else{
-      empty_metrics
-    }
+      # Attach to FID
+      spec_metrics <- cbind(fid = seg_ids[["fid"]], spec_metrics)
 
-    write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
+      spec_metrics
 
-    if(file.exists(out_path)) "Success" else "FAILED"
+    }else NULL
+
+    # Write attributes
+    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
+
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -279,10 +278,9 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, out_rts,
 #'
 #' @export
 
-seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
-                          z_min, z_max,
-                          seg_id, prefix = NULL,
-                          ground_class = NULL, full_class = NULL, rgb = NULL, intensity = NULL,
+seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, seg_id,
+                          z_min = 0, z_max = 100,
+                          ground_class = NULL, full_class = NULL, rgb = NULL,
                           ...){
 
   .env_misterRS(list(...))
@@ -293,22 +291,11 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
 
   # Check inputs are complete
   .complete_input(seg_rts)
-  .complete_input(seg_poly_vts)
+  .complete_input(seg_vts)
   .complete_input(dem_rts)
 
-  # Get file paths
-  seg_ras_paths  <- .rts_tile_paths(seg_rts)
-  seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
-  DEM_paths      <- .rts_tile_paths(dem_rts)
-  out_paths      <- .rts_tile_paths(out_rts)
-
-  # Get tile scheme
-  ts <- .tilescheme()
-
-  ### PREPARE DATA ----
-
   # Auto-detect classification and RGB
-  if(any(sapply(list(rgb, intensity, full_class, ground_class), is.null))){
+  if(any(sapply(list(rgb, full_class, ground_class), is.null))){
 
     testLAS <- lidR::readLAS(las_cat$filename[[1]])
 
@@ -319,8 +306,23 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
 
   }
 
-  # Variables that depend on classification and RGB setting
+  cat(
+    "  Classified (Ground) : ", ground_class, "\n",
+    "  Classified (Full)   : ", full_class, "\n",
+    "  RGB                 : ", rgb, "\n",
+    "\n", sep = ""
+  )
 
+  ### PREPARE DATA ----
+
+  # Get file paths
+  seg_ras_paths <- .rts_tile_paths(seg_rts)
+  dem_paths     <- .rts_tile_paths(dem_rts)
+
+  # Get tile scheme
+  ts <- .tilescheme()
+
+  # Variables that depend on classification and RGB setting
   las_variables <- list("Z" = "Z")
   las_select    <- c("xyz")
   by_thresh     <- NULL
@@ -332,11 +334,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
     las_variables <- c(las_variables, as.list(setNames(rgb_variables, rgb_variables)))
     by_thresh     <- c(by_thresh, rgb_variables)
   }
-  if(intensity){
-    las_select    <- paste0(las_select, c("i"))
-    las_variables <- c(las_variables, list("I" = "Intensity"))
-    by_thresh     <- c(by_thresh, "I")
-  }
+
   if(ground_class | full_class){
     las_select    <- paste0(las_select, c("c"))
     las_variables <- c(las_variables, list("class" = "Classification"))
@@ -344,9 +342,16 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
     if(full_class)   formula_args <- c(formula_args, "full_classification = TRUE")
     if(ground_class) formula_args <- c(formula_args, "ground_classification = TRUE")
   }
+
   if(!is.null(by_thresh)){
     formula_args <- c(formula_args, paste0("by_thresh=c('", paste(by_thresh, collapse = "', '") , "')"))
   }
+
+  # if(intensity){
+  #   las_select    <- paste0(las_select, c("i"))
+  #   las_variables <- c(las_variables, list("I" = "Intensity"))
+  #   by_thresh     <- c(by_thresh, "I")
+  # }
 
   # Create formula
   metric_formula <- as.formula(paste0(
@@ -361,17 +366,19 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
     ")"
   ))
 
+
+  ### ENSURE THAT OUTPUT GPKG HAS APPROPRIATE COLUMNS ----
+
   # Create empty result
   empty_result <- eval(lazyeval::as_call(metric_formula), envir = setNames(rep(list(0), length(las_variables)), las_variables))
-  empty_result[] <- NA
+  metric_fields <- paste0(attribute_set, "_", names(empty_result))
 
-  cat(
-    "  Intensity           : ", intensity, "\n",
-    "  Classified (Ground) : ", ground_class, "\n",
-    "  Classified (Full)   : ", full_class, "\n",
-    "  RGB                 : ", rgb, "\n",
-    "\n", sep = ""
-  )
+  # Add columns to GPKG
+  .vts_add_fields(seg_vts, metric_fields)
+
+  # Add attribute set name to tile registry
+  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
+
 
   ### CREATE WORKER ----
 
@@ -382,17 +389,14 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
     tile <- ts[tile_name]
 
     # Get output file path
-    out_path     <- out_paths[tile_name]
-    DEM_path     <- DEM_paths[tile_name]
+    dem_path     <- dem_paths[tile_name]
     seg_ras_path  <- seg_ras_paths[tile_name]
-    seg_poly_path <- seg_poly_paths[tile_name]
 
-    # Read segment DBF
-    seg_dbf <- .read_poly_attributes(seg_poly_path)
-    if(!seg_id %in% names(seg_dbf)) stop("Could not find '", seg_id, "' in the '", seg_poly_vts@name, "' dataset")
+    # Get seg IDs
+    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(seg_dbf) > 0){
+    tile_metrics <- if(nrow(seg_ids) > 0){
 
       # Read LAS tile
       las_tile <- .read_las_tile(in_cat, tile = tile, select = las_select)
@@ -400,7 +404,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
       if(!is.null(las_tile)){
 
         # Normalize LAS tile
-        las_tile <- .normalize_las(las_tile, DEM_path = DEM_path, z_min, z_max)
+        las_tile <- .normalize_las(las_tile, DEM_path = dem_path, z_min, z_max)
 
         if(!is.null(las_tile)){
 
@@ -421,15 +425,20 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
             # Compute cloud statistics within segments
             las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()
 
-            # Remove unneeded columns
-            las_metrics <- las_metrics[, !names(las_metrics) %in% "geometry", drop = FALSE]
-
             # Reorder
-            las_metrics <- las_metrics[match(seg_dbf[[seg_id]], las_metrics[[seg_id]]),]
-            las_metrics[[seg_id]] <- seg_dbf[[seg_id]]
+            las_metrics <- las_metrics[match(seg_ids[[seg_id]], las_metrics[[seg_id]]),]
+
+            # Remove unneeded columns
+            las_metrics <- las_metrics[, !names(las_metrics) %in% c("geometry", seg_id), drop = FALSE]
 
             # Add prefix
-            names(las_metrics)[2:ncol(las_metrics)] <- paste0(prefix, names(las_metrics)[2:ncol(las_metrics)])
+            names(las_metrics) <- paste0(attribute_set, "_", names(las_metrics))
+
+            # Remove NA values
+            las_metrics[is.na(las_metrics)] <- 0
+
+            # Attach to FID
+            las_metrics <- cbind(fid = seg_ids[["fid"]], las_metrics)
 
             las_metrics
 
@@ -438,27 +447,16 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
       }else NULL
     }else NULL
 
+    # Write attributes
+    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
 
-    # If no LAS points were found or segment file was empty, create a dummy table
-    if(is.null(tile_metrics)){
-
-      empty_metrics <- empty_result[rep(1, nrow(seg_dbf)), ]
-      names(empty_metrics) <- paste0(prefix, names(empty_metrics))
-
-      tile_metrics <- cbind(seg_dbf[,seg_id, drop = FALSE], empty_metrics)
-    }
-
-    # Write table
-    write.csv(tile_metrics, out_path, row.names = FALSE, na = "")
-
-    if(file.exists(out_path)) "Success" else "FAILED"
-
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -524,27 +522,30 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, out_rts,
 
 
   # Subset variables according to z thresholds
-  p_threshs <- lapply(names(z_threshs), function(z_thresh_name){
+  if(length(by_thresh) > 0){
+    p_threshs <- lapply(names(z_threshs), function(z_thresh_name){
 
-    z_thresh <- z_threshs[z_thresh_name]
+      z_thresh <- z_threshs[z_thresh_name]
 
-    p_thresh <- p[p$Z >= z_thresh, by_thresh, drop = FALSE]
+      p_thresh <- p[p$Z >= z_thresh, by_thresh, drop = FALSE]
 
-    names(p_thresh) <- paste0(names(p_thresh), "_", z_thresh_name)
+      names(p_thresh) <- paste0(names(p_thresh), "_", z_thresh_name)
 
-    return(p_thresh)
+      return(p_thresh)
 
-  })
-  p_threshs <- c(list(p[,by_thresh, drop = FALSE]), p_threshs)
+    })
+    p_threshs <- c(list(p[,by_thresh, drop = FALSE]), p_threshs)
 
 
-  stats_thresh <- data.frame( as.list(do.call(c, lapply(p_threshs, function(p_thresh){
-    c(
-      apply(p_thresh, 2, mean) %>% setNames(paste0(names(.), "_mn")),
-      apply(p_thresh, 2, max)  %>% setNames(paste0(names(.), "_mx"))
-    )
-  }))))
-  stats_out <- cbind(stats_out, stats_thresh)
+    stats_thresh <- data.frame( as.list(do.call(c, lapply(p_threshs, function(p_thresh){
+      c(
+        apply(p_thresh, 2, mean) %>% setNames(paste0(names(.), "_mn")),
+        apply(p_thresh, 2, max)  %>% setNames(paste0(names(.), "_mx"))
+      )
+    }))))
+    stats_out <- cbind(stats_out, stats_thresh)
+  }
+
 
   # Ground classification
   if(ground_classification){

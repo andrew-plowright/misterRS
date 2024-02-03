@@ -37,147 +37,10 @@
 }
 
 
-.tilescheme <- function(ts = getOption("misterRS.ts")){
-
-  if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
-
-  return(ts)
-}
 
 
-.rts_tile_paths <- function(rts){
-
-  # Get tile scheme
-  ts <- .tilescheme()
-
-  # Get file paths
-  tilePaths <- file.path(rts@dir, "tiles", paste0(ts$tileName, ".", rts@ext))
-
-  # Get absolute path
-  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
-
-  # Set names
-  tilePaths <- setNames(tilePaths, ts$tileName)
-
-  return(tilePaths)
-
-}
 
 
-.rts_mosaic_path <- function(rts){
-
-  ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
-
-  # Get file path
-  mosaic_path <- file.path(rts@dir, paste0(rts@id, ".", ext))
-
-  # Get absolute path
-  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
-
-  return(mosaic_path)
-}
-
-
-.vts_write <- function(in_sf, out_vts, tile_name, overwrite = FALSE){
-
-  if(overwrite){
-
-    .vts_tile_delete(out_vts, tile_name)
-
-  }else{
-
-    has_tile <- .vts_has_tiles(out_vts, tile_name)
-    if(has_tile) stop("Tile already exists")
-  }
-
-  # Write geometry
-  if(nrow(in_sf) > 0){
-
-    in_sf[["tile_name"]] <- tile_name
-
-    sf::st_write(in_sf, out_vts@gpkg, layer="layer", append = TRUE, quiet=TRUE)
-
-  }
-
-  # Write to tile registry
-  .vts_tile_reg_add(out_vts, tile_name)
-}
-
-
-.vts_tile_delete <- function(in_vts, tile_name){
-
-  # Delete tiles from tile registry
-  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
-  DBI::dbExecute(con, sprintf("DELETE FROM tile_reg WHERE tile_name = '%s'", tile_name))
-  DBI::dbDisconnect(con)
-
-  # Delete geometry
-  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
-  if("layer"%in% DBI::dbListTables(con)){
-    DBI::dbExecute(con, sprintf("DELETE FROM layer WHERE tile_name = '%s'",    tile_name))
-  }
-  DBI::dbDisconnect(con)
-}
-
-
-.vts_tile_reg_add <- function(in_vts, tile_name){
-
-  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
-  DBI::dbExecute(con, sprintf("INSERT INTO tile_reg (tile_name) VALUES ('%s')", tile_name))
-  DBI::dbDisconnect(con)
-}
-
-
-.vts_read <- function(in_vts, tile_name = NULL, geom = NULL){
-
-  if(is.null(tile_name) & is.null(geom)) stop("Subset VTS either by tile_name or by geometry")
-
-  # by tilename
-  if(!is.null(tile_name)){
-
-    sf::st_read(in_vts@gpkg, layer="layer", quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
-
-  }else if(!is.null(geom)){
-
-    bbox_wkt <- sf::st_as_text(sf::st_geometry(geom))
-
-    sf::st_read(in_vts@gpkg, layer="layer", quiet = TRUE, wkt_filter = bbox_wkt)
-  }
-
-}
-
-
-.vts_has_tiles <- function(in_vts, tile_names){
-
-  if(is.null(tile_names) | length(tile_names) == 0){
-
-    return(character())
-
-  }else{
-
-    con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@tile_reg)
-    withr::defer(DBI::dbDisconnect(con))
-
-    existing_tiles <- DBI::dbGetQuery(con, "SELECT tile_name FROM tile_reg")[,1]
-
-    return(setNames(tile_names %in% existing_tiles, tile_names))
-  }
-}
-
-.vts_has_output_layer <- function(in_vts){
-  "layer" %in% sf::st_layers(in_vts@gpkg)$name
-}
-
-
-.headline <- function(headline){
-
-  cat(
-    headline, "\n",
-    "Started at : ", format(Sys.time(), "%Y-%m-%d %X"), "\n",
-    "\n",sep = "")
-
-  Sys.time()
-}
 
 
 .conclusion <- function(time){
@@ -285,6 +148,47 @@
 }
 
 
+.headline <- function(headline){
+
+  cat(
+    headline, "\n",
+    "Started at : ", format(Sys.time(), "%Y-%m-%d %X"), "\n",
+    "\n",sep = "")
+
+  Sys.time()
+}
+
+.is_las_rgb <- function(inLAS){
+
+  # Are there R, G, B fields?
+  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
+
+  if(has_rgb){
+
+    # Do they contain only 0s? (Only check R to save time)
+    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
+
+  }else{
+    return(FALSE)
+  }
+}
+
+.is_las_ground_classified <- function(inLAS){
+
+  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASGROUND))
+}
+
+.is_las_full_classified <- function(inLAS){
+
+  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
+}
+
+.is_las_intensity <- function(inLAS){
+
+  return(!is.null(inLAS$Intensity) && lidR:::fast_countover(inLAS$Intensity, 0))
+}
+
+
 .progbar <- function(n, width = 80){
 
   if(n == 0){
@@ -306,7 +210,47 @@
 }
 
 
-.tile_queue <- function(xts,
+.tilescheme <- function(ts = getOption("misterRS.ts")){
+
+  if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
+
+  return(ts)
+}
+
+.tile_neibs <- function(tile_names, ts, case = "queen"){
+
+  mats <- if(case=="queen"){
+    list(
+      c(-1,-1), c(-1,0), c(-1,1),
+      c( 0,-1), c( 0,0), c( 0,1),
+      c( 1,-1), c( 1,0), c( 1,1)
+    )
+  }else{
+    list(
+      c(-1,0),
+      c( 0,-1), c( 0,0), c( 0,1),
+      c( 1,0),
+    )
+  }
+
+  tiles <- ts@data[ts@data$tileName %in% tile_names, ]
+
+  potential_tiles <- lapply(1:nrow(tiles), function(i){lapply(mats, function(mat) tiles[i,c("row", "col")] + mat)}) %>%
+    unlist(recursive=FALSE) %>%
+    do.call(rbind, .) %>%
+    dplyr::distinct() %>%
+    dplyr::mutate(tileName = paste0("R", row, "C", col)) %>%
+    `[[`("tileName")
+
+  existing_tiles <- ts@data[["tileName"]]
+
+  neib_tiles <- potential_tiles[potential_tiles %in% existing_tiles]
+
+  return(neib_tiles)
+
+}
+
+.tile_queue <- function(xts, attribute_set_name = NULL,
                         overwrite = getOption("misterRS.overwrite"),
                         selected_tiles = getOption("misterRS.tile_names"),
                         clusters = getOption("misterRS.clusters"),
@@ -340,7 +284,7 @@
 
       if(!overwrite){
 
-        has_tiles <- .vts_has_tiles(xts, proc_tiles)
+        has_tiles <- .vts_has_tiles(xts, proc_tiles, attribute_set_name)
 
         proc_tiles <- names(has_tiles)[!has_tiles]
       }
@@ -468,38 +412,7 @@
   }
 }
 
-.tile_neibs <- function(tile_names, ts, case = "queen"){
 
-  mats <- if(case=="queen"){
-    list(
-      c(-1,-1), c(-1,0), c(-1,1),
-      c( 0,-1), c( 0,0), c( 0,1),
-      c( 1,-1), c( 1,0), c( 1,1)
-    )
-  }else{
-    list(
-                c(-1,0),
-      c( 0,-1), c( 0,0), c( 0,1),
-                c( 1,0),
-    )
-  }
-
-  tiles <- ts@data[ts@data$tileName %in% tile_names, ]
-
-  potential_tiles <- lapply(1:nrow(tiles), function(i){lapply(mats, function(mat) tiles[i,c("row", "col")] + mat)}) %>%
-    unlist(recursive=FALSE) %>%
-    do.call(rbind, .) %>%
-    dplyr::distinct() %>%
-    dplyr::mutate(tileName = paste0("R", row, "C", col)) %>%
-    `[[`("tileName")
-
-  existing_tiles <- ts@data[["tileName"]]
-
-  neib_tiles <- potential_tiles[potential_tiles %in% existing_tiles]
-
-  return(neib_tiles)
-
-}
 
 
 .read_las_tile <- function(in_cat, tile, select, classes = NULL){
@@ -539,6 +452,40 @@
 
 }
 
+
+
+.rts_tile_paths <- function(rts){
+
+  # Get tile scheme
+  ts <- .tilescheme()
+
+  # Get file paths
+  tilePaths <- file.path(rts@dir, "tiles", paste0(ts$tileName, ".", rts@ext))
+
+  # Get absolute path
+  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
+
+  # Set names
+  tilePaths <- setNames(tilePaths, ts$tileName)
+
+  return(tilePaths)
+
+}
+
+
+.rts_mosaic_path <- function(rts){
+
+  ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
+
+  # Get file path
+  mosaic_path <- file.path(rts@dir, paste0(rts@id, ".", ext))
+
+  # Get absolute path
+  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
+
+  return(mosaic_path)
+}
+
 .normalize_las <- function(inLAS, DEM_path, z_min, z_max){
 
   if(!file.exists(DEM_path)) stop("Could not find DEM file '", DEM_path, "'")
@@ -570,33 +517,4 @@
 }
 
 
-.is_las_rgb <- function(inLAS){
-
-  # Are there R, G, B fields?
-  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
-
-  if(has_rgb){
-
-    # Do they contain only 0s? (Only check R to save time)
-    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
-
-  }else{
-    return(FALSE)
-  }
-}
-
-.is_las_ground_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASGROUND))
-}
-
-.is_las_full_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
-}
-
-.is_las_intensity <- function(inLAS){
-
-  return(!is.null(inLAS$Intensity) && lidR:::fast_countover(inLAS$Intensity, 0))
-}
 

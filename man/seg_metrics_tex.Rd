@@ -6,13 +6,12 @@
 \usage{
 seg_metrics_tex(
   seg_rts,
-  seg_poly_vts,
+  seg_vts,
   img_rts,
-  out_rts,
+  attribute_set,
   seg_id,
   band = 1,
   discretize_range = NULL,
-  prefix = "",
   n_grey = 16,
   ...
 )

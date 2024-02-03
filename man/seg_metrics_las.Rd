@@ -9,15 +9,13 @@ seg_metrics_las(
   seg_vts,
   in_cat,
   dem_rts,
-  out_rts,
-  z_min,
-  z_max,
+  attribute_set,
   seg_id,
-  prefix = NULL,
+  z_min = 0,
+  z_max = 100,
   ground_class = NULL,
   full_class = NULL,
   rgb = NULL,
-  intensity = NULL,
   ...
 )
 }

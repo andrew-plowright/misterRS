@@ -17,8 +17,8 @@
   # Path for projects
   projects_root = "D:/Projects/clients/diamondhead"
   projects_log = "D:/Projects/clients/diamondhead/project_register.csv"
-
   syncback_exe = "C:/Program Files (x86)/2BrightSparks/SyncBackFree/SyncBackFree.exe"
+  mod_spalialite = "D:\\Projects\\libraries\\misterRS\\mod_spatialite-5.1.0-win-amd64"
 
   # Set global options
   op.current <- options()
@@ -34,6 +34,7 @@
     misterRS.projects_root = projects_root,
     misterRS.project_register = projects_log,
     misterRS.syncback_exe  = syncback_exe,
+    misterRS.mod_spatialite =mod_spalialite,
     lidR.progress          = FALSE,
     lidR.verbose           = FALSE
   )

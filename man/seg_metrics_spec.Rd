@@ -8,11 +8,10 @@ seg_metrics_spec(
   seg_rts,
   seg_vts,
   img_rts,
-  out_rts,
+  attribute_set,
+  seg_id,
   bands = c(R = 1, G = 2, B = 3),
   zonalFun = c("mean", "sd"),
-  seg_id,
-  prefix = NULL,
   ...
 )
 }

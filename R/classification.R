@@ -155,12 +155,10 @@ training_data_extract <- function(training_data, seg_poly_vts, metrics, seg_id, 
 
     row.names(training_table) <- 1:nrow(training_table)
 
-    # Connect to DB
-    con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
-    withr::defer(DBI::dbDisconnect(con))
 
-    # Write
-    DBI::dbWriteTable(conn = con, name = "data", value = training_table, overwrite = TRUE)
+    con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
+    DBI::dbWriteTable(con, name = "data", value = training_table, overwrite = TRUE)
+    DBI::dbDisconnect(con)
 
   }
 
