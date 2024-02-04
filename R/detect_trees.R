@@ -78,6 +78,9 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
+  # Create index
+  .vts_create_index(ttops_vts, "tile_name")
+
   # Report
   .print_process_status(process_status)
 

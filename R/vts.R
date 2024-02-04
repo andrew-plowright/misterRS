@@ -249,3 +249,16 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
 
   DBI::dbDisconnect(con)
 }
+
+.vts_create_index <- function(in_vts, col_name, table_name = "layer"){
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
+  withr::defer(DBI::dbDisconnect(con))
+
+  exists <- DBI::dbGetQuery(con, sprintf("SELECT * FROM sqlite_master WHERE type = 'index' and tbl_name = '%1$s' and name = '%1$s_%2$s'", table_name, col_name))
+
+  if(nrow(exists) == 0){
+    DBI::dbExecute(con, sprintf("CREATE INDEX %1$s_%2$s ON %1$s (%2$s)", table_name, col_name))
+  }
+}
+

@@ -314,6 +314,9 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
 
+  # Create index
+  .vts_create_index(out_vts, "tile_name")
+
   # Report
   .print_process_status(process_status)
 
