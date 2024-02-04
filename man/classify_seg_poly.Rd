@@ -2,23 +2,18 @@
 % Please edit documentation in R/classification.R
 \name{classify_seg_poly}
 \alias{classify_seg_poly}
-\title{#' Create classifier
-#'
-#' @export}
+\title{Classify polygonal segments}
 \usage{
 classify_seg_poly(
   classifier_file,
-  seg_poly_vts,
-  seg_class_poly_vts,
+  seg_vts,
+  iteration,
+  class_table,
   class_edits,
-  metrics,
   seg_id,
   ...
 )
 }
 \description{
-
-}
-\details{
-
+Classify polygonal segments
 }

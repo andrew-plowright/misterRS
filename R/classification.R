@@ -284,7 +284,10 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,  seg_id
 #' @export
 
 classifier_create <- function(training_data, training_set, classifier_file = NULL, seg_id, predictors = NULL,
-                              overwrite = FALSE,  verbose = TRUE){
+                              overwrite = FALSE){
+
+  process_timer <- .headline("CREATE CLASSIFIER")
+
 
   if(!is.null(classifier_file)){
     if(file.exists(classifier_file) & !overwrite){
@@ -308,7 +311,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
   drop_rows <- apply(is.na(all_data), 1, any)
   if(any(drop_rows)){
 
-    if(verbose) cat("Remove rows:", length(drop_rows[drop_rows]), "\n")
+    cat("Remove rows:", length(drop_rows[drop_rows]), "\n")
     all_data <- all_data[!drop_rows,]
   }
 
@@ -333,7 +336,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
                            paste(predictors[notFound], collapse = "\n  "))
   }
 
-  if(verbose) cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
+  cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
 
   # Factorize 'segClass' attribute
   all_data$segClass <- as.factor(all_data$segClass)
@@ -345,122 +348,25 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
     importance = TRUE,
     ntree      = 1000)
 
-  if(verbose) cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
+  cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
 
-  if(is.null(classifier_file)){
+  # create classifier output folder
+  classifierDir <- dirname(classifier_file)
+  if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
 
-    return(classifier)
+  # Save classifier
+  saveRDS(classifier, classifier_file)
 
-  }else{
-
-    # create classifier output folder
-    classifierDir <- dirname(classifier_file)
-    if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
-
-    # Save classifier
-    saveRDS(classifier, classifier_file)
-  }
+  # Conclude
+  .conclusion(process_timer)
 }
 
-
-
-#' #' Create classifier
-#' #'
-#' #' @export
-#'
-#' classifier_create <- function(training_data, classifier_file = NULL, seg_id, predictors = NULL,
-#'                              overwrite = FALSE,  verbose = TRUE){
-#'
-#'   if(!is.null(classifier_file)){
-#'     if(file.exists(classifier_file) & !overwrite){
-#'       stop("Classifier already exists. Set 'overwrite' to TRUE")
-#'     }
-#'   }
-#'
-#'   # Coerce to list
-#'   if(!is.list(training_data)) training_data <- list(training_data)
-#'
-#'   # Combine all training data
-#'   all_data <- do.call(rbind, lapply(training_data, function(tp){
-#'
-#'     has_data <- "data" %in% sf::st_layers(tp@file_path)$name
-#'
-#'     if(!has_data) stop("Data has not been extracted for '", tp@id, "'")
-#'
-#'     suppressWarnings(sf::st_read(tp@file_path, "data", quiet = TRUE))
-#'   }))
-#'
-#'   # Remove duplicated
-#'   all_data <- dplyr::distinct(all_data, tile_name, .data[[seg_id]], .keep_all = TRUE)
-#'
-#'   # Drop columns
-#'   drop_cols <- c("tile_name" , seg_id)
-#'   all_data <- all_data[,!names(all_data) %in% drop_cols]
-#'
-#'   # Check for rows with NA values and remove
-#'   drop_rows <- apply(is.na(all_data), 1, any)
-#'   if(any(drop_rows)){
-#'
-#'     if(verbose) cat("Remove rows:", length(drop_rows[drop_rows]), "\n")
-#'     all_data <- all_data[!drop_rows,]
-#'   }
-#'
-#'   # Predictors: auto-select
-#'   if(all("auto" %in% predictors)){
-#'
-#'     # Use autoSelect to choose uncorrelated variables
-#'     predictors <- as.character(Biocomb::select.cfs(all_data)$Biomarker)
-#'
-#'   # Predictors: all variables
-#'   }else if(is.null(predictors)){
-#'
-#'     predictors <- "."
-#'
-#'   # Predictors: defined by user
-#'   }else{
-#'
-#'     # Check that selected predictors exist
-#'     notFound <- !predictors %in% names(all_data)
-#'
-#'     if(any(notFound)) stop("Following predictor variables not found in survey's Training Data:\n  ",
-#'                            paste(predictors[notFound], collapse = "\n  "))
-#'   }
-#'
-#'   if(verbose) cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
-#'
-#'   # Factorize 'segClass' attribute
-#'   all_data$segClass <- as.factor(all_data$segClass)
-#'
-#'   # Create classifier
-#'   classifier <- randomForest::randomForest(
-#'     as.formula(paste("segClass ~", paste(predictors, collapse = " + "))),
-#'     data       = all_data,
-#'     importance = TRUE,
-#'     ntree      = 1000)
-#'
-#'   if(verbose) cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
-#'
-#'   if(is.null(classifier_file)){
-#'
-#'     return(classifier)
-#'
-#'   }else{
-#'
-#'     # create classifier output folder
-#'     classifierDir <- dirname(classifier_file)
-#'     if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
-#'
-#'     # Save classifier
-#'     saveRDS(classifier, classifier_file)
-#'   }
-#' }
 
 #' Classify polygonal segments
 #'
 #' @export
 
-classify_seg_poly <- function(classifier_file, seg_poly_vts, seg_class_poly_vts,
-                              class_edits, metrics, seg_id, ...){
+classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, class_edits, seg_id, ...){
 
   .env_misterRS(list(...))
 
@@ -468,127 +374,117 @@ classify_seg_poly <- function(classifier_file, seg_poly_vts, seg_class_poly_vts,
 
   ### INPUT CHECKS ----
 
-    # Check that inputs are complete
-    .complete_input(seg_poly_vts)
-    for(RS in metrics) .complete_input(RS)
+  # Check that inputs are complete
+  .complete_input(seg_vts)
 
-    # Get CRS
-    proj <- getOption("misterRS.crs")
+  # Get CRS
+  proj <- getOption("misterRS.crs")
 
-    # Get tile scheme
-    ts <- .tilescheme()
-    tiles_sf <- sf::st_as_sf(ts[["tiles"]])
+  # Get tile scheme
+  ts <- .tilescheme()
+  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
-    # Get file paths
-    seg_poly_paths <- .rts_tile_paths(seg_poly_vts)
-    out_paths     <- .rts_tile_paths(seg_class_poly_vts)
-    met_paths     <- lapply(metrics, .rts_tile_paths)
+  # Read classifier
+  classifier <- readRDS(classifier_file)
 
-    # Read classifier
-    classifier <- readRDS(classifier_file)
+  # Get class variables
+  class_features <-  row.names(randomForest::importance(classifier))
 
-  ### READ CLASS EDITS ----
+  # Add column
+  class_label <- paste0("class_", iteration)
+  .vts_add_fields(seg_vts, class_label, field_type = "integer")
 
-    class_edits <- sf::st_read(class_edits@SHPfile, quiet = TRUE)
+  # Add attribute set name to tile registry
+  .vts_tile_reg_attribute_set(seg_vts, class_label)
 
-    if(nrow(class_edits) > 0){
+  # Read in class edits
 
-      class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
+  class_edits <- sf::st_read(class_edits@SHPfile, quiet = TRUE)
 
-    }
+  if(nrow(class_edits) > 0){
 
+    class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
+  }
 
   ### CREATE WORKER ----
 
-    # Run process
-    tile_worker <-function(tile_name){
+  # Run process
+  tile_worker <-function(tile_name){
 
-      seg_poly_path <- seg_poly_paths[tile_name]
-      out_path     <- out_paths[tile_name]
+    # Read treetops
+    seg_poly <-  .vts_read(seg_vts, tile_name = tile_name)
 
-      # Read segments
-      seg_poly <- sf::st_read(seg_poly_path, quiet = TRUE)
+    # Get all metrics
+    seg_data <- sf::st_drop_geometry(seg_poly)[,class_features, drop=FALSE]
 
-      # Get all metrics
-      seg_data <- unname(lapply(names(metrics), function(met_name){
-        read.csv(met_paths[[met_name]][tile_name],
-                 row.names = 1, check.names = FALSE,
-                 stringsAsFactors = FALSE)
-      }))
+    # Classify according to most-voted class
+    votes   <- randomForest:::predict.randomForest(classifier, seg_data, type = "vote")
+    elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
+    seg_poly[[class_label]] <- elected
 
-      # Check matching row names
-      for(i in 1:length(metrics)){
-        if(!all(seg_poly[[seg_id]] == row.names(seg_data[[i]]))){
-          stop("Row names for '", metrics[[i]]@name, "' do not match '", seg_id, "' field for segments in tile '", tile_name, "'")
+    # votePrc  <- if(length(elected) > 0){
+    #  sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
+    # }else{
+    #   numeric()
+    # }
+
+    # Manual edits
+    if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tile_name]]) > 0)){
+
+      # Class edits for this tile
+      class_edits_tile <- class_edits[class_edits_bytile[[tile_name]],]
+
+      # Intersection between class edits and polygons
+      class_edits_bypoly <- sf::st_intersects(class_edits_tile, seg_poly)
+
+      for(i in 1:nrow(class_edits_tile)){
+
+        edit <- class_edits_tile[i,]
+
+        # Get to/from classes
+        from <- strsplit(edit$fromClass, " ")[[1]]
+        to   <- edit$toClass
+
+        # Get segments that intersect with edit polygon
+        edit_segs <- seg_poly[class_edits_bypoly[[i]],]
+
+        # Subset according to specified 'fromClass' value (if specified)
+        if(!is.na(from)) edit_segs <- edit_segs[edit_segs$segClass %in% from,]
+
+        # Apply edit
+        if(nrow(edit_segs) > 0){
+
+          edit_which <- seg_poly[[seg_id]] %in% edit_segs[[seg_id]]
+          seg_poly[edit_which,][[class_label]] <- to
         }
       }
-
-      # Combine metrics
-      seg_data <- do.call(cbind, seg_data)
-
-      # Classify according to most-voted class
-      votes   <- randomForest:::predict.randomForest(classifier, seg_data, type = "vote")
-      elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
-      seg_poly[["segClass"]] <- elected
-      seg_poly[["votePrc"]]  <- if(length(elected) > 0){
-       sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
-      }else{
-        numeric()
-      }
-
-      # Manual edits
-      if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tile_name]]) > 0)){
-
-        # Class edits for this tile
-        class_edits_tile <- class_edits[class_edits_bytile[[tile_name]],]
-
-        # Intersection between class edits and polygons
-        class_edits_bypoly <- sf::st_intersects(class_edits_tile, seg_poly)
-
-        for(i in 1:nrow(class_edits_tile)){
-
-          edit <- class_edits_tile[i,]
-
-          # Get to/from classes
-          from <- strsplit(edit$fromClass, " ")[[1]]
-          to   <- edit$toClass
-
-          # Get segments that intersect with edit polygon
-          edit_segs <- seg_poly[class_edits_bypoly[[i]],]
-
-          # Subset according to specified 'fromClass' value (if specified)
-          if(!is.na(from)) edit_segs <- edit_segs[edit_segs$segClass %in% from,]
-
-          # Apply edit
-          if(nrow(edit_segs) > 0){
-
-            edit_which <- seg_poly[[seg_id]] %in% edit_segs[[seg_id]]
-            seg_poly[edit_which,][["segClass"]] <- to
-            seg_poly[edit_which,][["votePrc" ]] <- NA
-          }
-        }
-      }
-
-      # Save output
-      sf::st_write(seg_poly, out_path, delete_dsn = file.exists(out_path), quiet = TRUE)
-
-      if(file.exists(out_path)) "Success" else stop("Failed to create output")
-
     }
+
+    # Convert to class IDs
+    seg_poly[[class_label]] <- class_table$id[match(seg_poly[[class_label]], class_table$code)]
+
+    # Select data to be written
+    out_data <- sf::st_drop_geometry(seg_poly)[,c(seg_id, class_label)]
+
+    # Write data
+    .vts_write_attribute_set(data = out_data, out_vts = seg_vts, id_field = seg_id, attribute_set_field = class_label,tile_name = tile_name)
+
+    return("Success")
+  }
 
   ### APPLY WORKER ----
 
-    # Get tiles for processing
-    proc_tiles <- .tile_queue(out_paths)
+  # Get tiles for processing
+  proc_tiles <- .tile_queue(seg_vts, class_label)
 
-    # Process
-    process_status <- .exe_tile_worker(proc_tiles, tile_worker)
+  # Process
+  process_status <- .exe_tile_worker(proc_tiles, tile_worker)
 
-    # Report
-    .print_process_status(process_status)
+  # Report
+  .print_process_status(process_status)
 
-    # Conclude
-    .conclusion(process_timer)
+  # Conclude
+  .conclusion(process_timer)
 
 }
 
@@ -600,8 +496,7 @@ classify_seg_poly <- function(classifier_file, seg_poly_vts, seg_class_poly_vts,
 #'
 #' @export
 
-classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
-                             seg_classes, seg_id, ...){
+classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, seg_id, ...){
 
   .env_misterRS(list(...))
 
@@ -610,12 +505,13 @@ classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .complete_input(seg_class_poly_vts)
   .complete_input(seg_rts)
+  .complete_input(seg_vts)
 
-  seg_class_poly_paths <- .rts_tile_paths(seg_class_poly_vts)
-  seg_ras_paths        <- .rts_tile_paths(seg_rts)
-  out_paths            <- .rts_tile_paths(seg_class_rts)
+  seg_paths <- .rts_tile_paths(seg_rts)
+  out_paths <- .rts_tile_paths(seg_class_rts)
+
+  class_label <- paste0("class_", iteration)
 
   ### CREATE WORKER ----
 
@@ -623,23 +519,21 @@ classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
   tile_worker <-function(tile_name){
 
     # Get file paths
-    seg_class_poly_path <- seg_class_poly_paths[tile_name]
-    seg_ras_path       <- seg_ras_paths[tile_name]
-    out_path          <- out_paths[tile_name]
 
-    # Get classified polygonal segments
-    seg_poly <- sf::st_read(seg_class_poly_path, quiet = TRUE)
+    seg_path <- seg_paths[tile_name]
+    out_path <- out_paths[tile_name]
+
+    # Read polygons (which have classes)
+    seg_poly <-  .vts_read(seg_vts, tile_name = tile_name, field = c(seg_id, class_label))
 
     # Get unclassified raster segments
-    seg_ras <- terra::rast(seg_ras_path)
+    seg_ras <- terra::rast(seg_path)
 
-    seg_class_ras <- terra::setValues(
-      seg_ras,
-      factor(
-        seg_poly[["segClass"]][match(seg_ras[], seg_poly[[seg_id]])],
-        levels = seg_classes
-        )
-      )
+    # Classifiy values
+    classified_ras_vals <- seg_poly[[class_label]][match(seg_ras[], seg_poly[[seg_id]])]
+
+    # Create output
+    seg_class_ras <- terra::setValues(seg_ras, classified_ras_vals)
 
     # Save output
     terra::writeRaster(seg_class_ras, out_path, overwrite = overwrite, datatype = "INT1U")
@@ -651,7 +545,7 @@ classify_seg_ras <- function(seg_class_poly_vts, seg_rts, seg_class_rts,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  proc_tiles <- .tile_queue(out_paths)
+  proc_tiles <- .tile_queue(seg_class_rts)
 
   # Process
   process_status <- .exe_tile_worker(proc_tiles, tile_worker)

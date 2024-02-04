@@ -106,8 +106,8 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
     }), collapse = ", ")
 
     insert_sql <- sprintf(
-      "WITH Tmp(%s) AS (VALUES%s) UPDATE layer SET %s WHERE %s IN (SELECT %s FROM Tmp);",
-      data_fields, values, field_mapping, id_field, id_field
+      "WITH Tmp(%s) AS (VALUES%s) UPDATE layer SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
+      data_fields, values, field_mapping, id_field, id_field, tile_name
     )
 
     # Set path to Spatialite DLL
@@ -179,7 +179,7 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   if(!is.null(tile_name)){
 
     if(is.null(field)){
-      output <- sf::st_read(in_vts@gpkg, layer="layer", quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
+      output <- sf::st_read(in_vts@gpkg, quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
 
     }else{
       con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
@@ -231,9 +231,7 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   "layer" %in% sf::st_layers(in_vts@gpkg)$name
 }
 
-.vts_add_fields <- function(in_vts, fields){
-
-  # Note that this only adds NUMERIC class fields
+.vts_add_fields <- function(in_vts, fields, field_type = "numeric"){
 
   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
 
@@ -242,7 +240,7 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   missing_fields <- fields[!fields %in% existing_fields]
 
   for(missing_field in missing_fields){
-    sql <- paste("ALTER TABLE layer ADD", missing_field, "numeric;")
+    sql <- paste("ALTER TABLE layer ADD", missing_field, field_type, ";")
 
     DBI::dbExecute(con, sql)
   }

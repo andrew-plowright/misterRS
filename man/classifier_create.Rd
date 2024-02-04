@@ -10,8 +10,7 @@ classifier_create(
   classifier_file = NULL,
   seg_id,
   predictors = NULL,
-  overwrite = FALSE,
-  verbose = TRUE
+  overwrite = FALSE
 )
 }
 \description{
