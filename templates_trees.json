@@ -1,81 +1,91 @@
 [
 	{
 		"name": "Deciduous",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — points",
 		"default_values": {
-			"segClass": "'D'"
+			"segClass": "'D'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "D"
 	},
 	{
 		"name": "Coniferous",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — points",
 		"default_values": {
-			"segClass": "'C'"
+			"segClass": "'C'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "F"
 	},
 	{
 		"name": "Cherry",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — points",
 		"default_values": {
-			"segClass": "'H'"
+			"segClass": "'H'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "H"
 	},
 	{
 		"name": "Dead",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — points",
 		"default_values": {
-			"segClass": "'E'"
+			"segClass": "'E'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "E"
 	},
 	{
 		"name": "Building",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — points",
 		"default_values": {
-			"segClass": "'B'"
+			"segClass": "'B'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "B"
 	},
 		{
 		"name": "Deciduous (Poly)",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — polygons",
 		"default_values": {
-			"segClass": "'D'"
+			"segClass": "'D'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "Shift+D"
 	},
 	{
 		"name": "Coniferous (Poly)",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — polygons",
 		"default_values": {
-			"segClass": "'C'"
+			"segClass": "'C'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "Shift+F"
 	},
 	{
 		"name": "Cherry (Poly)",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — polygons",
 		"default_values": {
-			"segClass": "'H'"
+			"segClass": "'H'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "Shift+H"
 	},
 	{
 		"name": "Dead (Poly)",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — polygons",
 		"default_values": {
-			"segClass": "'E'"
+			"segClass": "'E'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "Shift+E"
 	},
 	{
 		"name": "Building (Poly)",
-		"map_lyr_name": "",
+		"map_lyr_name": "trees_training_data — polygons",
 		"default_values": {
-			"segClass": "'B'"
+			"segClass": "'B'",
+			"training_set": "to_int(@trees_training_set)"
 		},
 		"shortcut_str": "Shift+B"
 	}

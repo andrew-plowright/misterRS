@@ -6,6 +6,7 @@
 \usage{
 classifier_create(
   training_data,
+  training_set,
   classifier_file = NULL,
   seg_id,
   predictors = NULL,

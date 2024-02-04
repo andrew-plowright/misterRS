@@ -6,8 +6,8 @@
 \usage{
 training_data_extract(
   training_data,
-  seg_poly_vts,
-  metrics,
+  attribute_set,
+  seg_vts,
   seg_id,
   overwrite = FALSE
 )

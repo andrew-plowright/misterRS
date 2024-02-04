@@ -2,7 +2,9 @@
 % Please edit documentation in R/classification.R
 \name{classify_seg_poly}
 \alias{classify_seg_poly}
-\title{Classify polygonal segments}
+\title{#' Create classifier
+#'
+#' @export}
 \usage{
 classify_seg_poly(
   classifier_file,
@@ -15,5 +17,8 @@ classify_seg_poly(
 )
 }
 \description{
-Classify polygonal segments
+
+}
+\details{
+
 }
