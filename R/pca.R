@@ -52,7 +52,7 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -123,7 +123,7 @@ pca_global <- function(img_rts, out_rts, PCA_model,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

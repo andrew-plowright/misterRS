@@ -48,12 +48,9 @@ pseudo_img <- function(inputs, out_rts, ...){
       in_ras[is.na(in_ras)] <- 0
 
       # Rescale band if needed
-      if(!is.null(input$range)){
-        in_ras <- .rescale(in_ras, from = input$range, to = c(0,254))
-      }
+      if(!is.null(input$range)) in_ras <- .rescale(in_ras, from = input$range, to = c(0,254))
 
       return(in_ras)
-
     }))
 
     # Write output
@@ -66,11 +63,10 @@ pseudo_img <- function(inputs, out_rts, ...){
     }
   }
 
-
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
