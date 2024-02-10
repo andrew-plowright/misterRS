@@ -6,7 +6,7 @@
 #'
 #' @export
 
-canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
+canopy_mask <- function(seg_rts, out_rts, canopy_classes,
                         canopy_edits = NULL, openings = 1, opening_radius = 0.5, ...){
 
   .env_misterRS(list(...))
@@ -16,10 +16,10 @@ canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .complete_input(seg_class_rts, buffered = TRUE)
+  .complete_input(seg_rts, buffered = TRUE)
 
   # Get file paths
-  seg_class_ras_paths <- .rts_tile_paths(seg_class_rts)
+  seg_class_ras_paths <- .rts_tile_paths(seg_rts)
   out_paths           <- .rts_tile_paths(out_rts)
 
   ts <- .tilescheme()
@@ -47,32 +47,24 @@ canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
     # Get paths
     out_path <- out_paths[tile_name]
 
+    # Buffered tile
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Get neighbours
     neib_names <- .tile_neibs(tile_name, ts)
     seg_class_ras_neibs <- lapply(seg_class_ras_paths[neib_names], terra::rast)
-
-    # Check if raster is classified
-    ras_classes <- terra::cats(seg_class_ras_neibs[[tile_name]])[[1]]
-    if(is.null(ras_classes)) stop("'seg_class_rts' was an unclassified input")
-
-    # Merge and then crop
     seg_class_ras <- seg_class_ras_neibs %>%
       terra::sprc() %>%
       terra::merge() %>%
       terra::crop(terra::ext(buff))
 
     # Create matrix for converting clsses into binary canopy mask
-    convert_matrix <- matrix(c(ras_classes$value, as.numeric(ras_classes[,2] %in% canopy_classes)),ncol = 2)
+    convert_matrix <- cbind(canopy_classes, 1)
 
     # Reclassify raster
-    canopy_ras <- terra::classify(seg_class_ras, convert_matrix)
+    canopy_ras <- terra::classify(seg_class_ras, convert_matrix, others = 0)
 
     if(openings > 0){
-
-      # Get rid of NA values (otherwise the "closing" part of the operation below will malfunction along the edges)
-      canopy_ras[is.na(canopy_ras)] <- 0
 
       # Make matrix
       mat <-  terra::focalMat(canopy_ras, opening_radius, fillNA = TRUE)

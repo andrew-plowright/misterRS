@@ -305,7 +305,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
   all_data <- DBI::dbGetQuery(train_con, sprintf("SELECT * FROM data WHERE training_set IN (%s)", paste(training_set, collapse = ", ")))
 
 
-  cat("  Training sets:\n    ", paste(training_set, collapse = "\n    "), "\n")
+  cat("  Training sets: ", paste(training_set, collapse = ", "), "\n")
 
   # Drop unwanted columns
   all_data <- all_data[, !names(all_data) %in% c('type', 'fid', 'training_set'), drop = FALSE]

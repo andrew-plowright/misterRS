@@ -4,7 +4,14 @@
 \alias{mosaic_rts}
 \title{Mosaic a RS Dataset}
 \usage{
-mosaic_rts(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, ...)
+mosaic_rts(
+  in_rts,
+  overlap = "nbuffs",
+  shp_clip = FALSE,
+  outFile = NULL,
+  resample = "average",
+  ...
+)
 }
 \description{
 Mosaic a RS Dataset

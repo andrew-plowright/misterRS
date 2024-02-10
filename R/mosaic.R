@@ -2,7 +2,7 @@
 #'
 #' @export
 
-mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, ...){
+mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = NULL, resample = "average", ...){
 
   .env_misterRS(list(...))
 
@@ -56,7 +56,7 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, outFile = N
     # Pyramids
     cat("  Generating pyramids", "\n")
     gpal2::gdaladdo(
-      r = "average",
+      r = resample,
       ro = TRUE,
       outFile
     )

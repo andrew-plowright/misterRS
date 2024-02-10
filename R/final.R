@@ -261,7 +261,8 @@ final_chm <- function(ndsm_rts, trees_class_rts, canopyClasses, boundary, out_fi
 
 #' @export
 
-final_trees <- function(trees_class_poly_vts, reclassList, boundary, out_file, tile_names = NULL){
+final_trees <- function(seg_vts,iteration,class_table, boundary, out_file,
+                                 boundary_buff = 0){
 
   process_timer <- .headline("FINAL TREES")
 
@@ -270,108 +271,64 @@ final_trees <- function(trees_class_poly_vts, reclassList, boundary, out_file, t
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .complete_input(trees_class_poly_vts)
-
-  # Create temporary directories
-  dirs <- list(
-    temproot    = file.path(tempdir(), "final_trees")
-  )
-  for(dir in dirs) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  withr::defer(unlink(dirs$temproot, recursive = TRUE))
-
-  # Get file paths
-  trees_class_poly_paths <- .rts_tile_paths(trees_class_poly_vts)
-  outTrees_gpkg <- file.path(dirs$temproot, "outTrees.gpkg")
-
-  # Select tiles
-  selected_tiles <- if(is.null(tile_names)){
-
-    names(trees_class_poly_paths)
-
-  }else{
-
-    notExist <- !tile_names %in% names(trees_class_poly_paths)
-    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(tile_names[notExist], collapse = "\n  "))
-
-    tile_names
-  }
+  .complete_input(seg_vts)
 
   # Initiate ID counter
   IDcounter <- 0
 
-  ### BOUNDARY ----
+  # Tile names
+  ts <- .tilescheme()
+
+  # Iteration label
+  class_label <- paste0("class_", iteration)
 
   # Read boundary
   boundary_sp <- sf::st_read(boundary, quiet = TRUE)
   boundary_sp$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(boundary_sp$geom))
-  boundary_sp <- sf::st_transform(boundary_sp,   getOption("misterRS.crs"))
+  boundary_sp <- sf::st_transform(boundary_sp, getOption("misterRS.crs"))
 
   ### CREATE WORKER ----
 
-  for(tile_name in selected_tiles){
+  for(tile_name in ts@data$tileName){
 
     # File paths
-    trees_class_poly_path <- trees_class_poly_paths[tile_name]
+    polys <- .vts_read(seg_vts, tile_name = tile_name, field = c("geom", "height", "crownArea", class_label))
 
-    # Read in polygons
-    trees_class_poly <- sf::st_read(trees_class_poly_path, quiet = TRUE)
+    if(nrow(polys) == 0) next
 
     # Correct geometry
-    is_valid <- sf::st_is_valid(trees_class_poly)
-    if(any(!is_valid)){
-      trees_class_poly <- sf::st_make_valid(trees_class_poly)
-    }
+    is_valid <- sf::st_is_valid(polys)
+    if(any(!is_valid)) trees_class_poly <- sf::st_make_valid(trees_class_poly)
 
     # Intersection with boundary
-    ints <- sf::st_intersects(boundary_sp, trees_class_poly)
-    trees_class_poly <- trees_class_poly[unique(unlist(ints)),]
+    ints <- sf::st_intersects(boundary_sp, polys)
+    polys <- polys[unique(unlist(ints)),]
 
-    # Remove non trees
-    if("NotTree" %in% names(reclassList)){
+    # Reclass
+    polys[["class"]] <- class_table[["final"]][match(polys[[class_label]], class_table[,'id'])]
 
-      trees_class_poly <- trees_class_poly[!trees_class_poly[["segClass"]] %in% reclassList[["NotTree"]],]
+    # Remove NA
+    polys <- polys[!is.na(polys[["class"]]),]
 
-    }
+    if(nrow(polys) == 0) next
+
+    # IDs
+    newIDs <- IDcounter + 1:nrow(polys)
+    IDcounter <- max(newIDs)
+    polys[["ID"]] <- newIDs
 
     # Remove non-classified
-    trees_class_poly <- trees_class_poly[!is.na(trees_class_poly[["segClass"]]),]
+    polys <- polys[,c("ID", "height", "crownArea", "class")]
 
-    if(nrow(trees_class_poly) > 0){
-
-      # Reclassify trees
-      treeClasses <- reclassList[names(reclassList) != "NotTree"]
-      for(class in names(treeClasses)){
-        trees_class_poly[trees_class_poly[["segClass"]] %in% treeClasses[[class]], "segClass"] <- class
-      }
-
-      # Add tree ID
-      newIDs <- IDcounter + 1:nrow(trees_class_poly)
-      IDcounter <- max(newIDs)
-      trees_class_poly[["ID"]] <- newIDs
-      #trees_class_poly[["FID"]] <- newIDs
-
-      # Remove and rename attribute columns
-      trees_class_poly <- trees_class_poly[,c("ID", "height", "crownArea", "segClass")]
-      names(trees_class_poly)[names(trees_class_poly) == "segClass"] <- "class"
-
-      # Write output
-      sf::st_write(
-        trees_class_poly,
-        outTrees_gpkg,
-        append = file.exists(  outTrees_gpkg ),
-        quiet = TRUE,
-        fid_column_name = "FID"
-      )
-    }
+    # Write output
+    sf::st_write(
+      polys,
+      out_file,
+      append = file.exists(out_file),
+      quiet = TRUE,
+      fid_column_name = "FID"
+    )
   }
-
-  ### MERGE ----
-
-  gpal2::ogr2ogr(
-    "-overwrite",
-    out_file,
-    outTrees_gpkg
-  )
 
   # Conclude
   .conclusion(process_timer)

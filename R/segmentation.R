@@ -34,7 +34,6 @@ segment_mss <- function(img_rts, out_gpkg,
   # Get tiles
   ts <- .tilescheme()
 
-
   ### CREATE VRT MOSAIC ----
 
   tile_paths <- .rts_tile_paths(img_rts)

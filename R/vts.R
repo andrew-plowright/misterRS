@@ -182,9 +182,15 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
       output <- sf::st_read(in_vts@gpkg, quiet = TRUE, query = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name))
 
     }else{
-      con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
-      output <- DBI::dbGetQuery(con, sprintf("SELECT %s FROM layer layer WHERE tile_name = '%s'", paste(field, collapse=",") ,tile_name))
-      DBI::dbDisconnect(con)
+
+      if("geom" %in% field){
+        output <- sf::st_read(in_vts@gpkg, quiet = TRUE, query = sprintf("SELECT %s FROM layer WHERE tile_name = '%s'", paste(field, collapse=","), tile_name))
+      }else{
+        con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
+        output <- DBI::dbGetQuery(con, sprintf("SELECT %s FROM layer layer WHERE tile_name = '%s'", paste(field, collapse=",") ,tile_name))
+        DBI::dbDisconnect(con)
+      }
+
     }
 
   }else if(!is.null(geom)){
