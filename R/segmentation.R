@@ -114,7 +114,7 @@ segment_mss <- function(img_rts, out_gpkg,
 #'
 #' @export
 
-tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
+tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
 
   .env_misterRS(list(...))
 
@@ -130,16 +130,11 @@ tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
   ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
   ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
 
-  # Get output paths
-  out_paths <- .rts_tile_paths(seg_poly_vts)
-
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
   # Run process
   tile_worker <-function(tile_name){
-
-    out_path <- out_paths[tile_name]
 
     tile  <- ts_tiles [ts_tiles [["tileName"]] == tile_name,]
     buff  <- ts_buffs [ts_buffs [["tileName"]] == tile_name,]
@@ -185,7 +180,7 @@ tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
 
     }
 
-    # Explode multipart polygons
+    # Explode multi-part polygons
     # As suggested by: https://github.com/r-spatial/sf/issues/763
     polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
 
@@ -198,21 +193,26 @@ tile_poly <- function(in_gpkg, seg_poly_vts, seg_id = "polyID", ...){
 
     # Assign numbers
     polys[[seg_id]] <- 1:nrow(polys)
-    polys$FID <- as.numeric(polys[[seg_id]])
+
+    # Drop unwanted fields
+    polys <- polys[,seg_id]
 
     # Write file
-    sf::st_write(polys, out_path, quiet = TRUE, fid_column_name = "FID", delete_dsn = overwrite)
+    .vts_write(polys, out_vts = out_vts, tile_name = tile_name, overwrite = overwrite)
 
-    if(file.exists(out_path)) "Success" else stop("Failed to create output")
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_vts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+
+  # Create index
+  .vts_create_index(out_vts, "tile_name")
 
   # Report
   .print_process_status(process_status)
