@@ -16,7 +16,7 @@ segment_mss <- function(img_rts, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
                  writeVectoreMode = "ulu",
                  seg_id = "polyID",
-                 min_per_tile_est = 4.3, ...){
+                 min_per_tile_est = 3.5, ...){
 
   process_timer <- .headline("MEAN SHIFT SEGMENTATION")
 
@@ -158,44 +158,47 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
     # Force crs
     suppressWarnings(sf::st_crs(polys) <- sf::st_crs(crs))
 
-    # Fix invalid geometry
-    if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
+    if(nrow(polys) > 0){
 
-    # Get vector of polygons that straddle tile borders
-    crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
+      # Fix invalid geometry
+      if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
 
-    if(any(crossborder)){
+      # Get vector of polygons that straddle tile borders
+      crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
 
-      # Break up polygons that straddle tile borders
-      brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
+      if(any(crossborder)){
 
-      # Get rid of slivers
-      brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
+        # Break up polygons that straddle tile borders
+        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
 
-      # Get "POLYGONS" from "GEOMETRYCOLLECTION
-      brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
+        # Get rid of slivers
+        brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
 
-      # Swap cross-border polys with broken-up polys
-      polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+        # Get "POLYGONS" from "GEOMETRYCOLLECTION
+        brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
 
+        # Swap cross-border polys with broken-up polys
+        polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+
+      }
+
+      # Explode multi-part polygons
+      # As suggested by: https://github.com/r-spatial/sf/issues/763
+      polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
+
+      # Generate centroids
+      cent <- suppressWarnings(sf::st_centroid(polys))
+
+      # Subset segments with centroid within tile
+      intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
+      polys <- polys[!is.na(intrs),]
+
+      # Assign numbers
+      polys[[seg_id]] <- 1:nrow(polys)
+
+      # Drop unwanted fields
+      polys <- polys[,seg_id]
     }
-
-    # Explode multi-part polygons
-    # As suggested by: https://github.com/r-spatial/sf/issues/763
-    polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
-
-    # Generate centroids
-    cent <- suppressWarnings(sf::st_centroid(polys))
-
-    # Subset segments with centroid within tile
-    intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
-    polys <- polys[!is.na(intrs),]
-
-    # Assign numbers
-    polys[[seg_id]] <- 1:nrow(polys)
-
-    # Drop unwanted fields
-    polys <- polys[,seg_id]
 
     # Write file
     .vts_write(polys, out_vts = out_vts, tile_name = tile_name, overwrite = overwrite)

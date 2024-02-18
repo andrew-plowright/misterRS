@@ -12,7 +12,7 @@ segment_mss(
   mins = 40,
   writeVectoreMode = "ulu",
   seg_id = "polyID",
-  min_per_tile_est = 4.3,
+  min_per_tile_est = 3.5,
   ...
 )
 }
