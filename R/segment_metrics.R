@@ -37,7 +37,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   metric_fields <- paste0(attribute_set, "_", metric_fields)
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, metric_fields)
+  .vts_add_fields(seg_vts, metric_fields, field_type = "MEDIUMINT")
 
   # Add attribute set name to tile registry
   .vts_tile_reg_attribute_set(seg_vts, attribute_set)
@@ -55,10 +55,10 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
+    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
 
     # Compute metrics
-    tile_metrics <- if(nrow(seg_ids) > 0){
+    tile_metrics <- if(nrow(seg_data) > 0){
 
       # Read segments
       seg_ras <- terra::rast(seg_ras_path)
@@ -84,15 +84,17 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
       names(glcm_metrics)  <- paste0(attribute_set, "_", names(glcm_metrics))
 
       # Reorder
-      glcm_metrics <- glcm_metrics[as.character(seg_ids[[seg_id]]),]
+      glcm_metrics <- glcm_metrics[as.character(seg_data[[seg_id]]),]
 
       # Remove NAs
       glcm_metrics[is.na(glcm_metrics)] <- 0
 
-      # Attach to FID
-      glcm_metrics <- cbind(fid = seg_ids[["fid"]], glcm_metrics)
+      # Convert to integer
+      glcm_metrics <- as.data.frame(lapply(glcm_metrics, function(x) as.integer(x * 10000 )))
 
-      glcm_metrics
+      # Attach to existing data
+      cbind(seg_data[,!names(seg_data) %in% names(glcm_metrics)], glcm_metrics)
+
 
     # Return empty table of metrics
     }else NULL
@@ -164,7 +166,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
   met_names_full <- as.vector(outer(met_names_prefix, zonalFun, paste, sep="_"))
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, met_names_full)
+  .vts_add_fields(seg_vts, met_names_full, field_type = "MEDIUMINT")
 
   # Add attribute set name to tile registry
   .vts_tile_reg_attribute_set(seg_vts, attribute_set)
@@ -183,10 +185,10 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
+    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(seg_ids) > 0){
+    tile_metrics <- if(nrow(seg_data) > 0){
 
       # Read ortho and segment raster
       o <- terra::rast(ortho_path)
@@ -240,17 +242,20 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
       spec_metrics <- spec_metrics[,!grepl("^zone_", colnames(spec_metrics)), drop = FALSE]
 
       # Reorder
-      spec_metrics <- spec_metrics[as.character(seg_ids[[seg_id]]),]
+      spec_metrics <- spec_metrics[as.character(seg_data[[seg_id]]),]
 
       # Remove NAs
       spec_metrics[is.na(spec_metrics)] <- 0
 
-      # Attach to FID
-      spec_metrics <- cbind(fid = seg_ids[["fid"]], spec_metrics)
+      # Convert to integer
+      spec_metrics <- as.data.frame(lapply(spec_metrics, function(x) as.integer(x * 10000 )))
 
-      spec_metrics
+      # Attach to existing data
+      cbind(seg_data[,!names(seg_data) %in% names(spec_metrics)], spec_metrics)
 
     }else NULL
+
+
 
     # Write attributes
     .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
@@ -374,7 +379,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
   metric_fields <- paste0(attribute_set, "_", names(empty_result))
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, metric_fields)
+  .vts_add_fields(seg_vts, metric_fields, field_type = "MEDIUMINT")
 
   # Add attribute set name to tile registry
   .vts_tile_reg_attribute_set(seg_vts, attribute_set)
@@ -393,10 +398,13 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_ids <- .vts_read(seg_vts, tile_name = tile_name, field = c("fid", seg_id))
+    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(seg_ids) > 0){
+    if(nrow(seg_data) > 0){
+
+      # Fill in blank values for seg_dat
+      seg_data[,metric_fields] <- 0
 
       # Read LAS tile
       las_tile <- .read_las_tile(in_cat, tile = tile, select = las_select)
@@ -406,49 +414,55 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
         # Normalize LAS tile
         las_tile <- .normalize_las(las_tile, DEM_path = dem_path, z_min, z_max)
 
-        if(!is.null(las_tile)){
+      }
 
-          # Read segment rasters
-          seg_ras <- terra::rast(seg_ras_path)
+      if(!is.null(las_tile)){
 
-          # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
-          seg_ras <- terra::crop(seg_ras, lidR::ext(las_tile))
+        # Read segment rasters
+        seg_ras <- terra::rast(seg_ras_path)
 
-          # Assign segment ID to LAS points
-          las_tile <- lidR::merge_spatial(las_tile, seg_ras, attribute = seg_id)
+        # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
+        seg_ras <- terra::crop(seg_ras, lidR::ext(las_tile))
 
-          if(!all(is.na(las_tile[[seg_id]]))){
+        # Assign segment ID to LAS points
+        las_tile <- lidR::merge_spatial(las_tile, seg_ras, attribute = seg_id)
 
-            # Compute RGB indices
-            if(rgb) las_tile <- .las_rgb_metrics(las_tile)
+        # Check if there are less than five usable points
+        if(lidR::npoints(las_tile) - lidR:::fast_count_equal(las_tile$polyID, NA) < 5){
+          las_tile <- NULL
+        }
+      }
 
-            # Compute cloud statistics within segments
-            las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()
+      if(!is.null(las_tile)){
 
-            # Reorder
-            las_metrics <- las_metrics[match(seg_ids[[seg_id]], las_metrics[[seg_id]]),]
+        # Compute RGB indices
+        if(rgb) las_tile <- .las_rgb_metrics(las_tile)
 
-            # Remove unneeded columns
-            las_metrics <- las_metrics[, !names(las_metrics) %in% c("geometry", seg_id), drop = FALSE]
+        # Compute cloud statistics within segments
+        las_metrics <- lidR::crown_metrics(las_tile, metric_formula, attribute = seg_id) %>% as.data.frame()
 
-            # Add prefix
-            names(las_metrics) <- paste0(attribute_set, "_", names(las_metrics))
+        # Reorder
+        las_metrics <- las_metrics[match(seg_data[[seg_id]], las_metrics[[seg_id]]),]
 
-            # Remove NA values
-            las_metrics[is.na(las_metrics)] <- 0
+        # Remove unneeded columns
+        las_metrics <- las_metrics[, !names(las_metrics) %in% c("geometry", seg_id), drop = FALSE]
 
-            # Attach to FID
-            las_metrics <- cbind(fid = seg_ids[["fid"]], las_metrics)
+        # Add prefix
+        names(las_metrics) <- paste0(attribute_set, "_", names(las_metrics))
 
-            las_metrics
+        # Remove NA values
+        las_metrics[is.na(las_metrics)] <- 0
 
-          }else NULL
-        }else NULL
-      }else NULL
-    }else NULL
+        # Convert to integer
+        las_metrics <- as.data.frame(lapply(las_metrics, function(x) as.integer(x * 10000 )))
+
+        # Attach to existing data
+        seg_data <- cbind(seg_data[,!names(seg_data) %in% names(las_metrics)], las_metrics)
+      }
+    }
 
     # Write attributes
-    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
+    .vts_write_attribute_set(seg_data, seg_vts, "fid", attribute_set, tile_name)
 
     return("Success")
   }

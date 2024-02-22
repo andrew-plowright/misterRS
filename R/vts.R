@@ -1,6 +1,5 @@
 
-#' Vetor tileset
-#'
+#' Vetor tileset (class)
 #' @export
 
 setClass(
@@ -32,7 +31,7 @@ setMethod("show", "vts", function(object){
 })
 
 
-#' Vector tileset
+#' Vector tileset (constructor)
 #' @export
 
 vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
@@ -65,6 +64,65 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   new("vts", id = id, name = name, dir = dir, gpkg = vts_path, tile_reg = tile_reg_path)
 }
 
+
+#' Back up Vector tileset
+#' @export
+
+vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
+
+  zipped_file <- file.path(backup_dir, paste0(in_vts@id, "_", tag, ".zip"))
+
+  cat(
+    "Backing up VTS\n",
+      "VTS  : ", in_vts@name, "\n",
+      "File : ", zipped_file, "\n",
+      sep = "")
+
+  if(file.exist(zipped_file)){
+    if(overwrite){
+      unlink(zipped_file)
+    }else{
+      return(cat(crayon::yellow("File already exists. Set 'overwrite' to TRUE\n")))
+    }
+  }
+
+  zip(
+    zipfile = zipped_file,
+    files   = in_vts@gpkg,
+    extras  = "-j -q")
+}
+
+
+#' Count numbers of rows in vectir tileset per tile
+#' @export
+
+vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
+
+  cat(
+    "Counting segments in VTS\n",
+    "VTS  : ", in_vts@name, "\n",
+    "File : ", out_file, "\n",
+    sep = "")
+
+  if(file.exists(out_file) & !overwrite){
+    return(cat(crayon::yellow("File already exists. Set 'overwrite' to TRUE\n")))
+  }
+
+  ts <- sf::st_as_sf( misterRS:::.tilescheme()[["tiles"]])
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
+
+  withr::defer(  DBI::dbDisconnect(con))
+
+  ts[["seg_count"]] <- sapply(ts$tileName, function(tile_name){
+
+    DBI::dbGetQuery(con, sprintf("SELECT COUNT(fid) FROM layer layer WHERE tile_name = '%s'", tile_name))[,1]
+  })
+
+  sf::st_write(ts, out_file, quiet = TRUE, delete_dsn = TRUE )
+}
+
+
 .vts_write <- function(in_sf, out_vts, tile_name, overwrite = FALSE){
 
   if(overwrite){
@@ -91,37 +149,64 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
 }
 
 
+# .vts_write_attribute_set <- function(data, out_vts, id_field, attribute_set_field, tile_name){
+#
+#   # Insert data (if there is any)
+#   if(!is.null(data) && nrow(data) > 0){
+#
+#     # Create expression for inserting tabular data
+#     data_fields <- paste(names(data), collapse = ", ")
+#
+#     values <- paste(sapply(1:nrow(data), function(i) paste0("(", paste(data[i,], collapse=", "), ")")  ), collapse=", ")
+#
+#     field_mapping <- paste(sapply(setdiff(names(data), id_field), function(field){
+#       sprintf("%s = (SELECT %s FROM Tmp WHERE layer.%s = Tmp.%s)", field, field, id_field, id_field)
+#     }), collapse = ", ")
+#
+#     insert_sql <- sprintf(
+#       "WITH Tmp(%s) AS (VALUES%s) UPDATE layer SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
+#       data_fields, values, field_mapping, id_field, id_field, tile_name
+#     )
+#
+#     # Set path to Spatialite DLL
+#     withr::with_envvar(list(PATH = getOption("misterRS.mod_spatialite")), {
+#
+#       con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
+#
+#       DBI::dbExecute(con, "SELECT load_extension('mod_spatialite')")
+#       DBI::dbExecute(con, insert_sql)
+#
+#       DBI::dbDisconnect(con)
+#     })
+#
+#   }
+#
+#   # Mark this tile as complete
+#   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@tile_reg)
+#
+#   DBI::dbExecute(con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute_set_field, tile_name))
+#
+#   DBI::dbDisconnect(con)
+# }
+
+
 .vts_write_attribute_set <- function(data, out_vts, id_field, attribute_set_field, tile_name){
 
   # Insert data (if there is any)
   if(!is.null(data) && nrow(data) > 0){
 
-    # Create expression for inserting tabular data
-    data_fields <- paste(names(data), collapse = ", ")
 
-    values <- paste(sapply(1:nrow(data), function(i) paste0("(", paste(data[i,], collapse=", "), ")")  ), collapse=", ")
+    # Get rows that will be deleted
+    delete_rows <- .vts_read(out_vts, tile_name = tile_name, field = "fid")[,"fid"]
 
-    field_mapping <- paste(sapply(setdiff(names(data), id_field), function(field){
-      sprintf("%s = (SELECT %s FROM Tmp WHERE layer.%s = Tmp.%s)", field, field, id_field, id_field)
-    }), collapse = ", ")
+    # Write data
+    sf::st_write(data, out_vts@gpkg, layer = "layer", append = TRUE, quiet = TRUE)
 
-    insert_sql <- sprintf(
-      "WITH Tmp(%s) AS (VALUES%s) UPDATE layer SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
-      data_fields, values, field_mapping, id_field, id_field, tile_name
-    )
-
-    # Set path to Spatialite DLL
-    withr::with_envvar(list(PATH = getOption("misterRS.mod_spatialite")), {
-
-      con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
-
-      DBI::dbExecute(con, "SELECT load_extension('mod_spatialite')")
-      DBI::dbExecute(con, insert_sql)
-
-      DBI::dbDisconnect(con)
-    })
-
+    # Delete old layer
+    con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
+    DBI::dbExecute(con, sprintf("DELETE FROM layer WHERE fid IN (%s)", paste(delete_rows, collapse= ",")))
   }
+
 
   # Mark this tile as complete
   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@tile_reg)
@@ -237,7 +322,7 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
   "layer" %in% sf::st_layers(in_vts@gpkg)$name
 }
 
-.vts_add_fields <- function(in_vts, fields, field_type = "numeric"){
+.vts_add_fields <- function(in_vts, fields, field_type = "MEDIUMINT"){
 
   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
 

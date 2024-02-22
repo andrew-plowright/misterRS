@@ -1,0 +1,95 @@
+[
+	{
+		"name": "Building (Point)",
+		"map_lyr_name": "rufsegs_training_data — points",
+		"default_values": {
+			"segClass": "'B'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "B"
+	},
+	{
+		"name": "Canopy (Point)",
+		"map_lyr_name": "rufsegs_training_data — points",
+		"default_values": {
+			"segClass": "'C'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "C"
+	},
+	{
+		"name": "Cherry (Point)",
+		"map_lyr_name": "rufsegs_training_data — points",
+		"default_values": {
+			"segClass": "'H'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "H"
+	},
+	{
+		"name": "Ground (Point)",
+		"map_lyr_name": "rufsegs_training_data — points",
+		"default_values": {
+			"segClass": "'G'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "G"
+	},
+	{
+		"name": "Powerline (Point)",
+		"map_lyr_name": "rufsegs_training_data — points",
+		"default_values": {
+			"segClass": "'P'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "P"
+	},
+		{
+		"name": "Building (Poly)",
+		"map_lyr_name": "rufsegs_training_data — polygons",
+		"default_values": {
+			"segClass": "'B'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "Shift+B"
+	},
+	{
+		"name": "Canopy (Poly)",
+		"map_lyr_name": "rufsegs_training_data — polygons",
+		"default_values": {
+			"segClass": "'C'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "Shift+C"
+	},
+	{
+		"name": "Cherry (Poly)",
+		"map_lyr_name": "rufsegs_training_data — polygons",
+		"default_values": {
+			"segClass": "'H'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "Shift+H"
+	},
+	{
+		"name": "Ground (Poly)",
+		"map_lyr_name": "rufsegs_training_data — polygons",
+		"default_values": {
+			"segClass": "'G'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "Shift+G"
+	},
+	{
+		"name": "Powerline (Poly)",
+		"map_lyr_name": "rufsegs_training_data — polygons",
+		"default_values": {
+			"segClass": "'P'",
+			"training_set": "to_int(@rufsegs_training_set)"
+		},
+		"shortcut_str": "Shift+P"
+	}
+]
+
+
+

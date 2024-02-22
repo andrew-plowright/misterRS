@@ -80,7 +80,7 @@ training_data <- function(name, dir, proj = getOption("misterRS.crs"), overwrite
 setClass(
   "class_edits",
   representation(
-    SHPfile  = 'character'
+    file_path  = 'character'
   )
 )
 
@@ -88,45 +88,44 @@ setClass(
 setMethod("show", "class_edits", function(object){
 
   vec_num <- 0
-  if(file.exists(object@SHPfile)){
+  if(file.exists(object@file_path)){
 
-    info <- sf::st_layers(object@SHPfile)
+    info <- sf::st_layers(object@file_path)
     vec_num <- info$features[1]
   }
 
   cat(
-    "CLASSIFICATION EDITS", "\n",
+    "CANOPY EDITS", "\n",
     "Vectors : ", vec_num,"\n",
     sep = ""
   )
 })
 
-#' Remote Sensing Dataset
+#' Canopy Edits (constructor)
 #' @export
 
-class_edits <- function(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE){
-
-  if(tools::file_ext(SHPpath) != "shp") stop("Classification Edits path should be a SHP file")
+class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
 
   if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
 
-  # Get absolute SHP file path
-  SHPpath <- suppressMessages(R.utils::getAbsolutePath(SHPpath))
+  file_path <- file.path(dir, paste0(name, "_class_edits.gpkg"))
 
-  # Check folder
-  folder <- dirname(SHPpath)
-  if(!dir.exists(folder)) dir.create(folder, recursive = TRUE)
-
-  if(!file.exists(SHPpath) | overwrite){
+  if(!file.exists(file_path) | overwrite){
 
     # Create Simple Feature object with blank geometry and empty attribute fields
-    s <- sf::st_sf(geometry = sf::st_sfc(crs = proj), list(toClass = character(), fromClass = character()))
+    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), list(toClass = character(), fromClass = character()))
 
-    sf::write_sf(s, SHPpath, layer_options = "SHPT=POLYGON", quiet = TRUE, delete_dsn = overwrite)
+    # Write to geopackage
+    sf::st_write(s,  file_path, quiet = TRUE, layer = "edits", delete_layer = TRUE)
+
+    # Set geometry type
+    con = DBI::dbConnect(RSQLite::SQLite(),dbname= file_path)
+    withr::defer(DBI::dbDisconnect(con))
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'edits'")
   }
 
   # Create new object
-  new("class_edits", SHPfile = SHPpath)
+  new("class_edits", file_path = file_path)
 }
 
 
@@ -395,14 +394,14 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   # Add column
   class_label <- paste0("class_", iteration)
-  .vts_add_fields(seg_vts, class_label, field_type = "integer")
+  .vts_add_fields(seg_vts, class_label, field_type = "INTEGER")
 
   # Add attribute set name to tile registry
   .vts_tile_reg_attribute_set(seg_vts, class_label)
 
   # Read in class edits
 
-  class_edits <- sf::st_read(class_edits@SHPfile, quiet = TRUE)
+  class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
 
   if(nrow(class_edits) > 0){
 

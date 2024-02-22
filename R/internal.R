@@ -36,12 +36,7 @@
   if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
 }
 
-
-
-
-
-
-
+# Text to print at the end of a process (i.e.: how long the process took)
 
 .conclusion <- function(time){
 
@@ -171,21 +166,6 @@
   }else{
     return(FALSE)
   }
-}
-
-.is_las_ground_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASGROUND))
-}
-
-.is_las_full_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
-}
-
-.is_las_intensity <- function(inLAS){
-
-  return(!is.null(inLAS$Intensity) && lidR:::fast_countover(inLAS$Intensity, 0))
 }
 
 
@@ -414,43 +394,6 @@
 
 
 
-
-.read_las_tile <- function(in_cat, tile, select, classes = NULL){
-
-  # Tile buffer
-  buff_sf <- sf::st_as_sf(tile[["buffs"]])
-
-  # LAS catalog geometry
-  las_grid <- in_cat$geometry
-
-  if(is.na(sf::st_crs(in_cat))) stop("Can't select LAS tiles since this LAS Catalog has no projection info")
-
-  # Reproject grid to tile
-  las_grid <- sf::st_transform(las_grid, sf::st_crs(buff_sf))
-
-  # Get intersection between tile and LAS catalog
-  las_intrsc <- lengths(sf::st_intersects(las_grid, buff_sf)) > 0
-
-  if(all(!las_intrsc)) return(NULL)
-
-  # Get LAS files
-  las_files <- in_cat@data$filename[las_intrsc]
-
-  if(any(!file.exists(las_files))) stop("Missing LAS files")
-
-  # Create extent filter from buffer extent
-  buff_xt   <- terra::ext(buff_sf)
-  buff_filt <- paste("-keep_xy", buff_xt[1], buff_xt[3], buff_xt[2], buff_xt[4])
-
-  # Create class filter
-  class_filt <- if(!is.null(classes)) paste(c("-keep_class", classes), collapse = " ")
-
-  # Read LAS files
-  inLAS <- lidR::readLAS(las_files, select = select, filter = paste(buff_filt, class_filt))
-
-  if(lidR::is.empty(inLAS)) return(NULL) else return(inLAS)
-
-}
 
 
 

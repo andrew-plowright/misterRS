@@ -34,7 +34,7 @@ canopy_mask <- function(seg_rts, out_rts, canopy_classes,
     withr::defer(unlink(edit_folder, recursive = TRUE))
 
     # Read canopy edits
-    edits <- sf::st_read(canopy_edits, quiet = T)
+    edits <- sf::st_read(canopy_edits@file_path, quiet = T)
 
     if(!all(edits$canopy %in% c(1,0))) stop("All values in the 'canopy' column should be either 1 or 0")
   }
@@ -93,7 +93,7 @@ canopy_mask <- function(seg_rts, out_rts, canopy_classes,
         te = terra::ext(canopy_ras),
         tr = terra::res(canopy_ras),
         ot = "Int16",
-        R.utils::getAbsolutePath(canopy_edits),
+        R.utils::getAbsolutePath(canopy_edits@file_path),
         edit_file
       )
 
@@ -126,4 +126,59 @@ canopy_mask <- function(seg_rts, out_rts, canopy_classes,
   # Conclude
   .conclusion(process_timer)
 
+}
+
+
+#' Canopy edits (class)
+#' @export
+
+setClass(
+  "canopy_edits",
+  representation(
+    file_path  = 'character'
+  )
+)
+
+
+setMethod("show", "canopy_edits", function(object){
+
+  vec_num <- 0
+  if(file.exists(object@file_path)){
+
+    info <- sf::st_layers(object@file_path)
+    vec_num <- info$features[1]
+  }
+
+  cat(
+    "CANOPY EDITS", "\n",
+    "Vectors : ", vec_num,"\n",
+    sep = ""
+  )
+})
+
+#' Canopy Edits (constructor)
+#' @export
+
+canopy_edits <- function(dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
+
+  if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
+
+  file_path <- file.path(dir, "canopy_edits.gpkg")
+
+  if(!file.exists(file_path) | overwrite){
+
+    # Create Simple Feature object with blank geometry and empty attribute fields
+    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), list(canopy = integer()))
+
+    # Write to geopackage
+    sf::st_write(s,  file_path, quiet = TRUE, layer = "edits", delete_layer = TRUE)
+
+    # Set geometry type
+    con = DBI::dbConnect(RSQLite::SQLite(),dbname= file_path)
+    withr::defer(DBI::dbDisconnect(con))
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'edits'")
+  }
+
+  # Create new object
+  new("canopy_edits", file_path = file_path)
 }
