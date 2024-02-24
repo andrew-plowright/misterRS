@@ -2,10 +2,10 @@
 % Please edit documentation in R/vts.R
 \name{vts}
 \alias{vts}
-\title{Vector tileset}
+\title{Vector tileset (constructor)}
 \usage{
 vts(id, name, dir, gpkg, proj = getOption("misterRS.crs"))
 }
 \description{
-Vector tileset
+Vector tileset (constructor)
 }

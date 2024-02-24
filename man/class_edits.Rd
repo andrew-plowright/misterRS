@@ -2,10 +2,10 @@
 % Please edit documentation in R/classification.R
 \name{class_edits}
 \alias{class_edits}
-\title{Remote Sensing Dataset}
+\title{Canopy Edits (constructor)}
 \usage{
-class_edits(SHPpath, proj = getOption("misterRS.crs"), overwrite = FALSE)
+class_edits(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE)
 }
 \description{
-Remote Sensing Dataset
+Canopy Edits (constructor)
 }

@@ -393,7 +393,11 @@
 }
 
 
+.rar <- function(src_files, dest_file, winrar_exe = getOption("misterRS.winrar")){
 
+  command <- sprintf('"%s" a -ep1 -r "%s" "%s"', winrar_exe, dest_file, paste(src_files, collapse='"  "'))
+  system(command)
+}
 
 
 

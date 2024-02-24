@@ -3,7 +3,7 @@
 \docType{class}
 \name{vts-class}
 \alias{vts-class}
-\title{Vetor tileset}
+\title{Vetor tileset (class)}
 \description{
-Vetor tileset
+Vetor tileset (class)
 }

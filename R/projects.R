@@ -97,7 +97,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
 
     # Add project to log
     cat("  Updating project register", "\n")
-    project_register %<>% rbind(data.frame(project = project_name, created = Sys.time()))
+    project_register %<>% rbind(data.frame(project = project_name, created = Sys.Date()))
 
     write.csv(project_register, project_register_path, row.names = FALSE)
 
@@ -133,18 +133,18 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
 
 .create_log <- function(log_path, location, year){
 
-  file.create(log_path)
-
-  fileConn<-file(log_path)
-  writeLines(c(
-    paste("#", location, year),
-    "",
-    paste("##", Sys.Date()),
-    "",
-    "Project created"
-
-  ), fileConn)
-  close(fileConn)
+  # file.create(log_path)
+  #
+  # fileConn<-file(log_path)
+  # writeLines(c(
+  #   paste("#", location, year),
+  #   "",
+  #   paste("##", Sys.Date()),
+  #   "",
+  #   "Project created"
+  #
+  # ), fileConn)
+  # close(fileConn)
 
 }
 

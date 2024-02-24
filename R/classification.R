@@ -63,7 +63,7 @@ training_data <- function(name, dir, proj = getOption("misterRS.crs"), overwrite
     sf::st_write(pts,  file_path, quiet = TRUE, layer = "points",   delete_layer = TRUE)
     sf::st_write(poly, file_path, quiet = TRUE, layer = "polygons", delete_layer = TRUE)
 
-    con = DBI::dbConnect(RSQLite::SQLite(),dbname= file_path)
+    con = DBI::dbConnect(RSQLite::SQLite(), dbname= file_path)
     withr::defer(DBI::dbDisconnect(con))
 
     DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POINT' WHERE table_name = 'points'")
@@ -119,7 +119,7 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
     sf::st_write(s,  file_path, quiet = TRUE, layer = "edits", delete_layer = TRUE)
 
     # Set geometry type
-    con = DBI::dbConnect(RSQLite::SQLite(),dbname= file_path)
+    con = DBI::dbConnect(RSQLite::SQLite(), dbname = file_path)
     withr::defer(DBI::dbDisconnect(con))
     DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'edits'")
   }

@@ -1,0 +1,8 @@
+{
+	"orfeo_dir"      : "C:/Program Files/OTB-8.1.0-Win64",
+	"projects_root"  : "D:/Projects/clients/diamondhead",
+	"projects_log"   : "D:/Projects/clients/diamondhead/project_register.csv",
+	"syncback_exe"   : "C:/Program Files (x86)/2BrightSparks/SyncBackFree/SyncBackFree.exe",
+	"mod_spalialite" : "D:/Projects/libraries/misterRS/mod_spatialite-5.1.0-win-amd64",
+	"winrar"         : "C:/Program Files/WinRAR/WinRAR.exe"
+}

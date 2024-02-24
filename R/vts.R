@@ -16,17 +16,27 @@ setClass(
 setMethod("show", "vts", function(object){
 
   ts <- .tilescheme()
+  total_tiles <- length(ts$tileName)
 
-  has_tiles <- .vts_has_tiles(object, ts$tileName)
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = object@tile_reg)
+  withr::defer(DBI::dbDisconnect(con))
+
+  tile_reg <- DBI::dbReadTable(con, "tile_reg")
 
   cat(
     "REMOTE SENSING DATASET", "\n",
-    "ID      : ", object@id ,  "\n",
-    "Name    : ", object@name, "\n",
-    "Dir     : ", object@dir,  "\n",
-    "Tiles   : ", length(has_tiles[has_tiles]), "/", length(has_tiles), "\n",
+    "ID        : ", object@id ,  "\n",
+    "Name      : ", object@name, "\n",
+    "Dir       : ", object@dir,  "\n",
+    "Tiles     : ", nrow(tile_reg), "/", total_tiles, "\n",
     sep = ""
   )
+
+  attr_count <- NULL
+  attrs <- setdiff(names(tile_reg), "tile_name")
+  for(attr in attrs){
+    cat( "  ",  stringr::str_pad(attr, 8, "right"), ": ",  nrow(tile_reg[tile_reg[, attr] %in% 1,]),  "/", total_tiles, "\n", sep = "")
+  }
 
 })
 
@@ -70,26 +80,36 @@ vts <- function(id, name, dir, gpkg, proj = getOption("misterRS.crs")){
 
 vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
 
-  zipped_file <- file.path(backup_dir, paste0(in_vts@id, "_", tag, ".zip"))
+  process_timer <- .headline("BACKUP VTS")
+
+  # Set output file path
+  dest_file <- file.path(backup_dir, paste0(in_vts@id, "_", tag, ".rar"))
 
   cat(
-    "Backing up VTS\n",
-      "VTS  : ", in_vts@name, "\n",
-      "File : ", zipped_file, "\n",
-      sep = "")
+    "  VTS  : ", in_vts@name, "\n",
+    "  File : ", dest_file, "\n",
+    sep = ""
+  )
 
-  if(file.exist(zipped_file)){
+  # Check if file exists already
+  if(file.exists(dest_file)){
     if(overwrite){
-      unlink(zipped_file)
+      unlink(dest_file)
     }else{
       return(cat(crayon::yellow("File already exists. Set 'overwrite' to TRUE\n")))
     }
   }
 
-  zip(
-    zipfile = zipped_file,
-    files   = in_vts@gpkg,
-    extras  = "-j -q")
+  # Source files
+  src_files <-  c(in_vts@gpkg, in_vts@tile_reg)
+
+  # Compress files
+  .rar(src_files, dest_file)
+
+  if(!file.exists(dest_file)) stop("Failed to create back-up file")
+
+  # Conclude rpocess
+  .conclusion(process_timer)
 }
 
 
@@ -99,9 +119,9 @@ vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
 vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
 
   cat(
-    "Counting segments in VTS\n",
-    "VTS  : ", in_vts@name, "\n",
-    "File : ", out_file, "\n",
+    "VTS: COUNT ROWS\n",
+    "  VTS  : ", in_vts@name, "\n",
+    "  File : ", out_file, "\n",
     sep = "")
 
   if(file.exists(out_file) & !overwrite){
@@ -121,6 +141,53 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
 
   sf::st_write(ts, out_file, quiet = TRUE, delete_dsn = TRUE )
 }
+
+
+#' Clear tileset reg attributes
+#'
+
+vts_clear_attribute_set <- function(in_vts, attribute_set, tile_name = NULL){
+
+  cat(
+    "VTS: CLEAR ATTRIBUTE SET\n",
+    "  VTS           : ", in_vts@name, "\n",
+    "  Attribute set : ", attribute_set, "\n",
+    "  Tile subset   : ", !is.null(tile_name), "\n",
+    sep = "")
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), dbname =  in_vts@tile_reg)
+
+  vts_fields <- DBI::dbListFields(con, "tile_reg")
+
+  if(!attribute_set %in% vts_fields) stop("Attribute set '", attribute_set,"' not found in VTS")
+
+  sql_query <- sprintf("SELECT tile_name, %s FROM tile_reg", attribute_set)
+  if(tile_name){
+    sql_query <- paste(sql_query, sprintf("WHERE tile_name IN ('%s')", paste(tile_name, collapse= "', '")))
+  }
+
+  current_tiles <- DBI::dbGetQuery(con, sql_query)
+
+  # How many will change
+  will_change <- nrow(current_tiles[current_tiles[[attribute_set]] %in% 1  ,])
+
+  cat("  Clear ", will_change, " tiles for attribute set '", attribute_set ,"'?\n", sep ="")
+  answer <- tolower(readline("  y/n"))
+
+  if(answer == "y"){
+
+    sql_update <- sprintf("UPDATE tile_reg SET %s=null", attribute_set)
+    if(tile_name){
+      sql_update <- paste(sql_update, sprintf("WHERE tile_name IN ('%s')", paste(tile_name, collapse= "', '")))
+    }
+
+    DBI::dbExecute(con, sql_update)
+    cat("  Cleared ", will_change, " tiles\n", sep ="")
+  }
+
+}
+
+
 
 
 .vts_write <- function(in_sf, out_vts, tile_name, overwrite = FALSE){
@@ -203,17 +270,15 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
     sf::st_write(data, out_vts@gpkg, layer = "layer", append = TRUE, quiet = TRUE)
 
     # Delete old layer
-    con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
-    DBI::dbExecute(con, sprintf("DELETE FROM layer WHERE fid IN (%s)", paste(delete_rows, collapse= ",")))
+    con_gpkg <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@gpkg)
+    withr::defer( DBI::dbDisconnect(con_gpkg))
+    DBI::dbExecute(con_gpkg, sprintf("DELETE FROM layer WHERE fid IN (%s)", paste(delete_rows, collapse= ",")))
   }
-
 
   # Mark this tile as complete
   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = out_vts@tile_reg)
-
+  withr::defer(DBI::dbDisconnect(con))
   DBI::dbExecute(con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute_set_field, tile_name))
-
-  DBI::dbDisconnect(con)
 }
 
 
