@@ -13,8 +13,8 @@ Create a 3-band pseudo image using bands from several different images or surfac
 The \code{inputs} argument should be a list with up to three elements, each of which correspond to a band in the output image.
 Each element should be in a named list, for which the elements are:
 \describe{
-  \item{\code{rts}}{Raster tileset}
-  \item{\code{band}}{The band number from the RS Dataset}
-  \item{\code{range}}{A numeric vector with two elements indicating the minimum and maximum range of the input RS Dataset band that will be rescaled}
+\item{\code{rts}}{Raster tileset}
+\item{\code{band}}{The band number from the RS Dataset}
+\item{\code{range}}{A numeric vector with two elements indicating the minimum and maximum range of the input RS Dataset band that will be rescaled}
 }
 }

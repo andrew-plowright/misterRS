@@ -304,7 +304,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
   all_data <- DBI::dbGetQuery(train_con, sprintf("SELECT * FROM data WHERE training_set IN (%s)", paste(training_set, collapse = ", ")))
 
 
-  cat("  Training sets: ", paste(training_set, collapse = ", "), "\n")
+  cat("  Training sets :", paste(training_set, collapse = ", "), "\n")
 
   # Drop unwanted columns
   all_data <- all_data[, !names(all_data) %in% c('type', 'fid', 'training_set'), drop = FALSE]
@@ -313,7 +313,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
   drop_rows <- apply(is.na(all_data), 1, any)
   if(any(drop_rows)){
 
-    cat("  Remove rows:", length(drop_rows[drop_rows]), "\n")
+    cat("  Remove rows :", length(drop_rows[drop_rows]), "\n")
     all_data <- all_data[!drop_rows,]
   }
 
@@ -334,11 +334,11 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
     # Check that selected predictors exist
     notFound <- !predictors %in% names(all_data)
 
-    if(any(notFound)) stop("  Following predictor variables not found in survey's Training Data:\n    ",
+    if(any(notFound)) stop("  Predictor variables not found in  Training Data:\n    ",
                            paste(predictors[notFound], collapse = "\n    "))
   }
 
-  cat("  Following predictor variables selected:\n    ", paste(predictors, collapse = "\n    "), "\n")
+  cat("  Predictor variables selected :\n    ", paste(predictors, collapse = "\n    "), "\n")
 
   # Factorize 'segClass' attribute
   all_data$segClass <- as.factor(all_data$segClass)
@@ -350,7 +350,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
     importance = TRUE,
     ntree      = 1000)
 
-  cat("  OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
+  cat("  OOB error rate :", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
 
   # create classifier output folder
   classifierDir <- dirname(classifier_file)

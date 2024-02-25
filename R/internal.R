@@ -74,13 +74,14 @@
 
 #' Run a worker in parallel or serial
 #'
+#' @param cluster_eval extra code that gets evaluated on each cluster
+#'
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_worker <-function(tile_names, worker){
+.exe_tile_worker <-function(tile_names, worker, clusters = getOption("misterRS.clusters"), cluster_eval = NULL){
 
-  clusters = getOption("misterRS.clusters")
-
+  # ASsign the "overwite" value to the parent frame, which in turn gets passed to the worker functions
   assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
 
   if(length(tile_names) == 0){
@@ -102,6 +103,10 @@
         return(r)
       }
 
+
+      # Execute extra code
+      force(cluster_eval)
+
       # Generate 'foreach' statement
       fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
 
@@ -116,20 +121,26 @@
         return(r)
       }
 
-      # Generate 'foreach' statement
-      fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
-
       # Register clusters
       cl <- parallel::makeCluster(clusters)
       doSNOW::registerDoSNOW(cl)
-      on.exit(parallel::stopCluster(cl))
+      withr::defer({
+        parallel::stopCluster(cl)
+      })
 
       # Force the evaluation of all arguments given in the parent frame
       # NOTE: Because R uses 'lazyload', some arguments (or "promises") given in the original function
       # are not evaluated immediately. For whatever reason, %dopar% doesn't like this, and is unable
       # to evaluate these promises. The two lines below "forces" their evaluation.
-      func_args <- setdiff(names(formals(sys.function(-1))), "...")
-      for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
+      func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
+      parallel::clusterExport(cl, func_args, envir = sys.frame(-1))
+      #for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
+
+      # Execute extra code
+      parallel::clusterEvalQ(cl, cluster_eval)
+
+      # Generate 'foreach' statement
+      fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
 
       # Execute in parallel
       results <- fe_par %dopar% worker_par(tile_name)

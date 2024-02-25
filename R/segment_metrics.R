@@ -255,10 +255,8 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
 
     }else NULL
 
-
-
     # Write attributes
-    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
+    .vts_write_attribute_set(tile_metrics, con_gpkg, con_tile_reg, "fid", attribute_set, tile_name)
 
     return("Success")
   }
@@ -269,7 +267,11 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
   # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_eval = {
+
+    con_gpkg     <- .vts_parallel_con(seg_vts@gpkg, load_spatialite = TRUE)
+    con_tile_reg <- .vts_parallel_con(seg_vts@tile_reg)
+  })
 
   # Report
   .print_process_status(process_status)
