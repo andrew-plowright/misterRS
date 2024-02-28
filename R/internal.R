@@ -1,4 +1,4 @@
-.complete_input <- function(xts, buffered = FALSE, selected_tiles = getOption("misterRS.tile_names")){
+.complete_input <- function(xts, buffered = FALSE, attribute = NULL, selected_tiles = getOption("misterRS.tile_names")){
 
   xts_class <- class(xts)
 
@@ -19,21 +19,22 @@
     if(buffered) selected_tiles <- .tile_neibs(selected_tiles, ts)
   }
 
-  if(xts_class == "vts"){
+  if("vts" %in% xts_class){
 
-    has_tiles <- .vts_has_tiles(xts, selected_tiles)
+    if(is.null(attribute)) stop("Define an attribute for VTS")
 
-    incomplete <- length(has_tiles[!has_tiles]) > 0
+    if(!xts$complete(attribute, selected_tiles)) stop("Input VTS '", xts$name, "' is incomplete", call. = FALSE)
 
-  }else if(xts_class == "rts"){
+  }else if("rts" %in% xts_class){
 
     tile_paths <- .rts_tile_paths(xts)[selected_tiles]
 
     incomplete <- !all(file.exists(tile_paths))
 
+    if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
+
   }else stop("Invalid input")
 
-  if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
 }
 
 # Text to print at the end of a process (i.e.: how long the process took)
@@ -74,12 +75,11 @@
 
 #' Run a worker in parallel or serial
 #'
-#' @param cluster_eval extra code that gets evaluated on each cluster
 #'
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_worker <-function(tile_names, worker, clusters = getOption("misterRS.clusters"), cluster_eval = NULL){
+.exe_tile_worker <-function(tile_names, worker, local_vts = NULL, clusters = getOption("misterRS.clusters")){
 
   # ASsign the "overwite" value to the parent frame, which in turn gets passed to the worker functions
   assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
@@ -103,9 +103,13 @@
         return(r)
       }
 
+      # Execute function at the start of the process
+      if(!is.null(local_vts)){
 
-      # Execute extra code
-      force(cluster_eval)
+        assign("local_vts", local_vts, env = parent.frame())
+
+        local_vts$connect()
+      }
 
       # Generate 'foreach' statement
       fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
@@ -113,6 +117,10 @@
       # Execute in serial
       results <- fe_ser %do% worker_ser(tile_name)
 
+      # Execute functionsat the end of the process
+      if(!is.null(local_vts)) local_vts$disconnect()
+
+    # Otherwise, execute in parallel
     }else{
 
       # Wrap worker in tryCatch
@@ -124,20 +132,29 @@
       # Register clusters
       cl <- parallel::makeCluster(clusters)
       doSNOW::registerDoSNOW(cl)
-      withr::defer({
-        parallel::stopCluster(cl)
-      })
 
       # Force the evaluation of all arguments given in the parent frame
       # NOTE: Because R uses 'lazyload', some arguments (or "promises") given in the original function
       # are not evaluated immediately. For whatever reason, %dopar% doesn't like this, and is unable
       # to evaluate these promises. The two lines below "forces" their evaluation.
-      func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
-      parallel::clusterExport(cl, func_args, envir = sys.frame(-1))
-      #for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
 
-      # Execute extra code
-      parallel::clusterEvalQ(cl, cluster_eval)
+      # Also note that the worker function, whose environment is sys.frame(-1), has access to these
+      # variables
+
+      func_args <- setdiff(names(formals(sys.function(-1))), "...")
+      for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
+
+      #func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
+      #parallel::clusterExport(cl, ls(envir = sys.frame(-1)), envir = sys.frame(-1))
+
+      if(!is.null(local_vts)){
+
+        # Export local_vts
+        parallel::clusterExport(cl, "local_vts", envir= environment())
+
+        # Execute functions at cluster initiation
+        parallel::clusterEvalQ(cl, {local_vts$connect(); NULL})
+      }
 
       # Generate 'foreach' statement
       fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
@@ -145,6 +162,15 @@
       # Execute in parallel
       results <- fe_par %dopar% worker_par(tile_name)
 
+      # Execute functions at cluster before destroying clusters
+      #parallel::clusterEvalQ(cl, eval(cluster_stop_expr))
+
+      if(!is.null(local_vts)){
+
+        parallel::clusterEvalQ(cl, {local_vts$disconnect(); NULL})
+      }
+
+      parallel::stopCluster(cl)
     }
 
     results <- setNames(results, tile_names)
@@ -271,17 +297,17 @@
   # If not overwriting, subset only non-existent tiles
   if(length(proc_tiles) > 0){
 
-    if(in_class == "vts"){
+    if("vts" %in% in_class){
 
       if(!overwrite){
 
-        has_tiles <- .vts_has_tiles(xts, proc_tiles, attribute_set_name)
+        has_tiles <- xts$has_tiles(selected_tiles, attribute_set_name)
 
         proc_tiles <- names(has_tiles)[!has_tiles]
       }
 
 
-    }else if(in_class == "rts"){
+    }else if("rts" %in% in_class){
 
       if(!overwrite){
 

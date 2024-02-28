@@ -3,7 +3,7 @@
 #' @export
 
 seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
-                            seg_id, band = 1, discretize_range = NULL, n_grey = 16, ...){
+                            band = 1, discretize_range = NULL, n_grey = 16, ...){
 
   .env_misterRS(list(...))
 
@@ -11,9 +11,11 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
 
   ### INPUT CHECKS ----
 
+  seg_vts$connect()
+
   # Check complete inputs
+  .complete_input(seg_vts, attribute = "poly")
   .complete_input(seg_rts)
-  .complete_input(seg_vts)
   .complete_input(img_rts)
 
   # Get file paths
@@ -37,10 +39,15 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   metric_fields <- paste0(attribute_set, "_", metric_fields)
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, metric_fields, field_type = "MEDIUMINT")
+  for(field in metric_fields) seg_vts$add_field(field, "MEDIUMINT")
 
   # Add attribute set name to tile registry
-  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
+  seg_vts$add_attribute(attribute_set)
+
+  # Get ID field
+  seg_id <- seg_vts$id_field
+
+  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -55,10 +62,10 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
+    seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = seg_id)
 
     # Compute metrics
-    tile_metrics <- if(nrow(seg_data) > 0){
+    if(nrow(seg_data) > 0){
 
       # Read segments
       seg_ras <- terra::rast(seg_ras_path)
@@ -93,15 +100,11 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
       glcm_metrics <- as.data.frame(lapply(glcm_metrics, function(x) as.integer(x * 10000 )))
 
       # Attach to existing data
-      cbind(seg_data[,!names(seg_data) %in% names(glcm_metrics)], glcm_metrics)
-
-
-    # Return empty table of metrics
-    }else NULL
+      seg_data <- cbind(seg_data, glcm_metrics)
+    }
 
     # Write attributes
-    .vts_write_attribute_set(tile_metrics, seg_vts, "fid", attribute_set, tile_name)
-
+    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
 
     return("Success")
   }
@@ -128,7 +131,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
 #'
 #' @export
 
-seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
+seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
                            bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
                            ...){
 
@@ -138,9 +141,11 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
 
   ### INPUT CHECKS ----
 
+  seg_vts$connect()
+
   # Check complete inputs
+  .complete_input(seg_vts, attribute = "poly")
   .complete_input(seg_rts)
-  .complete_input(seg_vts)
   .complete_input(img_rts)
 
   # Get file paths
@@ -166,11 +171,15 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
   met_names_full <- as.vector(outer(met_names_prefix, zonalFun, paste, sep="_"))
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, met_names_full, field_type = "MEDIUMINT")
+  for(field in met_names_full) seg_vts$add_field(field, "MEDIUMINT")
 
   # Add attribute set name to tile registry
-  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
+  seg_vts$add_attribute(attribute_set)
 
+  # Get ID field
+  seg_id <- seg_vts$id_field
+
+  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -185,10 +194,10 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
+    seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = c(seg_id))
 
     # Compute tile metrics
-    tile_metrics <- if(nrow(seg_data) > 0){
+    if(nrow(seg_data) > 0){
 
       # Read ortho and segment raster
       o <- terra::rast(ortho_path)
@@ -251,12 +260,12 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
       spec_metrics <- as.data.frame(lapply(spec_metrics, function(x) as.integer(x * 10000 )))
 
       # Attach to existing data
-      cbind(seg_data[,!names(seg_data) %in% names(spec_metrics)], spec_metrics)
+      seg_data <- cbind(seg_data, spec_metrics)
 
-    }else NULL
+    }
 
     # Write attributes
-    .vts_write_attribute_set(tile_metrics, con_gpkg, con_tile_reg, "fid", attribute_set, tile_name)
+    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
 
     return("Success")
   }
@@ -285,7 +294,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set, seg_id,
 #'
 #' @export
 
-seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, seg_id,
+seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
                           z_min = 0, z_max = 100,
                           ground_class = NULL, full_class = NULL, rgb = NULL,
                           ...){
@@ -296,9 +305,11 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
 
   ### INPUT CHECKS ----
 
+  seg_vts$connect()
+
   # Check inputs are complete
+  .complete_input(seg_vts, attribute = "poly")
   .complete_input(seg_rts)
-  .complete_input(seg_vts)
   .complete_input(dem_rts)
 
   # Auto-detect classification and RGB
@@ -381,11 +392,15 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
   metric_fields <- paste0(attribute_set, "_", names(empty_result))
 
   # Add columns to GPKG
-  .vts_add_fields(seg_vts, metric_fields, field_type = "MEDIUMINT")
+  for(field in metric_fields) seg_vts$add_field(field, "MEDIUMINT")
 
   # Add attribute set name to tile registry
-  .vts_tile_reg_attribute_set(seg_vts, attribute_set)
+  seg_vts$add_attribute(attribute_set)
 
+  # Get ID field
+  seg_id <- seg_vts$id_field
+
+  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -400,13 +415,10 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
     seg_ras_path  <- seg_ras_paths[tile_name]
 
     # Get seg IDs
-    seg_data <- .vts_read(seg_vts, tile_name = tile_name)
+    seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = seg_id)
 
     # Compute tile metrics
     if(nrow(seg_data) > 0){
-
-      # Fill in blank values for seg_dat
-      seg_data[,metric_fields] <- 0
 
       # Read LAS tile
       las_tile <- .read_las_tile(in_cat, tile = tile, select = las_select)
@@ -415,7 +427,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
 
         # Normalize LAS tile
         las_tile <- .normalize_las(las_tile, DEM_path = dem_path, z_min, z_max)
-
       }
 
       if(!is.null(las_tile)){
@@ -430,7 +441,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
         las_tile <- lidR::merge_spatial(las_tile, seg_ras, attribute = seg_id)
 
         # Check if there are less than five usable points
-        if(lidR::npoints(las_tile) - lidR:::fast_count_equal(las_tile$polyID, NA) < 5){
+        if(lidR::npoints(las_tile) - lidR:::fast_count_equal(las_tile[[seg_id]], NA) < 5){
           las_tile <- NULL
         }
       }
@@ -459,12 +470,12 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set, se
         las_metrics <- as.data.frame(lapply(las_metrics, function(x) as.integer(x * 10000 )))
 
         # Attach to existing data
-        seg_data <- cbind(seg_data[,!names(seg_data) %in% names(las_metrics)], las_metrics)
+        seg_data <- cbind(seg_data, las_metrics)
       }
     }
 
     # Write attributes
-    .vts_write_attribute_set(seg_data, seg_vts, "fid", attribute_set, tile_name)
+    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
 
     return("Success")
   }

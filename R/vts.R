@@ -7,10 +7,10 @@ vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
   process_timer <- .headline("VTS BACKUP")
 
   # Set output file path
-  dest_file <- file.path(backup_dir, paste0(in_vts@id, "_", tag, ".rar"))
+  dest_file <- file.path(backup_dir, paste0(in_vts$id, "_", tag, ".rar"))
 
   cat(
-    "  VTS  : ", in_vts@name, "\n",
+    "  VTS  : ", in_vts$name, "\n",
     "  File : ", dest_file, "\n",
     sep = ""
   )
@@ -25,7 +25,7 @@ vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
   }
 
   # Source files
-  src_files <-  c(in_vts@gpkg, in_vts@tile_reg)
+  src_files <-  c(in_vts$gpkg)
 
   # Compress files
   .rar(src_files, dest_file)

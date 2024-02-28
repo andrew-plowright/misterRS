@@ -5,6 +5,10 @@ xts = R6::R6Class("xts",
 
   public = list(
 
+    name = NA_character_,
+    id   = NA_character_,
+    dir  = NA_character_,
+
     #' @description Initialize XTS.
     #' @param id ID of XTS.
     #' @param name Name of XTS.
@@ -15,19 +19,13 @@ xts = R6::R6Class("xts",
       stopifnot(is.character(name), length(name) == 1)
       stopifnot(is.character(dir), length(dir) == 1)
 
-      private$name <- name
-      private$id <- id
-      private$dir <- dir
+      self$name <- name
+      self$id <- id
+      self$dir <- dir
 
       # Create folder
       if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
     }
-  ),
-
-  private = list(
-    id   = NA_character_,
-    name = NA_character_,
-    dir  = NA_character_
   )
 )
 
@@ -38,7 +36,12 @@ vts = R6::R6Class("vts",
 
   inherit = xts,
 
+  cloneable = TRUE,
+
   public = list(
+
+    gpkg = NA_character_,
+    id_field = NA_character_,
 
     #' @description Initialize VTS.
     #' @param id ID of VTS.
@@ -48,33 +51,33 @@ vts = R6::R6Class("vts",
     #' @param geom_layer Name of layer for geometry.
     #' @param proj EPSG number.
     #' @param ts Tileset.
-    initialize = function(id, name, dir, geom_type, geom_layer = "layer", proj = getOption("misterRS.crs"), ts = getOption("misterRS.ts")) {
+    initialize = function(id, name, dir, geom_type, geom_layer = "layer", id_field = "poly_id", proj = getOption("misterRS.crs"), ts = getOption("misterRS.ts")) {
 
       super$initialize(id, name, dir)
 
-      # Name of geometry layer
-      private$geom_layer <- geom_layer
 
-      # Set GeoPackage path
-      private$gpkg <- file.path(dir, paste0(id, ".gpkg"))
+      private$geom_layer <- geom_layer
+      self$gpkg <- file.path(dir, paste0(id, ".gpkg"))
+      self$id_field <- id_field
 
       # Create GeoPackage
-      if(!file.exists(private$gpkg)){
+      if(!file.exists(self$gpkg)){
 
         blank_sf <- sf::st_sf(
           geometry  = sf::st_sfc(crs = sf::st_crs(proj)),
-          tile_name = character()
+          tile_name = character(),
+          poly_id = integer()
         )
 
-        sf::st_write(blank_sf, dsn = private$gpkg, quiet = TRUE, layer = private$geom_layer)
+        sf::st_write(blank_sf, dsn = self$gpkg, quiet = TRUE, layer = private$geom_layer)
 
         # Set geometry type
-        con_gpkg <- DBI::dbConnect(RSQLite::SQLite(), dbname = private$gpkg)
+        con_gpkg <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
         DBI::dbExecute(con_gpkg, sprintf("UPDATE gpkg_geometry_columns SET geometry_type_name = '%s' WHERE table_name = '%s'", geom_type, private$geom_layer))
       }
 
       # Create tile registry
-      if(!exists("con_gpkg")) con_gpkg <- DBI::dbConnect(RSQLite::SQLite(), dbname = private$gpkg)
+      if(!exists("con_gpkg")) con_gpkg <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
 
       if(!"tile_reg" %in% DBI::dbListTables(con_gpkg)){
 
@@ -83,7 +86,7 @@ vts = R6::R6Class("vts",
         tile_names <- ts@data$tileName
         stopifnot(!is.null(tile_names), length(tile_names)>0)
 
-        DBI::dbExecute(con_gpkg, "CREATE TABLE tile_reg (tile_name varchar(50) NOT NULL, UNIQUE(tile_name))")
+        DBI::dbExecute(con_gpkg, "CREATE TABLE tile_reg (tile_name varchar(50) NOT NULL UNIQUE, poly boolean NOT NULL DEFAULT(0))")
 
         DBI::dbExecute(con_gpkg, sprintf("INSERT INTO tile_reg (tile_name) VALUES ('%s')", paste(tile_names, collapse = "'), ('")))
       }
@@ -98,11 +101,8 @@ vts = R6::R6Class("vts",
     #' @description Print.
     print = function(){
 
-      # Make separate connection for this
-      con <- self$temp_con()
-
       # Get tile count
-      tile_reg <- DBI::dbReadTable(con, "tile_reg")
+      tile_reg <- DBI::dbReadTable(self$con, "tile_reg")
       total_tiles <- nrow(tile_reg)
       attribute_names <- setdiff(names(tile_reg), "tile_name")
       if(length(attribute_names) > 0){
@@ -118,9 +118,9 @@ vts = R6::R6Class("vts",
 
       cat(
         "VECTOR TILESET", "\n",
-        "ID        : ", private$id ,  "\n",
-        "Name      : ", private$name, "\n",
-        "Dir       : ", private$dir,  "\n",
+        "ID        : ", self$id ,  "\n",
+        "Name      : ", self$name, "\n",
+        "Dir       : ", self$dir,  "\n",
         "Tiles     : ", total_tiles, "\n",
         print_totals,
         sep = ""
@@ -133,7 +133,7 @@ vts = R6::R6Class("vts",
 
       withr::with_envvar(list(PATH =  mod_spatialite), {
 
-        private$db_con <- DBI::dbConnect(RSQLite::SQLite(), dbname = private$gpkg)
+        private$db_con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
 
         DBI::dbExecute(private$db_con, "PRAGMA busy_timeout=50000;")
         DBI::dbExecute(private$db_con, "SELECT load_extension('mod_spatialite')")
@@ -142,13 +142,11 @@ vts = R6::R6Class("vts",
       invisible(self)
     },
 
-    #' @description Generate a temporary connection that will close itself after
-    #' parent environment exits
-    temp_con = function(){
-      con <- DBI::dbConnect(RSQLite::SQLite(), dbname = private$gpkg)
-      withr::defer({DBI::dbDisconnect(con)}, envir = parent.frame(1))
-      return(con)
-    },
+    #' temp_con = function(){
+    #'   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
+    #'   withr::defer({DBI::dbDisconnect(con)}, envir = parent.frame(1))
+    #'   return(con)
+    #' },
 
     #' @description Disconnect from Gepackage DB
     disconnect = function(){
@@ -189,7 +187,7 @@ vts = R6::R6Class("vts",
     #' @param attribute Name of attribute.
     has_tiles = function(tile_names, attribute){
 
-      if(!attribute %in% DBI::dbListFields(self$con, "tile_reg")) stop("Attribute '", attribute, "' not found in VTS '", private$id,"'")
+      if(!attribute %in% DBI::dbListFields(self$con, "tile_reg")) stop("Attribute '", attribute, "' not found in VTS '", self$id,"'")
 
       if(is.null(tile_names) | length(tile_names) == 0){
 
@@ -211,35 +209,216 @@ vts = R6::R6Class("vts",
       }
     },
 
+    fields = function(){
+
+      return(DBI::dbListFields(self$con, private$geom_layer))
+    },
+
+    read_tile = function(tile_name, fields = NULL){
+
+      sql_fields <- if(is.null(fields)) "*" else paste(fields, collapse=",")
+      sql_query <-  sprintf("SELECT %s FROM %s WHERE tile_name = '%s'", sql_fields, private$geom_layer, tile_name)
+
+      if(is.null(fields) || "geom" %in% fields){
+
+        output <-  sf::st_read(self$con, query = sql_query, quiet = TRUE)
+
+      }else{
+
+        output <- DBI::dbGetQuery(self$con, sql_query)
+      }
+      return(output)
+    },
+
+    read_from_pts = function(pts, fields = NULL){
+
+      # Template for query
+      sql_template <- "SELECT %1$s FROM %4$s WHERE fid IN (SELECT id FROM rtree_%4$s_geom WHERE minx <= %2$s AND maxx >= %2$s AND miny <= %3$s AND maxy >= %3$s)"
+
+      # Select fields
+      if(is.null(fields)){
+
+        sql_fields <- '*'
+
+      }else{
+
+        # "fid" and "geom" is always needed so that duplicates can be removed and geometry intersected
+        sql_fields <- paste(union(c("fid", paste0(private$geom_layer, ".geom")), fields), collapse =", ")
+      }
+
+      # Get initial geometry (subset using r_tree)
+      initial_geom <- do.call(rbind, lapply(1:nrow(pts), function(i){
+
+        coords <- sf::st_coordinates(pts[i,])
+
+        x <- coords[,"X"]
+        y <- coords[,"Y"]
+
+        sql_query <- sprintf(sql_template, sql_fields, x, y, private$geom_layer)
+
+        sf::st_read(seg_vts$con, query = sql_query, quiet = TRUE)
+      }))
+
+      # Drop duplicates
+      initial_geom <- initial_geom[!duplicated(initial_geom$fid),]
+
+      # Refine selection using st intersection tools
+      sf::st_crs(initial_geom) <- sf::st_crs(pts)
+      out_data <- initial_geom[sapply(sf::st_intersects(pts, initial_geom), "[", 1),]
+
+      # Drop geometry if requested
+      if(!is.null(fields) && (!"geom" %in% fields)){
+        out_data <- sf::st_drop_geometry(out_data)
+      }
+
+      # Select only requested fields
+      out_data <- out_data[,fields]
+
+      return(out_data)
+    },
+
+
+    read_from_polys = function(polys, fields = NULL){
+
+      # Select fields
+      sql_template <- "WITH in_poly(geom) AS (VALUES(ST_GeomFromText('%1$s'))) SELECT %2$s FROM %3$s, in_poly WHERE fid IN (SELECT id FROM rtree_%3$s_geom, in_poly WHERE minx <= MbrMaxX(in_poly.geom) AND maxx >= MbrMinX(in_poly.geom) AND miny <= MbrMaxY(in_poly.geom) AND maxy >= MbrMinY(in_poly.geom))"
+
+
+      # Select fields
+      if(is.null(fields)){
+
+        sql_fields <- '*'
+
+      }else{
+
+        # "fid" and "geom" is always needed so that duplicates can be removed and geometry intersected
+        sql_fields <- paste(union(c("fid", paste0(private$geom_layer, ".geom")), fields), collapse =", ")
+      }
+
+      # Get initial geometry (subset using r_tree)
+      initial_geom <- do.call(rbind, lapply(1:nrow(polys), function(i){
+
+        sql_poly <- sf::st_as_text(sf::st_geometry(polys[i,]))
+
+        sql_query <- sprintf(sql_template, sql_poly, sql_fields, private$geom_layer)
+
+        sf::st_read(seg_vts$con, query = sql_query, quiet = TRUE)
+      }))
+
+      # Drop duplicates
+      initial_geom <- initial_geom[!duplicated(initial_geom$fid),]
+
+      # Refine selection using st intersection tools
+      sf::st_crs(initial_geom) <- sf::st_crs(polys)
+      geom_intrsc <- sf::st_intersects(polys, initial_geom)
+
+      lapply(geom_intrsc, function(intrsc){
+
+        out_data <- initial_geom[intrsc,]
+
+        # Drop geometry if requested
+        if(!is.null(fields) && (!"geom" %in% fields)){
+          out_data <- sf::st_drop_geometry(out_data)
+        }
+
+        # Select only requested fields
+        out_data <- out_data[,fields]
+
+      })
+
+    },
+
+
     #' @description Write tile.
     #' @param data sf object being written.
     #' @param tile_name Name of tile.
     #' @param attribute Name of attribute.
     #' @param overwrite Overwrite this tile.
-    write_tile = function(data, tile_name, attribute, overwrite = FALSE){
+    append_geom = function(data, tile_name){
 
       # Check if tile exists
-      tile_exists <-  self$has_tiles(tile_name, attribute)
+      tile_exists <-  self$has_tiles(tile_name, "poly")
+      if(tile_exists) stop("Tile '", tile_name ,"' exists for VTS '", self$id ,"'", call. = FALSE)
 
-      if(tile_exists & !overwrite) stop("Tile '", tile_name ,"' exists for VTS '", private$id ,"' and 'overwrite' is set to FALSE", call. = FALSE)
+      if(nrow(data) > 0){
 
-      # Get rows for deletion
-      delete_rows <- DBI::dbGetQuery(self$con, sprintf("SELECT fid FROM %s WHERE tile_name = '%s'", private$geom_layer, tile_name))[,"fid"]
+        # Check for unique identifier
+        if(!self$id_field %in% names(data)) stop("Input data does not contain unique identifier '", self$id_field, "'")
 
+        # Check for geometry
+        if(!"geom" %in% names(data)) stop("Input data does not geometry")
+        if(!"sfc" %in% class(data$geom)) stop("Input data geometry is not of correct class")
+
+        # Check for duplicates
+        if(any(duplicated(data[[self$id_field]]))) stop("Input data contains duplicates for unique identifier '", self$id_field, "'")
+      }
+
+      # Append data
       self$transact({
 
-        # Write new rows
-        sf::st_write(data, dsn = self$con, driver = "GPKG", layer = private$geom_layer, append = TRUE, quiet = TRUE)
+        if(nrow(data) > 0){
 
-        # Delete old rows
-        if(length(delete_rows) > 0) DBI::dbExecute(self$con, sprintf("DELETE FROM %s WHERE fid IN (%s)", private$geom_layer, paste(delete_rows, collapse= ",")))
+          # Write new rows
+          sf::st_write(data, dsn = self$con, driver = "GPKG", layer = private$geom_layer, append = TRUE, quiet = TRUE)
+        }
 
         # Update tile registry
-        DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute, tile_name))
+        DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", "poly", tile_name))
       })
 
       invisible(self)
     },
+
+    update_data = function(data, tile_name, attribute, overwrite = FALSE){
+
+      tile_exists <-  self$has_tiles(tile_name, attribute)
+      if(tile_exists & !overwrite) stop("Tile '", tile_name ,"' exists for VTS '", self$id ,"' attribute '", attribute, "' and overwrite is set to FALSE", call. = FALSE)
+
+      if(nrow(data) > 0){
+
+        # Check for unique identifier
+        if(!self$id_field %in% names(data)) stop("Input data does not contain unique identifier '", self$id_field, "'")
+
+        # ID field and geometry layer
+        id_field <- self$id_field
+        geom_layer <- private$geom_layer
+
+        # Data fields (excluding id field)
+        data_fields <- setdiff(names(data), id_field)
+
+        # Add quotes to characters
+        for(i in 1:ncol(data)){
+          if(class(data[[i]]) == "character") data[[i]] <- sQuote(data[[i]], FALSE)
+        }
+
+        # SQL
+        sql_data_fields <- paste(c(id_field, data_fields), collapse = ", ")
+
+        sql_values <- paste(sapply(1:nrow(data), function(i) paste0("(", paste(data[i,c(id_field, data_fields)], collapse=", "), ")")  ), collapse=", ")
+
+        sql_field_mapping <- paste(sapply(data_fields, function(field){
+          sprintf("%s = (SELECT %s FROM Tmp WHERE %s.%s = Tmp.%s)", field, field, geom_layer, id_field, id_field)
+        }), collapse = ", ")
+
+        sql_insert <- sprintf(
+          "WITH Tmp(%s) AS (VALUES%s) UPDATE %s SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
+          sql_data_fields, sql_values, geom_layer, sql_field_mapping, id_field, id_field, tile_name
+        )
+      }
+
+      self$transact({
+
+        if(nrow(data) > 0){
+
+          # Execute insertion
+          DBI::dbExecute(self$con, sql_insert)
+        }
+
+        # Update tile registry
+        DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute, tile_name))
+      })
+    },
+
 
     #' @description Add new attribute to tile registry.
     #' @param attribute Name of attribute being added.
@@ -305,7 +484,6 @@ vts = R6::R6Class("vts",
 
   private = list(
 
-    gpkg       = NA_character_,
     geom_layer = NA_character_,
     proj       = NA_character_,
     db_con     = NULL,
@@ -339,18 +517,16 @@ vts = R6::R6Class("vts",
 
         if(class(private$db_con) == 'SQLiteConnection'){
 
-          return(private$db_con)
+          if(DBI::dbIsValid(private$db_con)){
 
-        }else{
+            return(private$db_con)
 
-          stop("VTS '", private$id, "' is not connected", call. = FALSE)
+          }else stop("VTS '", self$id ,"' is not connected")
 
-        }
+        }else stop("VTS '", self$id ,"' is not connected")
 
-      }else{
+      }else  stop("Read only", call. = FALSE)
 
-        stop("Read only", call. = FALSE)
-      }
     }
   )
 )
