@@ -79,7 +79,7 @@
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_worker <-function(tile_names, worker, local_vts = NULL, clusters = getOption("misterRS.clusters")){
+.exe_tile_worker <-function(tile_names, worker, cluster_vts = NULL, clusters = getOption("misterRS.clusters")){
 
   # ASsign the "overwite" value to the parent frame, which in turn gets passed to the worker functions
   assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
@@ -104,12 +104,7 @@
       }
 
       # Execute function at the start of the process
-      if(!is.null(local_vts)){
-
-        assign("local_vts", local_vts, env = parent.frame())
-
-        local_vts$connect()
-      }
+      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$connect()
 
       # Generate 'foreach' statement
       fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
@@ -118,7 +113,7 @@
       results <- fe_ser %do% worker_ser(tile_name)
 
       # Execute functionsat the end of the process
-      if(!is.null(local_vts)) local_vts$disconnect()
+      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$disconnect()
 
     # Otherwise, execute in parallel
     }else{
@@ -147,13 +142,20 @@
       #func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
       #parallel::clusterExport(cl, ls(envir = sys.frame(-1)), envir = sys.frame(-1))
 
-      if(!is.null(local_vts)){
+      if(!is.null(cluster_vts)){
 
-        # Export local_vts
-        parallel::clusterExport(cl, "local_vts", envir= environment())
+        # Export cluster VTS
+        parallel::clusterExport(cl, cluster_vts, envir= parent.frame())
 
-        # Execute functions at cluster initiation
-        parallel::clusterEvalQ(cl, {local_vts$connect(); NULL})
+        # Connect VTS
+        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$connect(); return(NULL)})
+
+        # parallel::clusterEvalQ(cl, {DBI::dbIsValid(in_vts$con)})
+
+        # Avoid namespace collisions by removing the 'cluster_vts' parent enfironment, which is where it would normally be retrieved
+        # from. Instead, the worker function will then "look" into the cluster environment.
+        # This is probably not a best practice
+        rm(list=cluster_vts, envir= parent.frame())
       }
 
       # Generate 'foreach' statement
@@ -162,12 +164,9 @@
       # Execute in parallel
       results <- fe_par %dopar% worker_par(tile_name)
 
-      # Execute functions at cluster before destroying clusters
-      #parallel::clusterEvalQ(cl, eval(cluster_stop_expr))
+      if(!is.null(cluster_vts)){
 
-      if(!is.null(local_vts)){
-
-        parallel::clusterEvalQ(cl, {local_vts$disconnect(); NULL})
+        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$disconnect(); return(NULL)})
       }
 
       parallel::stopCluster(cl)

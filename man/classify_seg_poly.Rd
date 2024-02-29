@@ -10,7 +10,6 @@ classify_seg_poly(
   iteration,
   class_table,
   class_edits,
-  seg_id,
   ...
 )
 }

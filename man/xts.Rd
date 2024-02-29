@@ -17,10 +17,22 @@ Generic tileset.
 \if{html}{\out{<a id="method-xts-new"></a>}}
 \if{latex}{\out{\hypertarget{method-xts-new}{}}}
 \subsection{Method \code{new()}}{
+Initialize XTS.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{xts$new(id, name, dir)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id}}{ID of XTS.}
+
+\item{\code{name}}{Name of XTS.}
+
+\item{\code{dir}}{Path to directory in which files will be created.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-xts-clone"></a>}}

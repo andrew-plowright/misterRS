@@ -42,6 +42,7 @@ vts = R6::R6Class("vts",
 
     gpkg = NA_character_,
     id_field = NA_character_,
+    crs = NA_integer_,
 
     #' @description Initialize VTS.
     #' @param id ID of VTS.
@@ -49,9 +50,9 @@ vts = R6::R6Class("vts",
     #' @param dir Path to directory in which files will be created.
     #' @param geom_type Type of geometry (ex.: POLYGON, POINT).
     #' @param geom_layer Name of layer for geometry.
-    #' @param proj EPSG number.
+    #' @param crs EPSG number.
     #' @param ts Tileset.
-    initialize = function(id, name, dir, geom_type, geom_layer = "layer", id_field = "poly_id", proj = getOption("misterRS.crs"), ts = getOption("misterRS.ts")) {
+    initialize = function(id, name, dir, geom_type, geom_layer = "layer", id_field = "poly_id", crs = getOption("misterRS.crs"), ts = getOption("misterRS.ts")) {
 
       super$initialize(id, name, dir)
 
@@ -59,12 +60,13 @@ vts = R6::R6Class("vts",
       private$geom_layer <- geom_layer
       self$gpkg <- file.path(dir, paste0(id, ".gpkg"))
       self$id_field <- id_field
+      self$crs <- crs
 
       # Create GeoPackage
       if(!file.exists(self$gpkg)){
 
         blank_sf <- sf::st_sf(
-          geometry  = sf::st_sfc(crs = sf::st_crs(proj)),
+          geometry  = sf::st_sfc(crs = sf::st_crs(crs)),
           tile_name = character(),
           poly_id = integer()
         )
@@ -101,30 +103,39 @@ vts = R6::R6Class("vts",
     #' @description Print.
     print = function(){
 
-      # Get tile count
-      tile_reg <- DBI::dbReadTable(self$con, "tile_reg")
-      total_tiles <- nrow(tile_reg)
-      attribute_names <- setdiff(names(tile_reg), "tile_name")
-      if(length(attribute_names) > 0){
-        print_nums <- sapply(attribute_names, function(x){
-          num <- length(tile_reg[[x]][tile_reg[[x]]==1])
-          crayon_col <- if(num == total_tiles) crayon::green else crayon::yellow
-          return(crayon_col(num))
-        })
-        print_totals <- paste0("  ", stringr::str_pad(attribute_names,7,"right"), " : ", print_nums, "\n")
-      }else{
-        print_totals <- NULL
-      }
+      cat("VECTOR TILESET", "\n")
 
-      cat(
-        "VECTOR TILESET", "\n",
-        "ID        : ", self$id ,  "\n",
-        "Name      : ", self$name, "\n",
-        "Dir       : ", self$dir,  "\n",
-        "Tiles     : ", total_tiles, "\n",
-        print_totals,
-        sep = ""
-      )
+      if(self$connected()){
+
+        # Get tile count
+        tile_reg <- DBI::dbReadTable(self$con, "tile_reg")
+        total_tiles <- nrow(tile_reg)
+        attribute_names <- setdiff(names(tile_reg), "tile_name")
+        if(length(attribute_names) > 0){
+          print_nums <- sapply(attribute_names, function(x){
+            num <- length(tile_reg[[x]][tile_reg[[x]]==1])
+            crayon_col <- if(num == total_tiles) crayon::green else crayon::yellow
+            return(crayon_col(num))
+          })
+          print_totals <- paste0("  ", stringr::str_pad(attribute_names,7,"right"), " : ", print_nums, "\n")
+        }else{
+          print_totals <- NULL
+        }
+
+        cat(
+          "ID        : ", self$id ,  "\n",
+          "Name      : ", self$name, "\n",
+          "Dir       : ", self$dir,  "\n",
+          "Tiles     : ", total_tiles, "\n",
+          print_totals,
+          sep = ""
+        )
+
+      }else{
+
+        cat("(unconnected)","\n")
+
+      }
     },
 
     #' @description Connect to Geopackage DB.
@@ -135,7 +146,8 @@ vts = R6::R6Class("vts",
 
         private$db_con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
 
-        DBI::dbExecute(private$db_con, "PRAGMA busy_timeout=50000;")
+        DBI::dbExecute(private$db_con, "PRAGMA busy_timeout=500000;")
+        DBI::dbExecute(private$db_con, "PRAGMA journal_mode=WAL;")
         DBI::dbExecute(private$db_con, "SELECT load_extension('mod_spatialite')")
       })
 
@@ -148,14 +160,16 @@ vts = R6::R6Class("vts",
     #'   return(con)
     #' },
 
+    connected = function(){
+
+      class(private$db_con) == 'SQLiteConnection' && DBI::dbIsValid(private$db_con)
+
+    },
+
     #' @description Disconnect from Gepackage DB
     disconnect = function(){
 
-      if(class(private$db_con) == 'SQLiteConnection') {
-        if(DBI::dbIsValid(private$db_con)){
-          DBI::dbDisconnect(private$db_con)
-        }
-      }
+      if(self$connected()) DBI::dbDisconnect(private$db_con)
 
       invisible(self)
     },
@@ -166,12 +180,12 @@ vts = R6::R6Class("vts",
 
       con_gpkg <- self$con
 
-      DBI::dbExecute(con_gpkg, "BEGIN IMMEDIATE TRANSACTION")
+      DBI::dbExecute(con_gpkg, "BEGIN IMMEDIATE")
 
-      tryCatch(
+      res <- tryCatch(
         {
           res <- force(code)
-          DBI::dbExecute(con_gpkg, "COMMIT TRANSACTION")
+          DBI::dbExecute(con_gpkg, "COMMIT")
           res
         },
         db_abort  = private$rollback,
@@ -179,7 +193,7 @@ vts = R6::R6Class("vts",
         interrupt = private$rollback
       )
 
-      invisible(self)
+      return(res)
     },
 
     #' @description Check if has tiles.
@@ -221,7 +235,11 @@ vts = R6::R6Class("vts",
 
       if(is.null(fields) || "geom" %in% fields){
 
-        output <-  sf::st_read(self$con, query = sql_query, quiet = TRUE)
+        # Note that reading from the Geopackage path instead of the connection means that
+        # the CRS will be applied. If only the connection is provided, you don't get the CRS
+
+        output <- sf::st_read(self$con, query = sql_query, quiet = TRUE)
+        sf::st_crs(output) <- sf::st_crs(self$crs)
 
       }else{
 
@@ -256,14 +274,13 @@ vts = R6::R6Class("vts",
 
         sql_query <- sprintf(sql_template, sql_fields, x, y, private$geom_layer)
 
-        sf::st_read(seg_vts$con, query = sql_query, quiet = TRUE)
+        sf::st_read(self$gpkg, query = sql_query, quiet = TRUE)
       }))
 
       # Drop duplicates
       initial_geom <- initial_geom[!duplicated(initial_geom$fid),]
 
       # Refine selection using st intersection tools
-      sf::st_crs(initial_geom) <- sf::st_crs(pts)
       out_data <- initial_geom[sapply(sf::st_intersects(pts, initial_geom), "[", 1),]
 
       # Drop geometry if requested
@@ -302,14 +319,13 @@ vts = R6::R6Class("vts",
 
         sql_query <- sprintf(sql_template, sql_poly, sql_fields, private$geom_layer)
 
-        sf::st_read(seg_vts$con, query = sql_query, quiet = TRUE)
+        sf::st_read(seg_vts$gpkg, query = sql_query, quiet = TRUE)
       }))
 
       # Drop duplicates
       initial_geom <- initial_geom[!duplicated(initial_geom$fid),]
 
       # Refine selection using st intersection tools
-      sf::st_crs(initial_geom) <- sf::st_crs(polys)
       geom_intrsc <- sf::st_intersects(polys, initial_geom)
 
       lapply(geom_intrsc, function(intrsc){
@@ -406,17 +422,14 @@ vts = R6::R6Class("vts",
         )
       }
 
-      self$transact({
+      if(nrow(data) > 0){
 
-        if(nrow(data) > 0){
+        # Execute insertion
+        self$transact({ DBI::dbExecute(self$con, sql_insert) })
+      }
 
-          # Execute insertion
-          DBI::dbExecute(self$con, sql_insert)
-        }
-
-        # Update tile registry
-        DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute, tile_name))
-      })
+      # Update tile registry
+      self$transact({ DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute, tile_name)) })
     },
 
 
@@ -485,7 +498,6 @@ vts = R6::R6Class("vts",
   private = list(
 
     geom_layer = NA_character_,
-    proj       = NA_character_,
     db_con     = NULL,
 
     rollback = function(e){

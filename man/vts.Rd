@@ -23,10 +23,16 @@ Vector tileset.
 \item \href{#method-vts-finalize}{\code{vts$finalize()}}
 \item \href{#method-vts-print}{\code{vts$print()}}
 \item \href{#method-vts-connect}{\code{vts$connect()}}
+\item \href{#method-vts-connected}{\code{vts$connected()}}
 \item \href{#method-vts-disconnect}{\code{vts$disconnect()}}
 \item \href{#method-vts-transact}{\code{vts$transact()}}
 \item \href{#method-vts-has_tiles}{\code{vts$has_tiles()}}
-\item \href{#method-vts-write_tile}{\code{vts$write_tile()}}
+\item \href{#method-vts-fields}{\code{vts$fields()}}
+\item \href{#method-vts-read_tile}{\code{vts$read_tile()}}
+\item \href{#method-vts-read_from_pts}{\code{vts$read_from_pts()}}
+\item \href{#method-vts-read_from_polys}{\code{vts$read_from_polys()}}
+\item \href{#method-vts-append_geom}{\code{vts$append_geom()}}
+\item \href{#method-vts-update_data}{\code{vts$update_data()}}
 \item \href{#method-vts-add_attribute}{\code{vts$add_attribute()}}
 \item \href{#method-vts-add_field}{\code{vts$add_field()}}
 \item \href{#method-vts-index}{\code{vts$index()}}
@@ -46,7 +52,8 @@ Initialize VTS.
   dir,
   geom_type,
   geom_layer = "layer",
-  proj = getOption("misterRS.crs"),
+  id_field = "poly_id",
+  crs = getOption("misterRS.crs"),
   ts = getOption("misterRS.ts")
 )}\if{html}{\out{</div>}}
 }
@@ -64,7 +71,7 @@ Initialize VTS.
 
 \item{\code{geom_layer}}{Name of layer for geometry.}
 
-\item{\code{proj}}{EPSG number.}
+\item{\code{crs}}{EPSG number.}
 
 \item{\code{ts}}{Tileset.}
 }
@@ -103,10 +110,24 @@ Connect to Geopackage DB.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{mod_spatialite}}{Path to Spatialite directory.}
+\item{\code{mod_spatialite}}{Path to Spatialite directory.
+temp_con = function(){
+con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
+withr::defer({DBI::dbDisconnect(con)}, envir = parent.frame(1))
+return(con)
+},}
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-connected"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-connected}{}}}
+\subsection{Method \code{connected()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$connected()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-vts-disconnect"></a>}}
@@ -155,12 +176,48 @@ Check if has tiles.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-vts-write_tile"></a>}}
-\if{latex}{\out{\hypertarget{method-vts-write_tile}{}}}
-\subsection{Method \code{write_tile()}}{
+\if{html}{\out{<a id="method-vts-fields"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-fields}{}}}
+\subsection{Method \code{fields()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$fields()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-read_tile"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-read_tile}{}}}
+\subsection{Method \code{read_tile()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$read_tile(tile_name, fields = NULL)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-read_from_pts"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-read_from_pts}{}}}
+\subsection{Method \code{read_from_pts()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$read_from_pts(pts, fields = NULL)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-read_from_polys"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-read_from_polys}{}}}
+\subsection{Method \code{read_from_polys()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$read_from_polys(polys, fields = NULL)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-append_geom"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-append_geom}{}}}
+\subsection{Method \code{append_geom()}}{
 Write tile.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{vts$write_tile(data, tile_name, attribute, overwrite = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{vts$append_geom(data, tile_name)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -176,6 +233,15 @@ Write tile.
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-update_data"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-update_data}{}}}
+\subsection{Method \code{update_data()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$update_data(data, tile_name, attribute, overwrite = FALSE)}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-vts-add_attribute"></a>}}

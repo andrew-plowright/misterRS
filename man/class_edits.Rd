@@ -2,10 +2,10 @@
 % Please edit documentation in R/classification.R
 \name{class_edits}
 \alias{class_edits}
-\title{Canopy Edits (constructor)}
+\title{Class Edits (constructor)}
 \usage{
 class_edits(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE)
 }
 \description{
-Canopy Edits (constructor)
+Class Edits (constructor)
 }

@@ -58,7 +58,7 @@ training_data <- function(name, dir, proj = getOption("misterRS.crs"), overwrite
     if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
 
     # Create Simple Feature object with blank geometry and empty attribute fields
-    pts  <- poly <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), training_set = integer(), list(segClass = character()))
+    pts  <- poly <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), training_set = integer(), list(seg_class = character()))
 
     sf::st_write(pts,  file_path, quiet = TRUE, layer = "points",   delete_layer = TRUE)
     sf::st_write(poly, file_path, quiet = TRUE, layer = "polygons", delete_layer = TRUE)
@@ -101,7 +101,7 @@ setMethod("show", "class_edits", function(object){
   )
 })
 
-#' Canopy Edits (constructor)
+#' Class Edits (constructor)
 #' @export
 
 class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
@@ -113,7 +113,7 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
   if(!file.exists(file_path) | overwrite){
 
     # Create Simple Feature object with blank geometry and empty attribute fields
-    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), list(toClass = character(), fromClass = character()))
+    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), list(to_class = character(), from_class = character()))
 
     # Write to geopackage
     sf::st_write(s,  file_path, quiet = TRUE, layer = "edits", delete_layer = TRUE)
@@ -140,7 +140,7 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
     seg_data[["type"]]         <- 1
     seg_data[["training_set"]] <- training_pts[["training_set"]]
     seg_data[["training_fid"]] <- training_pts[["fid"]]
-    seg_data[["seg_class"]]    <- training_pts[["segClass"]]
+    seg_data[["seg_class"]]    <- training_pts[["seg_class"]]
 
     # Remove NAs
     seg_data <- seg_data[!is.na(seg_data[["fid"]]),]
@@ -177,7 +177,7 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
       seg_data[[i]][["type"]] <- 2
       seg_data[[i]][["training_set"]] <- training_polys[["training_set"]][i]
       seg_data[[i]][["training_fid"]] <- training_polys[["fid"]][i]
-      seg_data[[i]][["seg_class"]]    <- training_polys[["segClass"]][i]
+      seg_data[[i]][["seg_class"]]    <- training_polys[["seg_class"]][i]
     }
 
     seg_data <- do.call(rbind, seg_data)
@@ -374,7 +374,7 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
 #'
 #' @export
 
-classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, class_edits, seg_id, ...){
+classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, class_edits, ...){
 
   .env_misterRS(list(...))
 
@@ -402,10 +402,11 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   # Add column
   class_label <- paste0("class_", iteration)
-  seg_vts$add_field(class_label, field_type = "INTEGER")
+  seg_vts$add_field(class_label, "INTEGER")
 
   # Add attribute set name to tile registry
-  seg_vts$add_attribute(seg_vts, class_label)
+  seg_vts$add_attribute(class_label)
+
 
   # Read in class edits
   class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
@@ -413,73 +414,78 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
     class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
   }
 
+  # Unique id field
+  seg_id <- seg_vts$id_field
+
+
   ### CREATE WORKER ----
 
   # Run process
   tile_worker <-function(tile_name){
 
     # Read all
-    seg_poly <- seg_vts$read_tile(tile_name = tile_name)
+    seg_poly <- seg_vts$read_tile(tile_name = tile_name, fields = c(seg_id, "geom", class_features))
 
-    # Drop FID
-    seg_poly <- seg_poly[,names(seg_poly) != "fid"]
+    if(nrow(seg_poly) > 0){
+      # Drop FID
+      #seg_poly <- seg_poly[,names(seg_poly) != "fid"]
 
-    # Subset predictors
-    tile_predictors <- seg_poly[,class_features, drop = FALSE]
+      # Subset predictors
+      tile_predictors <- seg_poly[,class_features, drop = FALSE]
 
-    # Classify according to most-voted class
-    votes   <- randomForest:::predict.randomForest(classifier, tile_predictors, type = "vote")
-    elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
-    seg_poly[[class_label]] <- elected
+      # Classify according to most-voted class
+      votes   <- randomForest:::predict.randomForest(classifier, tile_predictors, type = "vote")
+      elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
+      seg_poly[[class_label]] <- elected
 
-    # votePrc  <- if(length(elected) > 0){
-    #  sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
-    # }else{
-    #   numeric()
-    # }
+      # votePrc  <- if(length(elected) > 0){
+      #  sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
+      # }else{
+      #   numeric()
+      # }
 
-    # Manual edits
-    if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tile_name]]) > 0)){
+      # Manual edits
+      if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tile_name]]) > 0)){
 
-      # Class edits for this tile
-      class_edits_tile <- class_edits[class_edits_bytile[[tile_name]],]
+        # Class edits for this tile
+        class_edits_tile <- class_edits[class_edits_bytile[[tile_name]],]
 
-      # Intersection between class edits and polygons
-      class_edits_bypoly <- sf::st_intersects(class_edits_tile, seg_poly)
+        # Intersection between class edits and polygons
+        class_edits_bypoly <- sf::st_intersects(class_edits_tile, seg_poly)
 
-      for(i in 1:nrow(class_edits_tile)){
+        for(i in 1:nrow(class_edits_tile)){
 
-        edit <- class_edits_tile[i,]
+          edit <- class_edits_tile[i,]
 
-        # Get to/from classes
-        from <- strsplit(edit$fromClass, " ")[[1]]
-        to   <- edit$toClass
+          # Get to/from classes
+          from <- strsplit(edit$from_class, " ")[[1]]
+          to   <- edit$to_class
 
-        # Get segments that intersect with edit polygon
-        edit_segs <- seg_poly[class_edits_bypoly[[i]],]
+          # Get segments that intersect with edit polygon
+          edit_segs <- seg_poly[class_edits_bypoly[[i]],]
 
-        stop("You need to double-check the line below. Is 'seg_class' the right field to be calling?")
+          # Subset according to specified 'from_Class' value (if specified)
+          if(!is.na(from)) edit_segs <- edit_segs[edit_segs[[class_label]] %in% from,]
 
-        # Subset according to specified 'fromClass' value (if specified)
-        if(!is.na(from)) edit_segs <- edit_segs[edit_segs[["seg_class"]] %in% from,]
+          # Apply edit
+          if(nrow(edit_segs) > 0){
 
-        # Apply edit
-        if(nrow(edit_segs) > 0){
-
-          edit_which <- seg_poly[[seg_id]] %in% edit_segs[[seg_id]]
-          seg_poly[edit_which,][[class_label]] <- to
+            edit_which <- seg_poly[[seg_id]] %in% edit_segs[[seg_id]]
+            seg_poly[edit_which,][[class_label]] <- to
+          }
         }
+
       }
+
+      # Convert to numerical class IDs
+      seg_poly[[class_label]] <- class_table$id[match(seg_poly[[class_label]], class_table$code)]
+
+      # Keep only data that is needed
+      seg_poly <- sf::st_drop_geometry(seg_poly)[, c(seg_id, class_label)]
     }
 
-    # Convert to class IDs
-    seg_poly[[class_label]] <- class_table$id[match(seg_poly[[class_label]], class_table$code)]
-
-    # Select data to be written
-    #out_data <- sf::st_drop_geometry(seg_poly)[,c(seg_id, class_label)]
-    seg_vts$write_tile(seg_poly, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
-
-
+    # Write attributes
+    seg_vts$update_data(data = seg_poly, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
 
     return("Success")
   }
@@ -489,13 +495,10 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Get tiles for processing
   proc_tiles <- .tile_queue(seg_vts, attribute_set_name = class_label)
 
+  seg_vts$disconnect()
+
   # Process
-  process_status <- .exe_tile_worker(
-    proc_tiles,
-    tile_worker,
-    cluster_init = function() seg_vts$connect(),
-    cluster_stop = function() seg_vts$disconnect()
-  )
+  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)

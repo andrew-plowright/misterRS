@@ -243,9 +243,3 @@ test_that("Update data for VTS", {
 
 })
 
-
-
-
-
-
-

@@ -10,7 +10,6 @@ seg_metrics_las(
   in_cat,
   dem_rts,
   attribute_set,
-  seg_id,
   z_min = 0,
   z_max = 100,
   ground_class = NULL,

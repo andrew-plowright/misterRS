@@ -7,12 +7,9 @@
 .exe_tile_worker(
   tile_names,
   worker,
-  clusters = getOption("misterRS.clusters"),
-  cluster_eval = NULL
+  cluster_vts = NULL,
+  clusters = getOption("misterRS.clusters")
 )
-}
-\arguments{
-\item{cluster_eval}{extra code that gets evaluated on each cluster}
 }
 \description{
 Run a worker in parallel or serial

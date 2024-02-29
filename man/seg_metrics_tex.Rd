@@ -9,7 +9,6 @@ seg_metrics_tex(
   seg_vts,
   img_rts,
   attribute_set,
-  seg_id,
   band = 1,
   discretize_range = NULL,
   n_grey = 16,
