@@ -1,12 +1,12 @@
 #' Create canopy mask
 #'
-#' @param canopy_classes names of raster classes that are included in the canopy
+#' @param canopy_classes integer. Raster values for `seg_class_rts` that correspond to canopy
 #' @param openings the number of times that a morphological opening will be applied
 #' @param opening_radius radius of morphological opening window
 #'
 #' @export
 
-canopy_mask <- function(seg_rts, out_rts, canopy_classes,
+canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
                         canopy_edits = NULL, openings = 1, opening_radius = 0.5, ...){
 
   .env_misterRS(list(...))
@@ -16,10 +16,10 @@ canopy_mask <- function(seg_rts, out_rts, canopy_classes,
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .complete_input(seg_rts, buffered = TRUE)
+  .complete_input(seg_class_rts, buffered = TRUE)
 
   # Get file paths
-  seg_class_ras_paths <- .rts_tile_paths(seg_rts)
+  seg_class_ras_paths <- .rts_tile_paths(seg_class_rts)
   out_paths           <- .rts_tile_paths(out_rts)
 
   ts <- .tilescheme()

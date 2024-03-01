@@ -382,21 +382,21 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   ### INPUT CHECKS ----
 
-  # Check that inputs are complete
-  #.complete_input(seg_vts)
-
-  # Get CRS
-  proj <- getOption("misterRS.crs")
-
-  # Get tile scheme
-  ts <- .tilescheme()
-  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
-
   # Read classifier
   classifier <- readRDS(classifier_file)
 
   # Get class variables
   class_features <- row.names(randomForest::importance(classifier))
+
+  # Get attributes
+  attributes <- unique(sapply(strsplit(class_features, "_"),"[", 1))
+
+  # Check that inputs are complete
+  for(attribute in attributes) .complete_input(seg_vts, attribute)
+
+  # Get tile scheme
+  ts <- .tilescheme()
+  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
   seg_vts$connect()
 
@@ -406,7 +406,6 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   # Add attribute set name to tile registry
   seg_vts$add_attribute(class_label)
-
 
   # Read in class edits
   class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
@@ -474,7 +473,6 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
             seg_poly[edit_which,][[class_label]] <- to
           }
         }
-
       }
 
       # Convert to numerical class IDs
@@ -516,7 +514,7 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 #'
 #' @export
 
-classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, seg_id, ...){
+classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
 
   .env_misterRS(list(...))
 
@@ -524,14 +522,19 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, seg_id,
 
   ### INPUT CHECKS ----
 
+  class_label <- paste0("class_", iteration)
+
+  seg_vts$connect()
+
   # Check that inputs are complete
   .complete_input(seg_rts)
-  .complete_input(seg_vts)
+  .complete_input(seg_vts, attribute = class_label)
 
   seg_paths <- .rts_tile_paths(seg_rts)
   out_paths <- .rts_tile_paths(seg_class_rts)
 
-  class_label <- paste0("class_", iteration)
+  # Unique id field
+  seg_id <- seg_vts$id_field
 
   ### CREATE WORKER ----
 
@@ -544,7 +547,7 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, seg_id,
     out_path <- out_paths[tile_name]
 
     # Read polygons (which have classes)
-    seg_poly <-  .vts_read(seg_vts, tile_name = tile_name, field = c(seg_id, class_label))
+    seg_poly <-  seg_vts$read_tile(tile_name = tile_name, field = c(seg_id, class_label))
 
     # Get unclassified raster segments
     seg_ras <- terra::rast(seg_path)
@@ -568,7 +571,7 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, seg_id,
   proc_tiles <- .tile_queue(seg_class_rts)
 
   # Process
-  process_status <- .exe_tile_worker(proc_tiles, tile_worker)
+  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)

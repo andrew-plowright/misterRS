@@ -14,7 +14,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   seg_vts$connect()
 
   # Check complete inputs
-  .complete_input(seg_vts, attribute = "poly")
+  .complete_input(seg_vts, attribute = "geom")
   .complete_input(seg_rts)
   .complete_input(img_rts)
 
@@ -47,7 +47,6 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -115,8 +114,10 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
+  seg_vts$disconnect()
+
   # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)
@@ -132,8 +133,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
 #' @export
 
 seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
-                           bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"),
-                           ...){
+                             bands = c("R" = 1, "G" = 2, "B" = 3), zonalFun = c("mean", "sd"), ...){
 
   .env_misterRS(list(...))
 
@@ -144,7 +144,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   seg_vts$connect()
 
   # Check complete inputs
-  .complete_input(seg_vts, attribute = "poly")
+  .complete_input(seg_vts, attribute = "geom")
   .complete_input(seg_rts)
   .complete_input(img_rts)
 
@@ -179,7 +179,6 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -275,12 +274,10 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_eval = {
+  seg_vts$disconnect()
 
-    con_gpkg     <- .vts_parallel_con(seg_vts@gpkg, load_spatialite = TRUE)
-    con_tile_reg <- .vts_parallel_con(seg_vts@tile_reg)
-  })
+  # Process
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)
@@ -295,20 +292,19 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
 #' @export
 
 seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
-                          z_min = 0, z_max = 100,
-                          ground_class = NULL, full_class = NULL, rgb = NULL,
-                          ...){
+                          z_min = 0, z_max = 100, ground_class = NULL, full_class = NULL, rgb = NULL, ...){
 
   .env_misterRS(list(...))
 
   process_timer <- .headline("SEGMENT METRICS - LAS")
+
 
   ### INPUT CHECKS ----
 
   seg_vts$connect()
 
   # Check inputs are complete
-  .complete_input(seg_vts, attribute = "poly")
+  .complete_input(seg_vts, attribute = "geom")
   .complete_input(seg_rts)
   .complete_input(dem_rts)
 
@@ -321,7 +317,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
     if(is.null(ground_class)) ground_class <- .is_las_ground_classified(testLAS)
     if(is.null(rgb)) rgb <- .is_las_rgb(testLAS)
     # if(is.null(intensity)) intensity <- .is_las_intensity(testLAS)
-
   }
 
   cat(
@@ -330,6 +325,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
     "  RGB                 : ", rgb, "\n",
     "\n", sep = ""
   )
+
 
   ### PREPARE DATA ----
 
@@ -400,7 +396,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -485,8 +480,10 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
+  seg_vts$disconnect()
+
   # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)
