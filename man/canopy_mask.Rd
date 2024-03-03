@@ -5,7 +5,7 @@
 \title{Create canopy mask}
 \usage{
 canopy_mask(
-  seg_rts,
+  seg_class_rts,
   out_rts,
   canopy_classes,
   canopy_edits = NULL,
@@ -15,7 +15,7 @@ canopy_mask(
 )
 }
 \arguments{
-\item{canopy_classes}{names of raster classes that are included in the canopy}
+\item{canopy_classes}{integer. Raster values for \code{seg_class_rts} that correspond to canopy}
 
 \item{openings}{the number of times that a morphological opening will be applied}
 

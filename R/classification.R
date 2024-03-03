@@ -207,6 +207,10 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
 
   process_timer <- .headline("EXTRACT TRAINING DATA")
 
+  seg_vts$connect()
+
+  .complete_input(seg_vts, attribute = "geom")
+
   # Read training points and polygons
   training_pts   <- sf::st_read(training_data@file_path, "points",   fid_column_name ="fid", quiet = TRUE)
   training_polys <- sf::st_read(training_data@file_path, "polygons", fid_column_name ="fid", quiet = TRUE)
@@ -245,8 +249,6 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
   }else{
 
 
-    seg_vts$connect()
-
     # Select attributes
     attribute_names_all <- seg_vts$fields()
     attribute_fields <- unname(unlist(sapply(attribute_set, function(attribute_prefix)  attribute_names_all[startsWith(attribute_names_all, attribute_prefix)])))
@@ -256,8 +258,6 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
       .sql_extract_poly( seg_vts, training_polys, attribute_fields),
       .sql_extract_point(seg_vts, training_pts,   attribute_fields)
     )
-
-    seg_vts$disconnect()
 
     if(any(is.na(extract_data))) stop("Extracted training data contained NA values")
 
@@ -279,6 +279,8 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
     )
   }
 
+  seg_vts$disconnect()
+
   # Conclude
   .conclusion(process_timer)
 }
@@ -292,7 +294,6 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
                               overwrite = FALSE){
 
   process_timer <- .headline("CREATE CLASSIFIER")
-
 
   if(!is.null(classifier_file)){
     if(file.exists(classifier_file) & !overwrite){
@@ -308,7 +309,6 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
 
   # Get data
   all_data <- DBI::dbGetQuery(train_con, sprintf("SELECT * FROM data WHERE training_set IN (%s)", paste(training_set, collapse = ", ")))
-
 
   cat("  Training sets :", paste(training_set, collapse = ", "), "\n")
 
@@ -392,7 +392,7 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   attributes <- unique(sapply(strsplit(class_features, "_"),"[", 1))
 
   # Check that inputs are complete
-  for(attribute in attributes) .complete_input(seg_vts, attribute)
+  for(attribute in attributes) .complete_input(seg_vts, attribute= attribute)
 
   # Get tile scheme
   ts <- .tilescheme()

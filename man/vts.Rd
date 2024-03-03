@@ -22,6 +22,7 @@ Vector tileset.
 \item \href{#method-vts-new}{\code{vts$new()}}
 \item \href{#method-vts-finalize}{\code{vts$finalize()}}
 \item \href{#method-vts-print}{\code{vts$print()}}
+\item \href{#method-vts-temp_con}{\code{vts$temp_con()}}
 \item \href{#method-vts-connect}{\code{vts$connect()}}
 \item \href{#method-vts-connected}{\code{vts$connected()}}
 \item \href{#method-vts-disconnect}{\code{vts$disconnect()}}
@@ -95,6 +96,15 @@ Finalize.
 Print.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{vts$print()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-vts-temp_con"></a>}}
+\if{latex}{\out{\hypertarget{method-vts-temp_con}{}}}
+\subsection{Method \code{temp_con()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{vts$temp_con()}\if{html}{\out{</div>}}
 }
 
 }

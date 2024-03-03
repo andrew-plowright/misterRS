@@ -47,6 +47,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
+  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -114,8 +115,6 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
-  seg_vts$disconnect()
-
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
 
@@ -179,6 +178,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
+  seg_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -273,8 +273,6 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
 
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
-
-  seg_vts$disconnect()
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
@@ -396,6 +394,8 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
+  seg_vts$disconnect()
+
 
   ### CREATE WORKER ----
 
@@ -479,8 +479,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
 
   # Get tiles for processing
   queued_tiles <- .tile_queue(seg_vts, attribute_set)
-
-  seg_vts$disconnect()
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")

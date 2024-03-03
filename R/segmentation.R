@@ -118,6 +118,9 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
 
   .env_misterRS(list(...))
 
+  # Do not attempt to write to Geopackage using multiple clusters
+  withr::local_options("misterRS.cluster" = 1)
+
   process_timer <- .headline("TILE POLYGONS")
 
   # Get tile scheme
@@ -201,24 +204,20 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
     }
 
     # Write file
-    .vts_write(polys, out_vts = out_vts, tile_name = tile_name, overwrite = overwrite)
+    out_vts$append_geom(det_ttops, tile_name)
 
     return("Success")
   }
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_vts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  ttops %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .print_process_status()
 
   # Create index
-  .vts_create_index(out_vts, "tile_name")
-
-  # Report
-  .print_process_status(process_status)
+  .vts_create_index(out_vts)
 
   # Conclude
   .conclusion(process_timer)
@@ -243,7 +242,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 
   # Check that inputs are complete
   .complete_input(chm_rts)
-  .complete_input(ttops_vts, buffered = TRUE)
+  .complete_input(ttops_vts, attribute = "geom", buffered = TRUE)
 
   # Get tile scheme and projection
   ts <- .tilescheme()
@@ -251,6 +250,16 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 
   # Get file paths
   CHM_paths   <- .rts_tile_paths(chm_rts)
+
+  out_vts$connect()
+  ttops_vts$connect()
+
+  # Add fields
+  out_vts$add_field("height",     "REAL")
+  out_vts$add_field("crown_area", "REAL")
+
+  # Get ID field
+  tree_id <- ttops_vts$id_field
 
   ### CREATE WORKER ----
 
@@ -265,10 +274,10 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Empty output
-    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)),list(treeID = integer()))
+    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), setNames(list(integer()), tree_id))
 
     # Read treetops
-    ttops <-  .vts_read(ttops_vts, geom = buff)
+    ttops <- ttops_vts$read_from_polys( buff, fields = c(tree_id, "tile_name", "height", "geom"))[[1]]
 
     if(nrow(ttops) > 0){
 
@@ -280,29 +289,29 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 
         if(nrow(ttops_buff) > 0){
 
-          max_id <- max(ttops_tile[["treeID"]], na.rm=T)
+          max_id <- max(ttops_tile[[tree_id]], na.rm=T)
 
-          ttops_buff[["treeID"]] <- 1:nrow(ttops_buff) + max_id
+          ttops_buff[[tree_id]] <- 1:nrow(ttops_buff) + max_id
         }
 
         ttops <- rbind(ttops_tile, ttops_buff)
 
         # Apply 'marker-controlled watershed segmentation' algorithm
-        seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
+        seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon", IDfield = tree_id)
+
+        sf::st_geometry(seg_poly) <- "geom"
 
         # Subset only those segments that have treetops within non-buffered tile boundaries
-        seg_poly_tile <-  seg_poly[match(ttops_tile[["treeID"]], seg_poly[["treeID"]]),]
+        seg_poly_tile <-  seg_poly[match(ttops_tile[[tree_id]], seg_poly[[tree_id]]),]
 
         # Seg poly attributes
-        seg_poly_tile[["height"]] <- ttops_tile$height
-        seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
+        seg_poly_tile[["height"]]     <- ttops_tile$height
+        seg_poly_tile[["crown_area"]] <- as.numeric(sf::st_area(seg_poly_tile))
 
-        # Subset desired columns
-        seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
       }
     }
 
-    .vts_write(in_sf = seg_poly_tile, out_vts = out_vts, tile_name = tile_name, overwrite=overwrite)
+    out_vts$append_geom(seg_poly_tile, tile_name = tile_name)
 
     # Write file
     return("Success")
@@ -310,17 +319,13 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_vts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  out_vts %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .print_process_status()
 
   # Create index
-  .vts_create_index(out_vts, "tile_name")
-
-  # Report
-  .print_process_status(process_status)
+  out_vts$index()
 
   # Conclude
   .conclusion(process_timer)
@@ -332,7 +337,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
 #'
 #' @export
 
-poly_to_ras <- function(in_vts, out_rts, res, seg_id = "polyID", ...){
+poly_to_ras <- function(in_vts, out_rts, res, ...){
 
   .env_misterRS(list(...))
 
@@ -340,12 +345,13 @@ poly_to_ras <- function(in_vts, out_rts, res, seg_id = "polyID", ...){
 
   ### INPUT CHECKS ----
 
-  .complete_input(in_vts)
+  .complete_input(in_vts, attribute = "geom")
 
   ts <- .tilescheme()
 
-  # Get output file paths
   out_paths <- .rts_tile_paths(out_rts)
+
+  in_vts$connect()
 
   ### CREATE WORKER ----
 
@@ -357,14 +363,14 @@ poly_to_ras <- function(in_vts, out_rts, res, seg_id = "polyID", ...){
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
-      a = seg_id,
+      a = in_vts$id_field,
       a_nodata = 0,
       co = c("COMPRESS=LZW"),
       te = terra::ext(tile),
       tr = c(res,res),
       ot = "UInt32",
-      sql = sprintf("SELECT * FROM layer WHERE tile_name = '%s'", tile_name),
-      in_vts@gpkg,
+      sql = sprintf("SELECT * FROM %s WHERE tile_name = '%s'", in_vts$geom_layer, tile_name),
+      in_vts$gpkg,
       out_path
     )
 
@@ -373,14 +379,10 @@ poly_to_ras <- function(in_vts, out_rts, res, seg_id = "polyID", ...){
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_rts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  out_rts %>%
+    .tile_queue  %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
   # Conclude
   .conclusion(process_timer)

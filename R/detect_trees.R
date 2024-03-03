@@ -10,8 +10,8 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   process_timer <- .headline("DETECT TREES")
 
-  # Override parallel processing
-  withr::local_options("misterRS.clusters" = 1)
+  # Do not attempt to write to Geopackage using multiple clusters
+  withr::local_options("misterRS.cluster" = 1)
 
   ### INPUT CHECKS ----
 
@@ -29,8 +29,15 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   # Write function
   win_fun_text <- deparse(win_fun)[2]
-  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts@dir), "win_fun.txt")
+  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts$dir), "win_fun.txt")
   write(win_fun_text, win_fun_text_path)
+
+  ttops_vts$connect()
+
+  # Add height field
+  ttops_vts$add_field("height", "REAL")
+
+  ttops_vts$disconnect()
 
   ### CREATE WORKER ----
 
@@ -50,39 +57,41 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
       # Empty treetops with values
       det_ttops <- sf::st_sf(
-        geometry = sf::st_sfc(crs = sf::st_crs( proj)),
-        list(treeID = integer(), height = numeric(), winRadius = numeric())
+        geom = sf::st_sfc(crs = sf::st_crs( proj)),
+        list(tree_id = integer(), height = numeric())
       )
 
     }else{
 
       # Detect new treetops
-      det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
+      det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt, IDfield = "tree_id")
+
+      # Set geometry column name
+      sf::st_geometry(det_ttops) <- "geom"
+
+      # Drop 'winRadius' field
+      det_ttops <- det_ttops[,setdiff(names(det_ttops), "winRadius")]
 
       # Subset treetops
       det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
 
     }
 
-    .vts_write(in_sf = det_ttops, out_vts = ttops_vts, tile_name = tile_name, overwrite = overwrite)
+    ttops_vts$append_geom(det_ttops, tile_name)
 
     return("Success")
   }
 
-
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(ttops_vts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
+  ttops_vts %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "ttops_vts") %>%
+    .print_process_status()
 
   # Create index
-  .vts_create_index(ttops_vts, "tile_name")
-
-  # Report
-  .print_process_status(process_status)
+  ttops_vts$index()
 
   # Conclude
   .conclusion(process_timer)
