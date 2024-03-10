@@ -253,11 +253,7 @@ vts = R6::R6Class("vts",
 
       if(is.null(fields) || "geom" %in% fields){
 
-        # Note that reading from the Geopackage path instead of the connection means that
-        # the CRS will be applied. If only the connection is provided, you don't get the CRS
-
-        output <- sf::st_read(self$con, query = sql_query, quiet = TRUE)
-        sf::st_crs(output) <- sf::st_crs(self$crs)
+        output <- sf::st_read(self$gpkg, query = sql_query, quiet = TRUE)
 
       }else{
 
@@ -316,8 +312,8 @@ vts = R6::R6Class("vts",
     read_from_polys = function(polys, fields = NULL){
 
       # Select fields
-      sql_template <- "WITH in_poly(geom) AS (VALUES(ST_GeomFromText('%1$s'))) SELECT %2$s FROM %3$s, in_poly WHERE fid IN (SELECT id FROM rtree_%3$s_geom, in_poly WHERE minx <= MbrMaxX(in_poly.geom) AND maxx >= MbrMinX(in_poly.geom) AND miny <= MbrMaxY(in_poly.geom) AND maxy >= MbrMinY(in_poly.geom))"
-
+      #sql_template <- "WITH in_poly(geom) AS (VALUES(ST_GeomFromText('%1$s'))) SELECT %2$s FROM %3$s, in_poly WHERE fid IN (SELECT id FROM rtree_%3$s_geom, in_poly WHERE minx <= MbrMaxX(in_poly.geom) AND maxx >= MbrMinX(in_poly.geom) AND miny <= MbrMaxY(in_poly.geom) AND maxy >= MbrMinY(in_poly.geom))"
+      sql_template <- "SELECT %1$s FROM %2$s WHERE fid IN (SELECT id FROM rtree_%2$s_geom WHERE minx <= %3$s AND maxx >= %4$s AND miny <= %5$s AND maxy >= %6$s)"
 
       # Select fields
       if(is.null(fields)){
@@ -331,11 +327,12 @@ vts = R6::R6Class("vts",
       }
 
       # Get initial geometry (subset using r_tree)
-      initial_geom <- do.call(rbind, lapply(1:nrow(polys), function(i){
+      initial_geom <- dplyr::bind_rows(lapply(1:nrow(polys), function(i){
 
-        sql_poly <- sf::st_as_text(sf::st_geometry(polys[i,]))
+        #sql_poly <- sf::st_as_text(sf::st_geometry(polys[i,]))
+        bbox <- sf::st_bbox(polys[i,])
 
-        sql_query <- sprintf(sql_template, sql_poly, sql_fields, self$geom_layer)
+        sql_query <- sprintf(sql_template, sql_fields, self$geom_layer, bbox['xmax'], bbox['xmin'], bbox['ymax'], bbox['ymin'])
 
         sf::st_read(self$gpkg, query = sql_query, quiet = TRUE, fid_column_name = "fid")
       }))
@@ -350,14 +347,17 @@ vts = R6::R6Class("vts",
 
         out_data <- initial_geom[intrsc,]
 
-        # Drop geometry if requested
-        if(!is.null(fields) && (!"geom" %in% fields)){
-          out_data <- sf::st_drop_geometry(out_data)
-        }
-
         # Select only requested fields
-        out_data <- out_data[,fields]
+        if(!is.null(fields)){
 
+          # Drop geometry if requested
+          if(!"geom" %in% fields){
+            out_data <- sf::st_drop_geometry(out_data)
+          }
+
+          out_data <- out_data[,fields]
+        }
+        return(out_data)
       })
     },
 

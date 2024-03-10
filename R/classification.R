@@ -248,7 +248,6 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
 
   }else{
 
-
     # Select attributes
     attribute_names_all <- seg_vts$fields()
     attribute_fields <- unname(unlist(sapply(attribute_set, function(attribute_prefix)  attribute_names_all[startsWith(attribute_names_all, attribute_prefix)])))
@@ -529,6 +528,8 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
   # Check that inputs are complete
   .complete_input(seg_rts)
   .complete_input(seg_vts, attribute = class_label)
+
+  seg_vts$disconnect()
 
   seg_paths <- .rts_tile_paths(seg_rts)
   out_paths <- .rts_tile_paths(seg_class_rts)
