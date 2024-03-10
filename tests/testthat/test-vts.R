@@ -1,11 +1,10 @@
 
 if(basename(getwd()) != "testthat") setwd(file.path(getwd(), "tests", "testthat"))
 
-test_ts_path <- "data/test_rsds/tilescheme/tile_scheme.rds"
-test_ts <- readRDS(test_ts_path)
-
-
 test_that("Create VTS", {
+
+  # Test tileset
+  test_ts <- TileManager::tileScheme(terra::ext(0, 2, 0, 2), dim = c(1,1), crs = sp::CRS(paste0("epsg:", test_crs)))
 
   # Local environments
   withr::local_options(
@@ -41,7 +40,7 @@ test_that("Create VTS", {
   expect_in("layer",    DBI::dbListTables(my_vts$con))
 
   # Fields created
-  expect_equal(c("tile_name", "poly"), DBI::dbListFields(my_vts$con, "tile_reg"))
+  expect_equal(c("tile_name", "geom"), DBI::dbListFields(my_vts$con, "tile_reg"))
   expect_equal(c( "fid" , "geom", "tile_name", "poly_id"  ), DBI::dbListFields(my_vts$con, "layer"))
 
   # Geographic layers created
@@ -53,16 +52,16 @@ test_that("Create VTS", {
   expect_equal( c("R1C1", "R1C2", "R2C1", "R2C2"), DBI::dbReadTable(my_vts$con, "tile_reg")[,"tile_name"])
 
   # All new attributes are 0 by default
-  expect_true(all(DBI::dbReadTable(my_vts$con, "tile_reg")[,"poly"] == 0))
+  expect_true(all(DBI::dbReadTable(my_vts$con, "tile_reg")[,"geom"] == 0))
 
   # Has tiles
-  expect_true(all(my_vts$has_tiles(c("R1C1", "R1C2"), "poly") == FALSE))
+  expect_true(all(my_vts$has_tiles(c("R1C1", "R1C2"), "geom") == FALSE))
 
   # Error: Non-existent attribute
   expect_error(my_vts$has_tiles(c("R1C1"), "non-existent"),  "Attribute 'non-existent' not found in VTS 'my_vts'")
 
   # Error: Non-existent tile
-  expect_error(my_vts$has_tiles("R1C7", "poly"), "One or more 'tile_names' were missing from tile registry")
+  expect_error(my_vts$has_tiles("R1C7", "geom"), "One or more 'tile_names' were missing from tile registry")
 
   rm(my_vts)
 })

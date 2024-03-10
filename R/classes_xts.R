@@ -94,7 +94,7 @@ vts = R6::R6Class("vts",
 
         # Get tile names
         if(is.null(ts)) stop("No tilescheme set for 'misterRS.ts' option")
-        tile_names <- ts@data$tileName
+        tile_names <- ts[["tile_name"]]
         stopifnot(!is.null(tile_names), length(tile_names)>0)
 
         DBI::dbExecute(con_gpkg, "CREATE TABLE tile_reg (tile_name varchar(50) NOT NULL UNIQUE, geom boolean NOT NULL DEFAULT(0))")

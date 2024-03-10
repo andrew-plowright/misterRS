@@ -1,16 +1,19 @@
 
 if(basename(getwd()) != "testthat") setwd(file.path(getwd(), "tests", "testthat"))
 
+
+
+
 test_that("Run .exe_tile_worker in parallel and serial", {
 
   # Test CRS
   test_crs <- 2955
 
   # Test tileset
-  test_ts <- TileManager::tileScheme(raster::extent(0, 10, 0, 10), tiledim = c(1,1), crs = sp::CRS(paste0("epsg:", test_crs)))
+  test_ts <- TileManager::tileScheme(terra::ext(0, 3, 0, 3), dim = c(1,1), crs = sp::CRS(paste0("epsg:", test_crs)))
 
   # Tile names
-  tile_names <- test_ts@data$tileName
+  tile_names <- test_ts[["tile_name"]]
 
   # Local environments
   withr::local_options(
@@ -22,7 +25,7 @@ test_that("Run .exe_tile_worker in parallel and serial", {
   # Test function: append geometry
   test_append_geom <- function(in_vts, tile_names, clusters){
 
-    rows = 1000
+    rows = 100
 
     # Bounds in which to generate random points
     box = sf::st_sfc(sf::st_polygon(list(rbind(c(0,0),c(90,0),c(90,90),c(0,90),c(0,0)))), crs = sf::st_crs(test_crs))
@@ -91,6 +94,37 @@ test_that("Run .exe_tile_worker in parallel and serial", {
   # Temporary directory
   vts_dir <- withr::local_tempdir()
 
+  # SERIAL
+
+  # Create VTS
+  my_vts_ser <- vts$new(
+    id         = "my_vts_ser",
+    name       = "My Serial VTS",
+    dir        = vts_dir,
+    geom_type  = "POINT",
+    geom_layer = "layer"
+  )
+
+  # Execute in serial
+  results_ser <- test_append_geom(my_vts_ser, tile_names, clusters = 1)
+
+  # All nodes were successful
+  expect_true(all(results_ser == "Success"))
+
+  # VTS should NOT be connected
+  expect_error(my_vts_ser$con)
+
+  my_vts_ser$connect()
+
+  # All geometry was created
+  expect_equal(900, DBI::dbGetQuery(my_vts_ser$con, "SELECT COUNT(fid) FROM layer")[,1])
+
+  # All tiles were registered
+  expect_true(all(DBI::dbGetQuery(my_vts_ser$con, "SELECT geom FROM tile_reg")[,1] == 1))
+
+  # The output has a valid spatial extent
+  expect_false(any(is.na(DBI::dbReadTable(my_vts_ser$con, "gpkg_contents")[,c("min_x", "min_y", "max_x", "max_y")])))
+
 
   # 2024-03-02 - What's going on with parallel processing?
 
@@ -106,8 +140,6 @@ test_that("Run .exe_tile_worker in parallel and serial", {
   #           https://stackoverflow.com/questions/11563869/update-multiple-rows-with-different-values-in-a-single-sql-query
   #           https://stackoverflow.com/questions/224732/sql-update-from-one-table-to-another-based-on-a-id-match
   #   + Figure out if this is even possible in parallel?
-
-
 
   # PARALLEL
 
@@ -142,38 +174,6 @@ test_that("Run .exe_tile_worker in parallel and serial", {
   #
   # # All nodes were successful
   # expect_true(all(updates_par == "Success"))
-
-
-  # SERIAL
-
-  # Create VTS
-  my_vts_ser <- vts$new(
-    id         = "my_vts_ser",
-    name       = "My Serial VTS",
-    dir        = vts_dir,
-    geom_type  = "POINT",
-    geom_layer = "layer"
-  )
-
-  # Execute in serial
-  results_ser <- test_append_geom(my_vts_ser, tile_names, clusters = 1)
-
-  # All nodes were successful
-  expect_true(all(results_ser == "Success"))
-
-  # VTS should NOT be connected
-  expect_error(my_vts_ser$con)
-
-  my_vts_ser$connect()
-
-  # All geometry was created
-  expect_equal(100000, DBI::dbGetQuery(my_vts_ser$con, "SELECT COUNT(fid) FROM layer")[,1])
-
-  # All tiles were registered
-  expect_true(all(DBI::dbGetQuery(my_vts_ser$con, "SELECT geom FROM tile_reg")[,1] == 1))
-
-  # The output has a valid spatial extent
-  expect_false(any(is.na(DBI::dbReadTable(my_vts_ser$con, "gpkg_contents")[,c("min_x", "min_y", "max_x", "max_y")])))
 
 })
 

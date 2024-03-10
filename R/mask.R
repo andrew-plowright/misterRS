@@ -36,7 +36,7 @@ mask_rts <- function(in_rts, out_rts, mask_rts,
     # Read mask file(s)
     if(use_neibs){
 
-      buff <- sf::st_as_sf(ts[["buffs"]][ts[["buffs"]]$tileName == tile_name,])
+      buff <- sf::st_as_sf(ts[ts[["tile_name"]] == tile_name][["buffs"]])
 
       neib_names <- .tile_neibs(tile_name, ts)
       mask_neibs <- lapply(mask_paths[neib_names], terra::rast)

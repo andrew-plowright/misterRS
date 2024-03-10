@@ -151,16 +151,17 @@ pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), r
 
   # Get tiles
   ts <- .tilescheme()
-  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
+
 
   # Default number of samples if it's not specified
   if(is.null(nSamples)) nSamples <- length(ts) * 1100
 
   # Create sample points
-  samples <- sf::st_as_sf(sf::st_sample(tiles_sf, size = nSamples))
+  samples <- sf::st_as_sf(sf::st_sample(ts[["tiles"]], size = nSamples))
 
   # Assign each sample its tile
-  samples[["tile_name"]] <- ts[["tiles"]]$tileName[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
+  sample_intersec <- sapply(sf::st_intersects(samples, ts[["tiles"]]), "[[", 1)
+  samples[["tile_name"]] <- ts[sample_intersec][["tile_name"]]
 
   # Get unique tiles
   unique_tiles <- unique(samples[["tile_name"]])

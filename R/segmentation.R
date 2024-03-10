@@ -128,20 +128,13 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
 
   crs <- getOption("misterRS.crs")
 
-  # Get buffered areas as Simple Features
-  ts_buffs  <- sf::st_as_sf(ts[["buffs" ]])
-  ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
-  ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
-
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
   # Run process
   tile_worker <-function(tile_name){
 
-    tile  <- ts_tiles [ts_tiles [["tileName"]] == tile_name,]
-    buff  <- ts_buffs [ts_buffs [["tileName"]] == tile_name,]
-    nbuff <- ts_nbuffs[ts_nbuffs[["tileName"]] == tile_name,]
+    tile <- ts[ts[["tile_name"]] == tile_name]
 
     # Get bounding box
     bbox <- sf::st_bbox(tile)
@@ -167,12 +160,12 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
       if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
 
       # Get vector of polygons that straddle tile borders
-      crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
+      crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts[["buffs"]], polys))
 
       if(any(crossborder)){
 
         # Break up polygons that straddle tile borders
-        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
+        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], tile[["nbuff"]]))
 
         # Get rid of slivers
         brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
@@ -193,7 +186,7 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
       cent <- suppressWarnings(sf::st_centroid(polys))
 
       # Subset segments with centroid within tile
-      intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
+      intrs <- sapply(sf::st_intersects(cent, tile[["nbuff"]]), "[", 1)
       polys <- polys[!is.na(intrs),]
 
       # Assign numbers

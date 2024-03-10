@@ -8,12 +8,12 @@
   if(is.null(selected_tiles)){
 
     # If set to NULL, process all tiles
-    selected_tiles <- ts$tileName
+    selected_tiles <- ts[["tile_name"]]
 
   }else{
 
     # If specific tiles have been selected, verify that they exist in the tile scheme
-    tiles_dont_exist <- !selected_tiles %in% ts$tileName
+    tiles_dont_exist <- !selected_tiles %in% ts[["tile_name"]]
     if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
 
     if(buffered) selected_tiles <- .tile_neibs(selected_tiles, ts)
@@ -245,24 +245,26 @@
     list(
       c(-1,0),
       c( 0,-1), c( 0,0), c( 0,1),
-      c( 1,0),
+      c( 1,0)
     )
   }
 
-  tiles <- ts@data[ts@data$tileName %in% tile_names, ]
+  existing_tiles <- ts[["tile_name"]]
 
-  potential_tiles <- lapply(1:nrow(tiles), function(i){lapply(mats, function(mat) tiles[i,c("row", "col")] + mat)}) %>%
+  selected_tiles_rc <- sf::st_drop_geometry(ts@sf)[existing_tiles %in% tile_names, c("row", "col")]
+
+  potential_tiles <- lapply(1:nrow(selected_tiles_rc), function(i){
+    lapply(mats, function(mat) selected_tiles_rc[i,] + mat)
+  }) %>%
     unlist(recursive=FALSE) %>%
     do.call(rbind, .) %>%
     dplyr::distinct() %>%
-    dplyr::mutate(tileName = paste0("R", row, "C", col)) %>%
-    `[[`("tileName")
-
-  existing_tiles <- ts@data[["tileName"]]
+    dplyr::mutate(tile_name = paste0("R", row, "C", col)) %>%
+    `[[`("tile_name")
 
   neib_tiles <- potential_tiles[potential_tiles %in% existing_tiles]
 
-  return(neib_tiles)
+  return(sort(neib_tiles))
 
 }
 
@@ -280,12 +282,12 @@
   if(is.null(selected_tiles)){
 
     # If set to NULL, process all tiles
-    selected_tiles <- ts$tileName
+    selected_tiles <- ts[["tile_name"]]
 
   }else{
 
     # If specific tiles have been selected, verify that they exist in the tile scheme
-    tiles_dont_exist <- !selected_tiles %in% ts$tileName
+    tiles_dont_exist <- !selected_tiles %in% ts[["tile_name"]]
     if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
 
   }
@@ -443,13 +445,13 @@
   ts <- .tilescheme()
 
   # Get file paths
-  tilePaths <- file.path(rts@dir, "tiles", paste0(ts$tileName, ".", rts@ext))
+  tilePaths <- file.path(rts@dir, "tiles", paste0(ts[["tile_name"]], ".", rts@ext))
 
   # Get absolute path
   tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
 
   # Set names
-  tilePaths <- setNames(tilePaths, ts$tileName)
+  tilePaths <- setNames(tilePaths, ts[["tile_name"]])
 
   return(tilePaths)
 

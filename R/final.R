@@ -289,7 +289,7 @@ final_trees <- function(seg_vts,iteration,class_table, boundary, out_file,
 
   ### CREATE WORKER ----
 
-  for(tile_name in ts@data$tileName){
+  for(tile_name in ts[["tile_name"]]){
 
     # File paths
     polys <- .vts_read(seg_vts, tile_name = tile_name, field = c("geom", "height", "crownArea", class_label))

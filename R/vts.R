@@ -53,18 +53,18 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
     return(cat(crayon::yellow("File already exists. Set 'overwrite' to TRUE\n")))
   }
 
-  ts <- sf::st_as_sf( misterRS:::.tilescheme()[["tiles"]])
+  tiles <- .tilescheme()[["tiles"]]
 
   con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
 
   withr::defer(  DBI::dbDisconnect(con))
 
-  ts[["seg_count"]] <- sapply(ts$tileName, function(tile_name){
+  tiles[["seg_count"]] <- sapply(tiles[["tile_name"]], function(tile_name){
 
     DBI::dbGetQuery(con, sprintf("SELECT COUNT(fid) FROM layer layer WHERE tile_name = '%s'", tile_name))[,1]
   })
 
-  sf::st_write(ts, out_file, quiet = TRUE, delete_dsn = TRUE )
+  sf::st_write(tiles, out_file, quiet = TRUE, delete_dsn = TRUE )
 
   # Conclude rpocess
   .conclusion(process_timer)

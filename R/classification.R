@@ -390,14 +390,14 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Get attributes
   attributes <- unique(sapply(strsplit(class_features, "_"),"[", 1))
 
+  seg_vts$connect()
+
   # Check that inputs are complete
   for(attribute in attributes) .complete_input(seg_vts, attribute= attribute)
 
   # Get tile scheme
   ts <- .tilescheme()
   tiles_sf <- sf::st_as_sf(ts[["tiles"]])
-
-  seg_vts$connect()
 
   # Add column
   class_label <- paste0("class_", iteration)
@@ -409,7 +409,7 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Read in class edits
   class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
   if(nrow(class_edits) > 0){
-    class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
+    class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tile_name"]])
   }
 
   # Unique id field
