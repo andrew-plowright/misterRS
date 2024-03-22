@@ -4,81 +4,94 @@
 #'
 #' @export
 
-detect_trees <- function(chm_rsds, ttops_rsds, win_fun, min_hgt, ...){
+detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
   .env_misterRS(list(...))
 
   process_timer <- .headline("DETECT TREES")
 
+  # Do not attempt to write to Geopackage using multiple clusters
+  withr::local_options("misterRS.cluster" = 1)
+
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(chm_rsds,   "tif")
-  .check_extension(ttops_rsds, "shp")
-
   # Check that inputs are complete
-  .check_complete_input(chm_rsds)
+  .complete_input(chm_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get projection
   proj <- getOption("misterRS.crs")
 
   # Get file paths
-  CHM_paths <- .rsds_tile_paths(chm_rsds)
-  out_paths <- .rsds_tile_paths(ttops_rsds)
+  CHM_paths <- .rts_tile_paths(chm_rts)
 
   # Write function
   win_fun_text <- deparse(win_fun)[2]
-  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_rsds@dir), "win_fun.txt")
+  win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts$dir), "win_fun.txt")
   write(win_fun_text, win_fun_text_path)
+
+  ttops_vts$connect()
+
+  # Add height field
+  ttops_vts$add_field("height", "REAL")
+
+  ttops_vts$disconnect()
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
-    # Paths
-    CHM_path  <- CHM_paths[tile_name]
-    out_path  <- out_paths[tile_name]
-
     # Get tile and buff
-    tile <- ts[tile_name][["tiles"]]
-    buff <- ts[tile_name][["buffs"]]
+    tile <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
-    # Read raster
-    CHM  <- terra::rast(CHM_path)
+    # Read CHM
+    CHM  <- terra::rast(CHM_paths[tile_name])
 
-    # Function for creating blank treetop SHP file
-    no_ttops <- sf::st_sf(
-      geometry = sf::st_sfc(crs = sf::st_crs( proj)),
-      list(treeID = integer(), height = numeric(), winRadius = numeric())
-    )
+    # Get CHM range
+    CHM_rng <- terra::minmax(CHM, compute = TRUE)[,1, drop = TRUE]
 
-    # Detect new treetops
-    det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt)
+    # Check if CHM has usable values
+    if(any(!is.finite(CHM_rng))){
 
-    # Save output
-    sf::st_write(det_ttops, out_path, delete_dsn = overwrite, quiet = TRUE)
+      # Empty treetops with values
+      det_ttops <- sf::st_sf(
+        geom = sf::st_sfc(crs = sf::st_crs( proj)),
+        list(tree_id = integer(), height = numeric())
+      )
 
-    if(file.exists(out_path)){
-      return("Success")
     }else{
-      stop("Failed to create tile")
-    }
-  }
 
+      # Detect new treetops
+      det_ttops <- ForestTools::vwf(CHM, win_fun, min_hgt, IDfield = "tree_id")
+
+      # Set geometry column name
+      sf::st_geometry(det_ttops) <- "geom"
+
+      # Drop 'winRadius' field
+      det_ttops <- det_ttops[,setdiff(names(det_ttops), "winRadius")]
+
+      # Subset treetops
+      det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
+
+    }
+
+    ttops_vts$append_geom(det_ttops, tile_name)
+
+    return("Success")
+  }
 
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  ttops_vts %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "ttops_vts") %>%
+    .print_process_status()
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  # Create index
+  ttops_vts$index()
 
   # Conclude
   .conclusion(process_timer)

@@ -5,14 +5,12 @@
 \title{Segment Metrics - Textural}
 \usage{
 seg_metrics_tex(
-  seg_ras_rsds,
-  seg_poly_rsds,
-  img_rsds,
-  out_rsds,
-  seg_id,
+  seg_rts,
+  seg_vts,
+  img_rts,
+  attribute_set,
   band = 1,
   discretize_range = NULL,
-  prefix = "",
   n_grey = 16,
   ...
 )

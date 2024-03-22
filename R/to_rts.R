@@ -2,7 +2,7 @@
 #'
 #' @export
 
-to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
+to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
 
   .env_misterRS(list(...))
 
@@ -10,19 +10,58 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
 
   ### CHECK INPUTS ----
 
-  # Check input file existence
-  if(!all(file.exists(in_files))) stop("Some input files were missing")
+  # Single file/directory
+  if(length(in_files) == 1){
 
-  # Get file extension
-  in_ext <- tolower(unique(tools::file_ext(unique(in_files))))
-  if(length(in_ext) > 1) stop("Cannot use multiple file extensions")
+    if(!file.exists(in_files)) stop("Could not find input: '", in_files,"'")
+
+    if(file_test("-f", in_files)){
+
+      input_type <- "Single file"
+
+      in_ext <- tolower(unique(tools::file_ext(in_files)))
+
+    }else{
+
+      input_type <- "Directory"
+
+      in_ext <- "tif"
+      in_files <- list.files(in_files, full.names = TRUE, pattern = "\\.tif$")
+
+      if(length(in_files) == 0) stop("Could not find any TIF files in input directory")
+    }
+
+  # Multiple files
+  }else{
+
+    input_type <- "Multiple files"
+
+    # Check input file existence
+    if(!all(file.exists(in_files))) stop("Some input files were missing")
+
+    # Get file extension
+    in_ext <- tolower(unique(tools::file_ext(unique(in_files))))
+    if(length(in_ext) > 1) stop("Cannot use multiple file extensions")
+  }
+
+  cat(
+    "  Input type       : ", input_type, "\n",
+    "  Source files     : ", length(in_files), "\n",
+    "  Input extension  : ", in_ext, "\n",
+    "  Bands            : ", paste(bands, collapse=", "), "\n",
+    "  Resolution       : ", res, "\n",
+    "  Destination RTS  : ", out_rts@name, "\n",
+    sep = ""
+  )
+
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
   crs <- getOption('misterRS.crs')
 
   # Get tile names
-  out_files <- .rsds_tile_paths(out_rsds)
+  out_files <- .rts_tile_paths(out_rts)
+
 
   if(in_ext == "tif"){
 
@@ -80,7 +119,7 @@ to_rsds <- function(in_files, out_rsds, res, bands = NULL, ...){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

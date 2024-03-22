@@ -5,7 +5,7 @@
 \title{Principal Component Analysis model}
 \usage{
 pca_model(
-  img_rsds,
+  img_rts,
   out_file,
   nSamples = NULL,
   in_bands = c(1, 2, 3),

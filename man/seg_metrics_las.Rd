@@ -5,19 +5,16 @@
 \title{Segment Metrics - LAS}
 \usage{
 seg_metrics_las(
-  seg_ras_rsds,
-  seg_poly_rsds,
+  seg_rts,
+  seg_vts,
   in_cat,
-  dem_rsds,
-  out_rsds,
-  z_min,
-  z_max,
-  seg_id,
-  prefix = NULL,
-  is_ground_classified = NULL,
-  is_full_classified = NULL,
-  is_rgb = NULL,
-  is_intensity = NULL,
+  dem_rts,
+  attribute_set,
+  z_min = 0,
+  z_max = 100,
+  ground_class = NULL,
+  full_class = NULL,
+  rgb = NULL,
   ...
 )
 }

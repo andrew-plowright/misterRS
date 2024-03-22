@@ -1,94 +1,43 @@
-.check_complete_input <- function(RSDS){
+.complete_input <- function(xts, buffered = FALSE, attribute = NULL, selected_tiles = getOption("misterRS.tile_names")){
 
-  filePaths <- .rsds_tile_paths(RSDS)
+  xts_class <- class(xts)
 
-  tile_names <- getOption("misterRS.tile_names")
+  ts <- .tilescheme()
 
-  if(!is.null(tile_names)){
+  # Get selected tiles
+  if(is.null(selected_tiles)){
 
-    notExist <- !tile_names %in% names(filePaths)
-    if(any(notExist)) stop("Following tile names do not exist for input '", RSDS@name ,"':\n  ", paste(tile_names[notExist], collapse = "\n  "))
+    # If set to NULL, process all tiles
+    selected_tiles <- ts[["tile_name"]]
 
-    filePaths <- filePaths[tile_names]
+  }else{
+
+    # If specific tiles have been selected, verify that they exist in the tile scheme
+    tiles_dont_exist <- !selected_tiles %in% ts[["tile_name"]]
+    if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
+
+    if(buffered) selected_tiles <- .tile_neibs(selected_tiles, ts)
   }
 
+  if("vts" %in% xts_class){
 
-  if(!all(file.exists(filePaths))) stop("Input RSDS '", RSDS@name, "' is in complete", call. = FALSE)
-}
+    if(is.null(attribute)) stop("Define an attribute for VTS")
 
+    if(!xts$complete(attribute, selected_tiles)) stop("Input VTS '", xts$name, "' is incomplete", call. = FALSE)
 
-.check_extension <- function(RSDS, extension){
+  }else if("rts" %in% xts_class){
 
-    if(!any(RSDS@ext %in% extension)){
+    tile_paths <- .rts_tile_paths(xts)[selected_tiles]
 
-    stop("Input RSDS '", RSDS@name, "' should have a '", paste(extension, collapse = "', '"), "' extension", call. = FALSE)
+    incomplete <- !all(file.exists(tile_paths))
 
-    }
-}
+    if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
 
-.get_tilescheme <- function(ts = getOption("misterRS.ts")){
-
-  if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
-
-  return(ts)
-}
-
-
-.rsds_tile_paths <- function(rsds){
-
-  # Get tile scheme
-  ts <- .get_tilescheme()
-
-  # Get file paths
-  tilePaths <- file.path(rsds@dir, "tiles", paste0(ts$tileName, ".", rsds@ext))
-
-  # Get absolute path
-  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
-
-  # Set names
-  tilePaths <- setNames(tilePaths, ts$tileName)
-
-  return(tilePaths)
+  }else stop("Invalid input")
 
 }
 
-.rsds_mosaic_path <- function(rsds){
-
-  ext <- if( rsds@ext == 'shp') 'gpkg' else rsds@ext
-
-  # Get file path
-  mosaic_path <- file.path(rsds@dir, paste0(rsds@id, ".", ext))
-
-  # Get absolute path
-  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
-
-  return(mosaic_path)
-}
-
-
-
-.rsds_metadata_path <- function(rsds){
-
-  # Get file path
-  metadata_path <- file.path(rsds@dir, paste0(rsds@id, "_metadata.json"))
-
-  # Get absolute path
-  metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
-
-  return(metadata_path)
-}
-
-
-.headline <- function(headline){
-
-  cat(
-    headline, "\n",
-    "Started at : ", format(Sys.time(), "%Y-%m-%d %X"), "\n",
-    "\n",sep = "")
-
-  Sys.time()
-}
-
+# Text to print at the end of a process (i.e.: how long the process took)
 
 .conclusion <- function(time){
 
@@ -126,13 +75,13 @@
 
 #' Run a worker in parallel or serial
 #'
+#'
 #' @importFrom foreach %do%
 #' @importFrom foreach %dopar%
 
-.exe_tile_worker <-function(tile_names, worker){
+.exe_tile_worker <-function(tile_names, worker, cluster_vts = NULL, clusters = getOption("misterRS.clusters")){
 
-  clusters = getOption("misterRS.clusters")
-
+  # ASsign the "overwite" value to the parent frame, which in turn gets passed to the worker functions
   assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
 
   if(length(tile_names) == 0){
@@ -141,52 +90,117 @@
 
   }else{
 
-    # Wrap worker function in 'tryCatch'
-    workerE <- function(tile_name){ rr <- tryCatch({ worker(tile_name) }, error = function(e){e})}
-
     # Make progress bar
     pb <- .progbar(length(tile_names))
 
-    # Generate 'foreach' statement
-    fe <- foreach::foreach(
-      tile_name = tile_names,
-      #.packages = c("raster"),
-      .errorhandling = 'pass',
-      .options.snow = list(
-        progress = function(n) pb$tick()
-      )
-    )
+    # If only running one cluster or if only one tile needs processing, all tiles are executed in serial
+    if(clusters == 1 | length(tile_names) == 1){
 
-    # Execute in parallel
-    if(clusters > 1){
+      # Wrap worker in tryCatch
+      worker_ser <- function(tile_name){
+        r <- tryCatch({ worker(tile_name) }, error = function(e){e})
+        pb$tick()
+        return(r)
+      }
 
+      # Execute function at the start of the process
+      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$connect()
+
+      # Generate 'foreach' statement
+      fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
+
+      # Execute in serial
+      results <- fe_ser %do% worker_ser(tile_name)
+
+      # Execute functionsat the end of the process
+      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$disconnect()
+
+    # Otherwise, execute in parallel
+    }else{
+
+      # Wrap worker in tryCatch
+      worker_par <- function(tile_name){
+        r <- tryCatch({ worker(tile_name) }, error = function(e){e})
+        return(r)
+      }
+
+      # Register clusters
       cl <- parallel::makeCluster(clusters)
       doSNOW::registerDoSNOW(cl)
-      on.exit(parallel::stopCluster(cl))
 
       # Force the evaluation of all arguments given in the parent frame
       # NOTE: Because R uses 'lazyload', some arguments (or "promises") given in the original function
       # are not evaluated immediately. For whatever reason, %dopar% doesn't like this, and is unable
       # to evaluate these promises. The two lines below "forces" their evaluation.
+
+      # Also note that the worker function, whose environment is sys.frame(-1), has access to these
+      # variables
+
       func_args <- setdiff(names(formals(sys.function(-1))), "...")
       for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
 
-      rr <- fe %dopar% workerE(tile_name)
+      #func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
+      #parallel::clusterExport(cl, ls(envir = sys.frame(-1)), envir = sys.frame(-1))
 
-      # Execute in serial
-    }else{
+      if(!is.null(cluster_vts)){
 
-      rr <- fe %do% {
+        # Export cluster VTS
+        parallel::clusterExport(cl, cluster_vts, envir= parent.frame())
 
-        result <- workerE(tile_name)
-        pb$tick()
-        return(result)
+        # Connect VTS
+        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$connect(); return(NULL)})
+
+        # parallel::clusterEvalQ(cl, {DBI::dbIsValid(in_vts$con)})
+
+        # Avoid namespace collisions by removing the 'cluster_vts' parent enfironment, which is where it would normally be retrieved
+        # from. Instead, the worker function will then "look" into the cluster environment.
+        # This is probably not a best practice
+        rm(list=cluster_vts, envir= parent.frame())
       }
 
+      # Generate 'foreach' statement
+      fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
+
+      # Execute in parallel
+      results <- fe_par %dopar% worker_par(tile_name)
+
+      if(!is.null(cluster_vts)){
+
+        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$disconnect(); return(NULL)})
+      }
+
+      parallel::stopCluster(cl)
     }
 
-    return(setNames(rr, tile_names))
+    results <- setNames(results, tile_names)
 
+    return(results)
+  }
+}
+
+
+.headline <- function(headline){
+
+  cat(
+    headline, "\n",
+    "Started at : ", format(Sys.time(), "%Y-%m-%d %X"), "\n",
+    "\n",sep = "")
+
+  Sys.time()
+}
+
+.is_las_rgb <- function(inLAS){
+
+  # Are there R, G, B fields?
+  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
+
+  if(has_rgb){
+
+    # Do they contain only 0s? (Only check R to save time)
+    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
+
+  }else{
+    return(FALSE)
   }
 }
 
@@ -212,44 +226,110 @@
 }
 
 
-.tile_queue <- function(tile_paths,
+.tilescheme <- function(ts = getOption("misterRS.ts")){
+
+  if(is.null(ts)) stop("No tile scheme has been set. Use 'options('misterRS.ts')' to set one")
+
+  return(ts)
+}
+
+.tile_neibs <- function(tile_names, ts, case = "queen"){
+
+  mats <- if(case=="queen"){
+    list(
+      c(-1,-1), c(-1,0), c(-1,1),
+      c( 0,-1), c( 0,0), c( 0,1),
+      c( 1,-1), c( 1,0), c( 1,1)
+    )
+  }else{
+    list(
+      c(-1,0),
+      c( 0,-1), c( 0,0), c( 0,1),
+      c( 1,0)
+    )
+  }
+
+  existing_tiles <- ts[["tile_name"]]
+
+  selected_tiles_rc <- sf::st_drop_geometry(ts@sf)[existing_tiles %in% tile_names, c("row", "col")]
+
+  potential_tiles <- lapply(1:nrow(selected_tiles_rc), function(i){
+    lapply(mats, function(mat) selected_tiles_rc[i,] + mat)
+  }) %>%
+    unlist(recursive=FALSE) %>%
+    do.call(rbind, .) %>%
+    dplyr::distinct() %>%
+    dplyr::mutate(tile_name = paste0("R", row, "C", col)) %>%
+    `[[`("tile_name")
+
+  neib_tiles <- potential_tiles[potential_tiles %in% existing_tiles]
+
+  return(sort(neib_tiles))
+
+}
+
+.tile_queue <- function(xts, attribute_set_name = NULL,
                         overwrite = getOption("misterRS.overwrite"),
-                        tile_names = getOption("misterRS.tile_names"),
+                        selected_tiles = getOption("misterRS.tile_names"),
                         clusters = getOption("misterRS.clusters"),
                         verbose = getOption("misterRS.verbose")){
 
-  selected_tiles <- if(is.null(tile_names)){
+  in_class <- class(xts)
 
-    names(tile_paths)
+  ts <- .tilescheme()
+
+  # Get selected tiles
+  if(is.null(selected_tiles)){
+
+    # If set to NULL, process all tiles
+    selected_tiles <- ts[["tile_name"]]
 
   }else{
 
-    notExist <- !tile_names %in% names(tile_paths)
-    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(tile_names[notExist], collapse = "\n  "))
+    # If specific tiles have been selected, verify that they exist in the tile scheme
+    tiles_dont_exist <- !selected_tiles %in% ts[["tile_name"]]
+    if(any(tiles_dont_exist)) stop("Following tile names do not exist:\n  ", paste(selected_tiles[tiles_dont_exist], collapse = "\n  "))
 
-    tile_names
   }
 
-  proc_tiles <- if(overwrite){
+  # Choose which tiles to process
+  proc_tiles <- selected_tiles
 
-    selected_tiles
+  # If not overwriting, subset only non-existent tiles
+  if(length(proc_tiles) > 0){
 
-  }else{
+    if("vts" %in% in_class){
 
-    selected_tiles[!file.exists(tile_paths[selected_tiles])]
+      if(!overwrite){
+
+        has_tiles <- xts$has_tiles(selected_tiles, attribute_set_name)
+
+        proc_tiles <- names(has_tiles)[!has_tiles]
+      }
+
+
+    }else if("rts" %in% in_class){
+
+      if(!overwrite){
+
+        tile_paths   <- .rts_tile_paths(xts)
+
+        proc_tiles <- proc_tiles[!file.exists(tile_paths[proc_tiles])]
+      }
+
+    }else stop("Invalid input")
   }
 
   if(verbose){
     cat(
       "  Overwrite        : ", overwrite, "\n",
       "  Clusters         : ", clusters, "\n",
-      "  Total tiles      : ", length(tile_paths), "\n",
+      "  Total tiles      : ", length(ts), "\n",
       "  Selected tiles   : ", length(selected_tiles),  "\n",
       "  Queued tiles     : ", length(proc_tiles),      "\n",
       sep = ""
     )
   }
-
 
   return(proc_tiles)
 }
@@ -350,58 +430,45 @@
   }
 }
 
-.tile_neibs <- function(ts, tile_name, case = "queen"){
 
-  tile <- ts@data[ts@data$tileName == tile_name,]
+.rar <- function(src_files, dest_file, winrar_exe = getOption("misterRS.winrar")){
 
-  tile_names <- apply(
-    expand.grid(
-    R = tile$row + c(-1,0,1),
-    C = tile$col + c(-1,0,1)
-  ), 1, function(x) paste0("R", x[1], "C", x[2]))
+  command <- sprintf('"%s" a -ep1 -r "%s" "%s"', winrar_exe, dest_file, paste(src_files, collapse='"  "'))
+  system(command)
+}
 
-  if(case == "rook") tile_names <- tile_names[c(2, 4,5,6, 8)]
 
-  return(ts[ts@data$tileName[ts@data$tileName %in% tile_names]])
+
+.rts_tile_paths <- function(rts){
+
+  # Get tile scheme
+  ts <- .tilescheme()
+
+  # Get file paths
+  tilePaths <- file.path(rts@dir, "tiles", paste0(ts[["tile_name"]], ".", rts@ext))
+
+  # Get absolute path
+  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
+
+  # Set names
+  tilePaths <- setNames(tilePaths, ts[["tile_name"]])
+
+  return(tilePaths)
 
 }
 
 
-.read_las_tile <- function(in_cat, tile, select, classes = NULL){
+.rts_mosaic_path <- function(rts){
 
-  # Tile buffer
-  buff_sf <- sf::st_as_sf(tile[["buffs"]])
+  ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
 
-  # LAS catalog geometry
-  las_grid <- in_cat$geometry
+  # Get file path
+  mosaic_path <- file.path(rts@dir, paste0(rts@id, ".", ext))
 
-  if(is.na(sf::st_crs(in_cat))) stop("Can't select LAS tiles since this LAS Catalog has no projection info")
+  # Get absolute path
+  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
 
-  # Reproject grid to tile
-  las_grid <- sf::st_transform(las_grid, sf::st_crs(buff_sf))
-
-  # Get intersection between RSDS tile and LAS catalog
-  las_intrsc <- lengths(sf::st_intersects(las_grid, buff_sf)) > 0
-
-  if(all(!las_intrsc)) return(NULL)
-
-  # Get LAS files
-  las_files <- in_cat@data$filename[las_intrsc]
-
-  if(any(!file.exists(las_files))) stop("Missing LAS files")
-
-  # Create extent filter from buffer extent
-  buff_xt   <- terra::ext(buff_sf)
-  buff_filt <- paste("-keep_xy", buff_xt[1], buff_xt[3], buff_xt[2], buff_xt[4])
-
-  # Create class filter
-  class_filt <- if(!is.null(classes)) paste(c("-keep_class", classes), collapse = " ")
-
-  # Read LAS files
-  inLAS <- lidR::readLAS(las_files, select = select, filter = paste(buff_filt, class_filt))
-
-  if(lidR::is.empty(inLAS)) return(NULL) else return(inLAS)
-
+  return(mosaic_path)
 }
 
 .normalize_las <- function(inLAS, DEM_path, z_min, z_max){
@@ -435,33 +502,4 @@
 }
 
 
-.is_las_rgb <- function(inLAS){
-
-  # Are there R, G, B fields?
-  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
-
-  if(has_rgb){
-
-    # Do they contain only 0s? (Only check R to save time)
-    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
-
-  }else{
-    return(FALSE)
-  }
-}
-
-.is_las_ground_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASGROUND))
-}
-
-.is_las_full_classified <- function(inLAS){
-
-  return(!is.null(inLAS$Classification) && lidR:::fast_count_equal(inLAS$Classification, lidR::LASBUILDING))
-}
-
-.is_las_intensity <- function(inLAS){
-
-  return(!is.null(inLAS$Intensity) && lidR:::fast_countover(inLAS$Intensity, 0))
-}
 

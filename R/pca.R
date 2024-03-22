@@ -6,7 +6,7 @@
 #'
 #' @export
 
-pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...){
+pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
 
   .env_misterRS(list(...))
 
@@ -14,14 +14,14 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
-  out_files   <- .rsds_tile_paths(out_rsds)
-  ortho_files <- .rsds_tile_paths(img_rsds)
+  out_files   <- .rts_tile_paths(out_rts)
+  ortho_files <- .rts_tile_paths(img_rts)
 
   ### PROCESS ----
 
@@ -52,7 +52,7 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -75,7 +75,7 @@ pca_local <- function(img_rsds, out_rsds, n_comp = 2, in_bands = c(1,2,3),  ...)
 #'
 #' @export
 
-pca_global <- function(img_rsds, out_rsds, PCA_model,
+pca_global <- function(img_rts, out_rts, PCA_model,
                        n_comp = 2, in_bands = c(1,2,3), ...){
 
   .env_misterRS(list(...))
@@ -84,14 +84,14 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(img_rsds)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
-  out_files   <- .rsds_tile_paths(out_rsds)
-  ortho_files <- .rsds_tile_paths(img_rsds)
+  out_files   <- .rts_tile_paths(out_rts)
+  ortho_files <- .rts_tile_paths(img_rts)
 
   # Read model
   model <- readRDS(PCA_model)
@@ -123,7 +123,7 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -142,25 +142,26 @@ pca_global <- function(img_rsds, out_rsds, PCA_model,
 #'
 #' @export
 
-pca_model <- function(img_rsds, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
+pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
 
   process_timer <- .headline("PCA MODEL")
 
   # Get paths
-  in_paths <- .rsds_tile_paths(img_rsds)
+  in_paths <- .rts_tile_paths(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
-  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
+  ts <- .tilescheme()
+
 
   # Default number of samples if it's not specified
   if(is.null(nSamples)) nSamples <- length(ts) * 1100
 
   # Create sample points
-  samples <- sf::st_as_sf(sf::st_sample(tiles_sf, size = nSamples))
+  samples <- sf::st_as_sf(sf::st_sample(ts[["tiles"]], size = nSamples))
 
   # Assign each sample its tile
-  samples[["tile_name"]] <- ts[["tiles"]]$tileName[ sapply(sf::st_intersects(samples, tiles_sf), "[[", 1) ]
+  sample_intersec <- sapply(sf::st_intersects(samples, ts[["tiles"]]), "[[", 1)
+  samples[["tile_name"]] <- ts[sample_intersec][["tile_name"]]
 
   # Get unique tiles
   unique_tiles <- unique(samples[["tile_name"]])

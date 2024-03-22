@@ -1,7 +1,7 @@
 #' Difference between two raster
 #' @export
 
-ras_diff <- function(A_rsds, B_rsds, out_rsds, ...){
+ras_diff <- function(A_rts, B_rts, out_rts, ...){
 
   .env_misterRS(list(...))
 
@@ -9,14 +9,14 @@ ras_diff <- function(A_rsds, B_rsds, out_rsds, ...){
 
   ### INPUT CHECKS ----
 
-  .check_same_ts(A_rsds, B_rsds, out_rsds)
+  .check_same_ts(A_rts, B_rts, out_rts)
 
-  .check_complete_input(A_rsds)
-  .check_complete_input(B_rsds)
+  .complete_input(A_rts)
+  .complete_input(B_rts)
 
-  out_files <- .rsds_tile_paths(out_rsds)
-  A_files   <- .rsds_tile_paths(A_rsds)
-  B_files   <- .rsds_tile_paths(B_rsds)
+  out_files <- .rts_tile_paths(out_rts)
+  A_files   <- .rts_tile_paths(A_rts)
+  B_files   <- .rts_tile_paths(B_rts)
 
   ### CREATE WORKER ----
 

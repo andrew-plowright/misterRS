@@ -4,13 +4,7 @@
 \alias{training_data_extract}
 \title{Extract Training data}
 \usage{
-training_data_extract(
-  training_data,
-  seg_poly_rsds,
-  metrics,
-  seg_id,
-  overwrite = FALSE
-)
+training_data_extract(training_data, attribute_set, seg_vts, overwrite = FALSE)
 }
 \description{
 Extract Training data

@@ -2,10 +2,10 @@
 % Please edit documentation in R/zip_chunks.R
 \name{zip_chunks}
 \alias{zip_chunks}
-\title{Zip a RSDS by chunks}
+\title{Zip a RTS by chunks}
 \usage{
-zip_chunks(in_rsds, out_dir, prefix, overlap = "buffs", chunk_size = 25)
+zip_chunks(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 25)
 }
 \description{
-Zip a RSDS by chunks
+Zip a RTS by chunks
 }

@@ -4,31 +4,26 @@
 #'
 #' @export
 
-mask_rs <- function(in_rsds, out_rsds, mask_rsds,
+mask_rts <- function(in_rts, out_rts, mask_rts,
                  mask_na = FALSE, use_neibs = FALSE, ...){
 
   .env_misterRS(list(...))
 
-  process_timer <- .headline("MASK RSDS")
+  process_timer <- .headline("MASK")
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(in_rsds,   "tif")
-  .check_extension(out_rsds,  "tif")
-  .check_extension(mask_rsds, "tif")
-
   # Check that inputs are complete
-  .check_complete_input(in_rsds)
-  .check_complete_input(mask_rsds)
+  .complete_input(in_rts)
+  .complete_input(mask_rts)
 
   # Get paths
-  in_paths   <- .rsds_tile_paths(in_rsds)
-  out_paths  <- .rsds_tile_paths(out_rsds)
-  mask_paths <- .rsds_tile_paths(mask_rsds)
+  in_paths   <- .rts_tile_paths(in_rts)
+  out_paths  <- .rts_tile_paths(out_rts)
+  mask_paths <- .rts_tile_paths(mask_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   ### CREATE WORKER ----
 
@@ -41,9 +36,9 @@ mask_rs <- function(in_rsds, out_rsds, mask_rsds,
     # Read mask file(s)
     if(use_neibs){
 
-      buff <- sf::st_as_sf(ts[["buffs"]][ts[["buffs"]]$tileName == tile_name,])
+      buff <- sf::st_as_sf(ts[ts[["tile_name"]] == tile_name][["buffs"]])
 
-      neib_names <- .tile_neibs(ts, tile_name)$tileName
+      neib_names <- .tile_neibs(tile_name, ts)
       mask_neibs <- lapply(mask_paths[neib_names], terra::rast)
 
       # Merge and then crop
@@ -74,7 +69,7 @@ mask_rs <- function(in_rsds, out_rsds, mask_rsds,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

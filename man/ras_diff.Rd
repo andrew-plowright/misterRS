@@ -4,7 +4,7 @@
 \alias{ras_diff}
 \title{Difference between two raster}
 \usage{
-ras_diff(A_rsds, B_rsds, out_rsds, ...)
+ras_diff(A_rts, B_rts, out_rts, ...)
 }
 \description{
 Difference between two raster

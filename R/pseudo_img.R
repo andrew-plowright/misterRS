@@ -5,29 +5,14 @@
 #' The \code{inputs} argument should be a list with up to three elements, each of which correspond to a band in the output image.
 #' Each element should be in a named list, for which the elements are:
 #' \describe{
-#'   \item{\code{rsds}}{A RS Dataset}
+#'   \item{\code{rts}}{Raster tileset}
 #'   \item{\code{band}}{The band number from the RS Dataset}
 #'   \item{\code{range}}{A numeric vector with two elements indicating the minimum and maximum range of the input RS Dataset band that will be rescaled}
 #' }
 #'
-#' @examples
-#' \dontrun{
-#' pca    <- rsds(dir = "data/pca",    id = "pca",    name = "PCA",    ext = "tif")
-#' dsm    <- rsds(dir = "data/dsm",    id = "dsm",    name = "DSM",    ext = "tif")
-#' pseudo <- rsds(dir = "data/pseudo", id = "pseudo", name = "Pseudo", ext = "tif")
-#'
-#' pseudo_img(
-#'   inputs = list(
-#'     list(rsds = pca, band = 1, range = c(-2.5, 2.5)),
-#'     list(rsds = pca, band = 2, range = c(-0.3, 0.3)),
-#'     list(rsds = dsm, band = 1, range = (0,30))
-#'   ),
-#'  out_rsds = pseudo
-#' )
-#' }
 #' @export
 
-pseudo_img <- function(inputs, out_rsds, ...){
+pseudo_img <- function(inputs, out_rts, ...){
 
   .env_misterRS(list(...))
 
@@ -35,18 +20,14 @@ pseudo_img <- function(inputs, out_rsds, ...){
 
   ### INPUT CHECKS ----
 
-  for(input in inputs){
-    .check_complete_input(input$rsds)
-    .check_extension(input$rsds,  "tif")
-  }
-  .check_extension(out_rsds,  "tif")
+  for(input in inputs) .complete_input(input$rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Get file paths
-  out_files  <- .rsds_tile_paths(out_rsds)
-  in_files <- lapply(inputs, function(input){.rsds_tile_paths(input$rsds)})
+  out_files  <- .rts_tile_paths(out_rts)
+  in_files <- lapply(inputs, function(input){.rts_tile_paths(input$rts)})
 
   ### CREATE WORKER ----
 
@@ -67,12 +48,9 @@ pseudo_img <- function(inputs, out_rsds, ...){
       in_ras[is.na(in_ras)] <- 0
 
       # Rescale band if needed
-      if(!is.null(input$range)){
-        in_ras <- .rescale(in_ras, from = input$range, to = c(0,254))
-      }
+      if(!is.null(input$range)) in_ras <- .rescale(in_ras, from = input$range, to = c(0,254))
 
       return(in_ras)
-
     }))
 
     # Write output
@@ -85,11 +63,10 @@ pseudo_img <- function(inputs, out_rsds, ...){
     }
   }
 
-
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

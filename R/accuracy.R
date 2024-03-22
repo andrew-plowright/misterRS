@@ -8,13 +8,13 @@ monte_carlo_accuracy <- function(training_pts, classifier, seg_id, reclass, iter
   alldata <- alldata[,!names(alldata) %in% dropCols]
 
   # Remove any classes that aren't in 'reclass'
-  alldata <- alldata[alldata$segClass %in% unlist(reclass),]
+  alldata <- alldata[alldata$seg_class %in% unlist(reclass),]
 
   # Get predictors
   predictors <- attributes(classifier$terms)$term.labels
 
-  # Factorize 'segClass' attribute
-  alldata$segClass <- as.factor(alldata$segClass)
+  # Factorize 'seg_class' attribute
+  alldata$seg_class <- as.factor(alldata$seg_class)
 
   # Check for rows with NA values and remove
   badRows <- apply(is.na(alldata), 1, any)
@@ -29,7 +29,7 @@ monte_carlo_accuracy <- function(training_pts, classifier, seg_id, reclass, iter
 
     # Create classifier
     ccf <- randomForest::randomForest(
-      as.formula(paste("segClass ~", paste(predictors, collapse = " + "))),
+      as.formula(paste("seg_class ~", paste(predictors, collapse = " + "))),
       data       = train_data,
       importance = TRUE,
       ntree      = 1000)
@@ -37,7 +37,7 @@ monte_carlo_accuracy <- function(training_pts, classifier, seg_id, reclass, iter
     votes   <- randomForest:::predict.randomForest(ccf, valid_data, type = "vote")
     elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
 
-    observed <- as.character(valid_data$segClass)
+    observed <- as.character(valid_data$seg_class)
 
     for(class in names(reclass)){
       elected[elected %in% reclass[[class]]]   <- class
@@ -73,7 +73,7 @@ training_data_summary <- function(training_pts, reclass){
   # Read training data
   alldata <- do.call(rbind, lapply(training_pts, function(tp) read.csv(tp@datafile)))
 
-  observed <- alldata$segClass
+  observed <- alldata$seg_class
 
   for(class in names(reclass)){
       observed[observed %in% reclass[[class]]] <- class

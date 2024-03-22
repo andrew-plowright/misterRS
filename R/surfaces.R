@@ -3,7 +3,7 @@
 #'
 #' @export
 
-surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
+surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
 
   .env_misterRS(list(...))
 
@@ -11,16 +11,14 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
 
   ### INPUT CHECKS ----
 
-  .check_extension(out_rsds, "tif")
-
   # Get tiles
-  ts <- .get_tilescheme()
-
-  # Get output file paths
-  out_files <- .rsds_tile_paths(out_rsds)
+  ts <- .tilescheme()
 
   # # Get CRS
   crs <- getOption("misterRS.crs")
+
+  # Get output file paths
+  out_files <- .rts_tile_paths(out_rts)
 
   ### CREATE WORKER ----
 
@@ -69,7 +67,7 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -84,11 +82,11 @@ surface_dem <- function(in_cat, out_rsds, LAS_select = "xyzc", res =  1, ...){
 
 #' Digital Surface Model
 #'
-#' Generate a DSM. If \code{dem_rsds} is provided, it will generate a normalized DSM (nDSM)
+#' Generate a DSM. If \code{dem_rts} is provided, it will generate a normalized DSM (nDSM)
 #'
 #' @export
 
-surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
+surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
                      res = 0.25, z_min = 0, z_max = 80,
                      LAS_select = "xyzcr", LAS_classes = NULL, ...){
 
@@ -99,24 +97,20 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
   ### INPUT CHECKS ----
 
   # Switch for generating nDSM
-  is_nDSM <- !is.null(dem_rsds)
+  is_nDSM <- !is.null(dem_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # # Get CRS
   crs <- getOption("misterRS.crs")
 
   # Check inputs
-  .check_extension(out_rsds, "tif")
-  if(is_nDSM){
-    .check_extension(dem_rsds, "tif")
-    .check_complete_input(dem_rsds)
-  }
+  if(is_nDSM) .complete_input(dem_rts)
 
   # Get file paths
-  out_files <- .rsds_tile_paths(out_rsds)
-  if(is_nDSM) DEM_paths <- .rsds_tile_paths(dem_rsds)
+  out_files <- .rts_tile_paths(out_rts)
+  if(is_nDSM) DEM_paths <- .rts_tile_paths(dem_rts)
 
   ### CYCLE THROUGH TILES ----
 
@@ -173,7 +167,7 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_rts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)
@@ -191,11 +185,11 @@ surface_dsm <- function(in_cat, dem_rsds = NULL, out_rsds, alg,
 #'
 #' @export
 
-hillshade <- function(rsds){
+hillshade <- function(in_rts){
 
   process_timer <- .headline("HILLSHADE")
 
-  in_file <- .rsds_mosaic_path(rsds)
+  in_file <- .rts_mosaic_path(in_rts)
 
   if(!file.exists(in_file)) stop("No mosaic file found")
 

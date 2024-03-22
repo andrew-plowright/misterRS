@@ -4,14 +4,7 @@
 \alias{pca_global}
 \title{Principal Component Analysis (Global)}
 \usage{
-pca_global(
-  img_rsds,
-  out_rsds,
-  PCA_model,
-  n_comp = 2,
-  in_bands = c(1, 2, 3),
-  ...
-)
+pca_global(img_rts, out_rts, PCA_model, n_comp = 2, in_bands = c(1, 2, 3), ...)
 }
 \description{
 Second approach: create a SINGLE PCA (using \code{pca_model()}) and then apply it to each tile.

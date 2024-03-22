@@ -4,7 +4,7 @@
 \alias{segment_watershed}
 \title{Watershed Segmentation}
 \usage{
-segment_watershed(out_rsds, chm_rsds, ttops_rsds, minCrownHgt = 0.3, ...)
+segment_watershed(out_vts, chm_rts, ttops_vts, minCrownHgt = 0.3, ...)
 }
 \description{
 Watershed Segmentation

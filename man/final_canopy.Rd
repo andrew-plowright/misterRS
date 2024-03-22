@@ -5,7 +5,7 @@
 \title{Final Canopy}
 \usage{
 final_canopy(
-  trees_class_ras_rsds,
+  trees_class_rts,
   canopyClasses,
   boundary,
   out_file,

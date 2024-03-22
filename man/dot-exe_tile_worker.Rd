@@ -4,7 +4,12 @@
 \alias{.exe_tile_worker}
 \title{Run a worker in parallel or serial}
 \usage{
-.exe_tile_worker(tile_names, worker)
+.exe_tile_worker(
+  tile_names,
+  worker,
+  cluster_vts = NULL,
+  clusters = getOption("misterRS.clusters")
+)
 }
 \description{
 Run a worker in parallel or serial

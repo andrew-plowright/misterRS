@@ -1,219 +1,324 @@
+# Training data class ----
+
+#' Training Data (class)
+#' @export
+
+setClass(
+  "trainingdata",
+  representation(
+    name = 'character',
+    file_path = 'character'
+  )
+)
+
+setMethod("show", "trainingdata", function(object){
+
+  if(file.exists(object@file_path)){
+
+    lyrs <- sf::st_layers(object@file_path)
+
+    features_points <- lyrs$features[lyrs$name == "points"]
+    features_polys  <- lyrs$features[lyrs$name == "polygons"]
+    features_data   <- if("data" %in% lyrs$name) lyrs$features[lyrs$name == "data"] else 0
+
+  }else{
+
+    features_points <- 0
+    features_polys  <- 0
+    features_data   <- 0
+  }
+
+  cat(
+    "TRAINING DATASET", "\n",
+    "Name      : ", object@name,  "\n",
+    "File      : ", object@file_path, "\n",
+    "Points    : ", features_points, "\n",
+    "Polygons  : ", features_polys, "\n",
+    "Data rows : ", features_data,
+
+    sep = ""
+  )
+})
+
+
+#' Training Data (constructor)
+#' @export
+
+training_data <- function(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
+
+  if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
+
+  file_path <- file.path(dir, paste0(name, "_training_data.gpkg"))
+
+  if(!file.exists(file_path) | overwrite){
+
+    if(overwrite) file.remove(file_path)
+
+    dir <- dirname(file_path)
+    if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+
+    # Create Simple Feature object with blank geometry and empty attribute fields
+    pts  <- poly <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), training_set = integer(), list(seg_class = character()))
+
+    sf::st_write(pts,  file_path, quiet = TRUE, layer = "points",   delete_layer = TRUE)
+    sf::st_write(poly, file_path, quiet = TRUE, layer = "polygons", delete_layer = TRUE)
+
+    con = DBI::dbConnect(RSQLite::SQLite(), dbname= file_path)
+    withr::defer(DBI::dbDisconnect(con))
+
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POINT' WHERE table_name = 'points'")
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'polygons'")
+  }
+
+  # Create new object
+  new("trainingdata", name = name,  file_path = file_path)
+}
+
+#' Classification edits (class)
+#' @export
+
+setClass(
+  "class_edits",
+  representation(
+    file_path  = 'character'
+  )
+)
+
+
+setMethod("show", "class_edits", function(object){
+
+  vec_num <- 0
+  if(file.exists(object@file_path)){
+
+    info <- sf::st_layers(object@file_path)
+    vec_num <- info$features[1]
+  }
+
+  cat(
+    "CANOPY EDITS", "\n",
+    "Vectors : ", vec_num,"\n",
+    sep = ""
+  )
+})
+
+#' Class Edits (constructor)
+#' @export
+
+class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite = FALSE){
+
+  if(proj == "" | is.na(proj) | is.null(proj)) stop("Invalid CRS")
+
+  file_path <- file.path(dir, paste0(name, "_class_edits.gpkg"))
+
+  if(!file.exists(file_path) | overwrite){
+
+    # Create Simple Feature object with blank geometry and empty attribute fields
+    s <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), list(to_class = character(), from_class = character()))
+
+    # Write to geopackage
+    sf::st_write(s,  file_path, quiet = TRUE, layer = "edits", delete_layer = TRUE)
+
+    # Set geometry type
+    con = DBI::dbConnect(RSQLite::SQLite(), dbname = file_path)
+    withr::defer(DBI::dbDisconnect(con))
+    DBI::dbExecute(con, "UPDATE gpkg_geometry_columns SET geometry_type_name = 'POLYGON' WHERE table_name = 'edits'")
+  }
+
+  # Create new object
+  new("class_edits", file_path = file_path)
+}
+
+
+.sql_extract_point <- function(seg_vts, training_pts, attribute_fields, existing_fids){
+
+  if(nrow(training_pts) > 0){
+
+    # Read segment data from points
+    seg_data <- seg_vts$read_from_pts(training_pts, c("fid", attribute_fields))
+
+    # Assign training data to polygons
+    seg_data[["type"]]         <- 1
+    seg_data[["training_set"]] <- training_pts[["training_set"]]
+    seg_data[["training_fid"]] <- training_pts[["fid"]]
+    seg_data[["seg_class"]]    <- training_pts[["seg_class"]]
+
+    # Remove NAs
+    seg_data <- seg_data[!is.na(seg_data[["fid"]]),]
+
+    # Remove duplicated
+    seg_data <- seg_data[!duplicated(seg_data[["fid"]]),]
+
+    # Remove
+
+    # Get training polygons with no data
+    empty_fids <- training_pts[["fid"]][!training_pts[["fid"]] %in% seg_data[["training_fid"]]]
+    if(length(empty_fids) > 0){
+      cat(crayon::yellow(
+        "  Following *POINT* FIDs contained no data and should be deleted:\n",
+        "  Selection query: \"fid\" in (", paste(empty_fids, collapse = ", ") ,")\n"
+      , sep=""))
+    }
+
+    return(seg_data)
+
+  }else NULL
+}
+
+
+.sql_extract_poly <- function(seg_vts, training_polys, attribute_fields, existing_fids){
+
+  if(nrow(training_polys) > 0){
+
+    # Get data from training polys
+    seg_data <- seg_vts$read_from_polys(training_polys, c("fid", attribute_fields))
+
+    # Assign training data to polygons
+    for(i in 1:nrow(training_polys)){
+      seg_data[[i]][["type"]] <- 2
+      seg_data[[i]][["training_set"]] <- training_polys[["training_set"]][i]
+      seg_data[[i]][["training_fid"]] <- training_polys[["fid"]][i]
+      seg_data[[i]][["seg_class"]]    <- training_polys[["seg_class"]][i]
+    }
+
+    seg_data <- do.call(rbind, seg_data)
+
+    # Remove duplicates
+    seg_data <- seg_data[!duplicated(seg_data[['fid']]),]
+
+    # Get training polygons with no data
+    empty_fids <- training_polys[["fid"]][!training_polys[["fid"]] %in% seg_data[["training_fid"]]]
+    if(length(empty_fids) > 0){
+      cat(crayon::yellow(
+        "  Following *POLYGON* FIDs contained no data and should be deleted:\n",
+        "  Selection query: \"fid\" in (", paste(empty_fids, collapse = ", ") ,")\n"
+        , sep=""))
+    }
+
+    return(seg_data)
+
+  }else NULL
+}
+
 #' Extract Training data
 #'
 #' @export
 
-training_data_extract <- function(training_data, seg_poly_rsds, metrics, seg_id, overwrite = FALSE){
+training_data_extract <- function(training_data, attribute_set, seg_vts,   overwrite = FALSE){
 
   process_timer <- .headline("EXTRACT TRAINING DATA")
 
-  ### CHECK INPUTS ----
+  seg_vts$connect()
 
-  # Check if data for this training dataset already exists
-  has_data <- "data" %in% sf::st_layers(training_data@file_path)$name
+  .complete_input(seg_vts, attribute = "geom")
 
-  if(any(sapply(metrics, class) != "rsds")){
-    stop("The 'metrics' parameter should be a list of 'rsds' class objects")
+  # Read training points and polygons
+  training_pts   <- sf::st_read(training_data@file_path, "points",   fid_column_name ="fid", quiet = TRUE)
+  training_polys <- sf::st_read(training_data@file_path, "polygons", fid_column_name ="fid", quiet = TRUE)
+
+  # Connect to training data
+  train_con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
+  withr::defer(DBI::dbDisconnect(train_con))
+
+  cat(
+    "  Total pts   : ", nrow(training_pts), "\n",
+    "  Total polys : ", nrow(training_polys), "\n",
+    "  Overwrite   : ", overwrite, "\n",
+    sep = ""
+  )
+
+  if(!overwrite & "data" %in% DBI::dbListTables(train_con)){
+
+    existing_fid_pts   <- DBI::dbGetQuery(train_con, "SELECT DISTINCT training_fid FROM data WHERE type = 1")[,"training_fid"]
+    existing_fid_polys <- DBI::dbGetQuery(train_con, "SELECT DISTINCT training_fid FROM data WHERE type = 2")[,"training_fid"]
+
+    training_polys <- training_polys[!training_polys$fid %in% existing_fid_polys,]
+    training_pts   <- training_pts  [!training_pts$fid   %in% existing_fid_pts,]
   }
 
-  if(has_data & !overwrite){
+  cat(
+    "\n",
+    "  New pts     : ", nrow(training_pts), "\n",
+    "  New polys   : ", nrow(training_polys), "\n",
+    sep = ""
+  )
 
-    cat("Training data table for '", training_data@id, "' already exists. Set 'overwrite' to TRUE", "\n")
+  if(nrow(training_polys) + nrow(training_pts) == 0){
+
+    cat("  No new training data extracted\n", sep = "")
 
   }else{
 
-    # Get tile scheme
-    ts <- .get_tilescheme()
-    tiles_sf <- sf::st_as_sf(ts[["tiles"]])
-    buffs_sf <- sf::st_as_sf(ts[["buffs"]])
+    # Select attributes
+    attribute_names_all <- seg_vts$fields()
+    attribute_fields <- unname(unlist(sapply(attribute_set, function(attribute_prefix)  attribute_names_all[startsWith(attribute_names_all, attribute_prefix)])))
 
-    # Get CRS
-    crs <- getOption("misterRS.crs")
-
-    # Get metric paths
-    met_paths <- lapply(metrics, .rsds_tile_paths)
-    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-
-    # Check extensions
-    .check_extension(seg_poly_rsds, c("shp", "gpkg"))
-    for(RS in metrics) .check_extension(RS,  "csv")
-
-    # Check that inputs are complete
-    .check_complete_input(seg_poly_rsds)
-    for(metric_rs in metrics) .check_complete_input(metric_rs)
-
-
-    ### READ TRAINING POINTS ----
-
-    # Read training data
-    training_pts   <- sf::st_read(training_data@file_path, layer = "points", quiet = TRUE)
-    training_polys <- sf::st_read(training_data@file_path, layer = "polygons", quiet = TRUE)
-
-    #training_sf[["trainingID"]] <- 1:nrow(training_sf)
-
-    # Intersect points and polygons with tiles
-    training_pts_ints   <- setNames(sf::st_intersects(buffs_sf, training_pts),   buffs_sf[["tileName"]])
-    training_polys_ints <- setNames(sf::st_intersects(buffs_sf, training_polys), buffs_sf[["tileName"]])
-
-    # Get tiles
-    unique_tiles <- buffs_sf[["tileName"]][(lengths(training_pts_ints) > 0) | (lengths(training_polys_ints) > 0)]
-
-    if(length(unique_tiles) == 0) stop("No tiles intersected with training data")
-
-    # Assign training points to tiles
-    #training_sf[["tile_name"]] <- tiles_sf$tile_name[ sapply( sf::st_intersects(training_sf, tiles_sf), `[`, 1) ]
-    #unique_tiles <- unique(training_sf[["tile_name"]])
-
-    # Get all tile headers
-    headers <- lapply(names(metrics), function(met_name){
-      lapply(unique_tiles, function(tile_name){
-        names(read.csv(met_paths[[met_name]][tile_name], row.names = 1, nrows = 1, check.names = FALSE, stringsAsFactors = FALSE))
-      })
-    })
-
-    # Check that all headers are consistent between metrics
-    for(i in 1:length(metrics)){
-      if(length(unique(headers[[i]])) != 1) stop("Inconsistent tile headers for metrics '", metrics[[i]]@name, "'")
-    }
-
-    # Check that no duplicate headers exist
-    if(any(duplicated(unlist(lapply(headers, function(h) h[[1]]))))) stop("Duplicated variable names between metrics")
-
-    cat(
-      "  Training pts   : ", nrow(training_pts), "\n",
-      "  Training polys : ", nrow(training_polys), "\n",
-      "  Tiles          : ", length(unique_tiles), "\n",
-      sep = ""
+    # Extract
+    extract_data <- rbind(
+      .sql_extract_poly( seg_vts, training_polys, attribute_fields),
+      .sql_extract_point(seg_vts, training_pts,   attribute_fields)
     )
 
+    if(any(is.na(extract_data))) stop("Extracted training data contained NA values")
 
-    ### EXTRACT DATA ----
+    # Write data
 
-    # Create progress bar
-    pb <- .progbar(length(unique_tiles))
+    if(overwrite){
+      DBI::dbWriteTable(train_con, name = "data", value = extract_data, overwrite = TRUE)
+    }else{
+      DBI::dbWriteTable(train_con, name = "data", value = extract_data, append = TRUE)
+    }
 
-    # Read training data
-    training_table <- do.call(rbind, lapply(unique_tiles, function(tile_name){
+    # Get total data
+    total_data <- DBI::dbGetQuery(train_con, "SELECT COUNT(*) FROM data")[,1]
 
-      seg_poly_path <- seg_poly_paths[tile_name]
-
-      # Read segments
-      seg_poly <- sf::st_read(seg_poly_path, quiet = TRUE)
-
-      # Get all metrics
-      seg_data <- unname(lapply(names(metrics), function(met_name) read.csv(met_paths[[met_name]][tile_name], row.names = 1, check.names = FALSE, stringsAsFactors = FALSE)))
-
-      # Check matching row names
-      for(i in 1:length(metrics)){
-        if(!all(seg_poly[[seg_id]] == row.names(seg_data[[i]]))){
-          stop("Row names for '", metrics[[i]]@name, "' do not match '", seg_id, "' field for segments in tile '", tile_name, "'")
-        }
-      }
-
-      # Assemble all metrics
-      seg_poly <- dplyr::bind_cols(seg_poly[,seg_id], do.call(cbind, seg_data))
-
-      # Get training data for tile
-      training_pts_tile   <- training_pts  [training_pts_ints[[tile_name]],  ]
-      training_polys_tile <- training_polys[training_polys_ints[[tile_name]],]
-
-      # Function for getting intersection between training data and segments
-      .intersec <- function(seg_poly, training_geom){
-
-        if(nrow(training_geom) > 0){
-
-          intersec <- sf::st_intersects(training_geom, seg_poly)
-
-          classes <- unlist(lapply(1:length(intersec), function(i) rep(training_geom$segClass[i], length(intersec[[i]]))))
-
-          data.frame(i = unlist(intersec), segClass = classes)
-
-        }else NULL
-      }
-
-      # Get intersection between training data and segments
-      training_intersec <- rbind(
-        .intersec(seg_poly, training_polys_tile),
-        .intersec(seg_poly, training_pts_tile)
-      )
-
-      if(nrow(training_intersec) > 1){
-
-        # Get subset and remove geometry
-        seg_poly_training <- seg_poly[training_intersec$i,]
-        sf::st_geometry(seg_poly_training) <- NULL
-
-        out_df <- data.frame(
-          tile_name = tile_name,
-          seg_poly_training,
-          segClass  = training_intersec$segClass
-        )
-
-      }else{
-
-        out_df <- NULL
-      }
-
-      pb$tick()
-
-      return(out_df)
-
-    }))
-
-    ### FORMAT AND SAVE OUTPUT ----
-
-    row.names(training_table) <- 1:nrow(training_table)
-
-    # Connect to DB
-    con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
-    withr::defer(DBI::dbDisconnect(con))
-
-    # Write
-    DBI::dbWriteTable(conn = con, name = "data", value = training_table, overwrite = TRUE)
-
+    cat(
+      "  New data    : ", nrow(extract_data), "\n",
+      "  Total data  : ", total_data, "\n",
+      sep = ""
+    )
   }
+
+  seg_vts$disconnect()
 
   # Conclude
   .conclusion(process_timer)
 }
 
+
 #' Create classifier
 #'
 #' @export
 
-classifier_create <- function(training_data, classifier_file = NULL, seg_id, predictors = NULL,
-                             overwrite = FALSE,  verbose = TRUE){
+classifier_create <- function(training_data, training_set, classifier_file = NULL, seg_id, predictors = NULL,
+                              overwrite = FALSE){
+
+  process_timer <- .headline("CREATE CLASSIFIER")
 
   if(!is.null(classifier_file)){
     if(file.exists(classifier_file) & !overwrite){
-      stop("Classifier already exists. Set 'overwrite' to TRUE")
+      stop("Classifier already exists. Set 'overwrite' to TRUE", call. = FALSE)
     }
   }
 
-  # Coerce to list
-  if(!is.list(training_data)) training_data <- list(training_data)
+  # Connect to training data
+  train_con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
+  withr::defer(DBI::dbDisconnect(train_con))
 
-  # Combine all training data
-  all_data <- do.call(rbind, lapply(training_data, function(tp){
+  if(!"data" %in% DBI::dbListTables(train_con)) stop("No training data has been extracted")
 
-    has_data <- "data" %in% sf::st_layers(tp@file_path)$name
+  # Get data
+  all_data <- DBI::dbGetQuery(train_con, sprintf("SELECT * FROM data WHERE training_set IN (%s)", paste(training_set, collapse = ", ")))
 
-    if(!has_data) stop("Data has not been extracted for '", tp@id, "'")
+  cat("  Training sets :", paste(training_set, collapse = ", "), "\n")
 
-    suppressWarnings(sf::st_read(tp@file_path, "data", quiet = TRUE))
-  }))
-
-  # Remove duplicated
-  all_data <- dplyr::distinct(all_data, tile_name, .data[[seg_id]], .keep_all = TRUE)
-
-  # Drop columns
-  drop_cols <- c("tile_name" , seg_id)
-  all_data <- all_data[,!names(all_data) %in% drop_cols]
+  # Drop unwanted columns
+  all_data <- all_data[, !names(all_data) %in% c('type', 'fid', 'training_set', 'training_fid'), drop = FALSE]
 
   # Check for rows with NA values and remove
   drop_rows <- apply(is.na(all_data), 1, any)
   if(any(drop_rows)){
 
-    if(verbose) cat("Remove rows:", length(drop_rows[drop_rows]), "\n")
+    cat("  Remove rows :", length(drop_rows[drop_rows]), "\n")
     all_data <- all_data[!drop_rows,]
   }
 
@@ -223,56 +328,52 @@ classifier_create <- function(training_data, classifier_file = NULL, seg_id, pre
     # Use autoSelect to choose uncorrelated variables
     predictors <- as.character(Biocomb::select.cfs(all_data)$Biomarker)
 
-  # Predictors: all variables
+    # Predictors: all variables
   }else if(is.null(predictors)){
 
     predictors <- "."
 
-  # Predictors: defined by user
+    # Predictors: defined by user
   }else{
 
     # Check that selected predictors exist
     notFound <- !predictors %in% names(all_data)
 
-    if(any(notFound)) stop("Following predictor variables not found in survey's Training Data:\n  ",
-                           paste(predictors[notFound], collapse = "\n  "))
+    if(any(notFound)) stop("  Predictor variables not found in  Training Data:\n    ",
+                           paste(predictors[notFound], collapse = "\n    "))
   }
 
-  if(verbose) cat("Following predictor variables selected:\n ", paste(predictors, collapse = "\n  "), "\n")
+  cat("  Predictor variables selected :\n    ", paste(predictors, collapse = "\n    "), "\n")
 
-  # Factorize 'segClass' attribute
-  all_data$segClass <- as.factor(all_data$segClass)
+  # Factorize 'seg_class' attribute
+  all_data[["seg_class"]] <- as.factor(all_data[["seg_class"]])
 
   # Create classifier
   classifier <- randomForest::randomForest(
-    as.formula(paste("segClass ~", paste(predictors, collapse = " + "))),
+    as.formula(paste("seg_class ~", paste(predictors, collapse = " + "))),
     data       = all_data,
     importance = TRUE,
     ntree      = 1000)
 
-  if(verbose) cat("OOB error rate:", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
+  cat("  OOB error rate :", round(classifier$err.rate[classifier$ntree, "OOB"]*100, digits=2), "%", "\n\n")
 
-  if(is.null(classifier_file)){
+  # create classifier output folder
+  classifierDir <- dirname(classifier_file)
+  if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
 
-    return(classifier)
+  # Save classifier
+  saveRDS(classifier, classifier_file)
 
-  }else{
-
-    # create classifier output folder
-    classifierDir <- dirname(classifier_file)
-    if(!dir.exists(classifierDir)) dir.create(classifierDir, recursive = TRUE)
-
-    # Save classifier
-    saveRDS(classifier, classifier_file)
-  }
+  # Conclude
+  .conclusion(process_timer)
 }
+
 
 #' Classify polygonal segments
 #'
 #' @export
 
-classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsds,
-                              class_edits, metrics, seg_id, ...){
+classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, class_edits, ...){
 
   .env_misterRS(list(...))
 
@@ -280,78 +381,66 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
 
   ### INPUT CHECKS ----
 
-    # Check extensions
-    .check_extension(seg_poly_rsds,       c("shp", "gpkg"))
-    .check_extension(seg_class_poly_rsds, c("shp", "gpkg"))
-    for(RS in metrics) .check_extension(RS, c("csv"))
+  # Read classifier
+  classifier <- readRDS(classifier_file)
 
-    # Check that inputs are complete
-    .check_complete_input(seg_poly_rsds)
-    for(RS in metrics) .check_complete_input(RS)
+  # Get class variables
+  class_features <- row.names(randomForest::importance(classifier))
 
-    # Get CRS
-    proj <- getOption("misterRS.crs")
+  # Get attributes
+  attributes <- unique(sapply(strsplit(class_features, "_"),"[", 1))
 
-    # Get tile scheme
-    ts <- .get_tilescheme()
-    tiles_sf <- sf::st_as_sf(ts[["tiles"]])
+  seg_vts$connect()
 
-    # Get file paths
-    seg_poly_paths <- .rsds_tile_paths(seg_poly_rsds)
-    out_paths     <- .rsds_tile_paths(seg_class_poly_rsds)
-    met_paths     <- lapply(metrics, .rsds_tile_paths)
+  # Check that inputs are complete
+  for(attribute in attributes) .complete_input(seg_vts, attribute= attribute)
 
-    # Read classifier
-    classifier <- readRDS(classifier_file)
+  # Get tile scheme
+  ts <- .tilescheme()
+  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
-  ### READ CLASS EDITS ----
+  # Add column
+  class_label <- paste0("class_", iteration)
+  seg_vts$add_field(class_label, "INTEGER")
 
-    class_edits <- sf::st_read(class_edits@SHPfile, quiet = TRUE)
+  # Add attribute set name to tile registry
+  seg_vts$add_attribute(class_label)
 
-    if(nrow(class_edits) > 0){
+  # Read in class edits
+  class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
+  if(nrow(class_edits) > 0){
+    class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tile_name"]])
+  }
 
-      class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tiles"]][["tileName"]])
-
-    }
+  # Unique id field
+  seg_id <- seg_vts$id_field
 
 
   ### CREATE WORKER ----
 
-    # Run process
-    tile_worker <-function(tile_name){
+  # Run process
+  tile_worker <-function(tile_name){
 
-      seg_poly_path <- seg_poly_paths[tile_name]
-      out_path     <- out_paths[tile_name]
+    # Read all
+    seg_poly <- seg_vts$read_tile(tile_name = tile_name, fields = c(seg_id, "geom", class_features))
 
-      # Read segments
-      seg_poly <- sf::st_read(seg_poly_path, quiet = TRUE)
+    if(nrow(seg_poly) > 0){
+      # Drop FID
+      #seg_poly <- seg_poly[,names(seg_poly) != "fid"]
 
-      # Get all metrics
-      seg_data <- unname(lapply(names(metrics), function(met_name){
-        read.csv(met_paths[[met_name]][tile_name],
-                 row.names = 1, check.names = FALSE,
-                 stringsAsFactors = FALSE)
-      }))
-
-      # Check matching row names
-      for(i in 1:length(metrics)){
-        if(!all(seg_poly[[seg_id]] == row.names(seg_data[[i]]))){
-          stop("Row names for '", metrics[[i]]@name, "' do not match '", seg_id, "' field for segments in tile '", tile_name, "'")
-        }
-      }
-
-      # Combine metrics
-      seg_data <- do.call(cbind, seg_data)
+      # Subset predictors
+      tile_predictors <- seg_poly[,class_features, drop = FALSE]
 
       # Classify according to most-voted class
-      votes   <- randomForest:::predict.randomForest(classifier, seg_data, type = "vote")
+      votes   <- randomForest:::predict.randomForest(classifier, tile_predictors, type = "vote")
       elected <- colnames(votes)[apply(votes, 1, function(x) which.max(x)[1])]
-      seg_poly[["segClass"]] <- elected
-      seg_poly[["votePrc"]]  <- if(length(elected) > 0){
-       sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
-      }else{
-        numeric()
-      }
+      seg_poly[[class_label]] <- elected
+
+      # votePrc  <- if(length(elected) > 0){
+      #  sapply(1:length(elected), function(i){if(is.na(elected[i])) NA else votes[i, elected[i]]})
+      # }else{
+      #   numeric()
+      # }
 
       # Manual edits
       if((nrow(class_edits) > 0) && (length(class_edits_bytile[[tile_name]]) > 0)){
@@ -367,45 +456,52 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
           edit <- class_edits_tile[i,]
 
           # Get to/from classes
-          from <- strsplit(edit$fromClass, " ")[[1]]
-          to   <- edit$toClass
+          from <- strsplit(edit$from_class, " ")[[1]]
+          to   <- edit$to_class
 
           # Get segments that intersect with edit polygon
           edit_segs <- seg_poly[class_edits_bypoly[[i]],]
 
-          # Subset according to specified 'fromClass' value (if specified)
-          if(!is.na(from)) edit_segs <- edit_segs[edit_segs$segClass %in% from,]
+          # Subset according to specified 'from_Class' value (if specified)
+          if(!is.na(from)) edit_segs <- edit_segs[edit_segs[[class_label]] %in% from,]
 
           # Apply edit
           if(nrow(edit_segs) > 0){
 
             edit_which <- seg_poly[[seg_id]] %in% edit_segs[[seg_id]]
-            seg_poly[edit_which,][["segClass"]] <- to
-            seg_poly[edit_which,][["votePrc" ]] <- NA
+            seg_poly[edit_which,][[class_label]] <- to
           }
         }
       }
 
-      # Save output
-      sf::st_write(seg_poly, out_path, delete_dsn = file.exists(out_path), quiet = TRUE)
+      # Convert to numerical class IDs
+      seg_poly[[class_label]] <- class_table$id[match(seg_poly[[class_label]], class_table$code)]
 
-      if(file.exists(out_path)) "Success" else stop("Failed to create output")
-
+      # Keep only data that is needed
+      seg_poly <- sf::st_drop_geometry(seg_poly)[, c(seg_id, class_label)]
     }
+
+    # Write attributes
+    seg_vts$update_data(data = seg_poly, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
+
+    return("Success")
+  }
 
   ### APPLY WORKER ----
 
-    # Get tiles for processing
-    proc_tiles <- .tile_queue(out_paths)
+  # Get tiles for processing
+  proc_tiles <- .tile_queue(seg_vts, attribute_set_name = class_label)
 
-    # Process
-    process_status <- .exe_tile_worker(proc_tiles, tile_worker)
+  seg_vts$disconnect()
 
-    # Report
-    .print_process_status(process_status)
+  # Process
+  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
 
-    # Conclude
-    .conclusion(process_timer)
+  # Report
+  .print_process_status(process_status)
+
+  # Conclude
+  .conclusion(process_timer)
 
 }
 
@@ -417,8 +513,7 @@ classify_seg_poly <- function(classifier_file, seg_poly_rsds, seg_class_poly_rsd
 #'
 #' @export
 
-classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rsds,
-                             seg_classes, seg_id, ...){
+classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
 
   .env_misterRS(list(...))
 
@@ -426,18 +521,21 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
 
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(seg_class_poly_rsds, "shp")
-  .check_extension(seg_class_ras_rsds,  "tif")
-  .check_extension(seg_ras_rsds,        "tif")
+  class_label <- paste0("class_", iteration)
+
+  seg_vts$connect()
 
   # Check that inputs are complete
-  .check_complete_input(seg_class_poly_rsds)
-  .check_complete_input(seg_ras_rsds)
+  .complete_input(seg_rts)
+  .complete_input(seg_vts, attribute = class_label)
 
-  seg_class_poly_paths <- .rsds_tile_paths(seg_class_poly_rsds)
-  seg_ras_paths        <- .rsds_tile_paths(seg_ras_rsds)
-  out_paths            <- .rsds_tile_paths(seg_class_ras_rsds)
+  seg_vts$disconnect()
+
+  seg_paths <- .rts_tile_paths(seg_rts)
+  out_paths <- .rts_tile_paths(seg_class_rts)
+
+  # Unique id field
+  seg_id <- seg_vts$id_field
 
   ### CREATE WORKER ----
 
@@ -445,23 +543,21 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
   tile_worker <-function(tile_name){
 
     # Get file paths
-    seg_class_poly_path <- seg_class_poly_paths[tile_name]
-    seg_ras_path       <- seg_ras_paths[tile_name]
-    out_path          <- out_paths[tile_name]
 
-    # Get classified polygonal segments
-    seg_poly <- sf::st_read(seg_class_poly_path, quiet = TRUE)
+    seg_path <- seg_paths[tile_name]
+    out_path <- out_paths[tile_name]
+
+    # Read polygons (which have classes)
+    seg_poly <-  seg_vts$read_tile(tile_name = tile_name, field = c(seg_id, class_label))
 
     # Get unclassified raster segments
-    seg_ras <- terra::rast(seg_ras_path)
+    seg_ras <- terra::rast(seg_path)
 
-    seg_class_ras <- terra::setValues(
-      seg_ras,
-      factor(
-        seg_poly[["segClass"]][match(seg_ras[], seg_poly[[seg_id]])],
-        levels = seg_classes
-        )
-      )
+    # Classifiy values
+    classified_ras_vals <- seg_poly[[class_label]][match(seg_ras[], seg_poly[[seg_id]])]
+
+    # Create output
+    seg_class_ras <- terra::setValues(seg_ras, classified_ras_vals)
 
     # Save output
     terra::writeRaster(seg_class_ras, out_path, overwrite = overwrite, datatype = "INT1U")
@@ -473,10 +569,10 @@ classify_seg_ras <- function(seg_class_poly_rsds, seg_ras_rsds, seg_class_ras_rs
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  proc_tiles <- .tile_queue(out_paths)
+  proc_tiles <- .tile_queue(seg_class_rts)
 
   # Process
-  process_status <- .exe_tile_worker(proc_tiles, tile_worker)
+  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
 
   # Report
   .print_process_status(process_status)

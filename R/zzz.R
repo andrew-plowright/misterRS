@@ -9,33 +9,33 @@
 # Run these functions when package is loaded
 .onLoad <- function(libname, pkgname){
 
-  # Detect Orfeo Toolbox path
-  pfdirs <- list.dirs("C:/Program Files", recursive = FALSE)
-  orfeoPath <- pfdirs[grepl("/OTB", pfdirs)][1]
-  if(is.na(orfeoPath)) warning("No directory found for Orfeo Toolbox")
+  # Get directory
+  lib_dir <- Sys.getenv("MISTERRS")
+  if(lib_dir == "") warning(
+    "Could not find the MISTERRS system variable. ",
+    "Set this variable to the folder that contains ",
+    "the 'misterRS_config.json' configuration file.")
 
-  # Path for projects
-  projects_root = "D:/Projects/clients/diamondhead"
-  projects_log = "D:/Projects/clients/diamondhead/project_register.csv"
+  # Load config
+  config_file <- file.path(lib_dir, "misterRS_config.json")
 
-  syncback_exe = "C:/Program Files (x86)/2BrightSparks/SyncBackFree/SyncBackFree.exe"
+  if(file.exists(config_file)){
+    misterRS_config(config_file, override = FALSE)
+  }else{
+    warning("Couldn't find config file. Use misterRS_config() to load configuration.'")
+  }
 
   # Set global options
   op.current <- options()
   op.misterRS <- list(
-    misterRS.clusters      = 1,
-    misterRS.orfeo         = orfeoPath,
-    misterRS.verbose       = TRUE,
-    misterRS.overwrite     = FALSE,
-    misterRS.tile_names    = NULL,
-    misterRS.clusters      = 1,
-    misterRS.crs           = NA,
-    misterRS.ts            = NULL,
-    misterRS.projects_root = projects_root,
-    misterRS.project_register = projects_log,
-    misterRS.syncback_exe  = syncback_exe,
-    lidR.progress          = FALSE,
-    lidR.verbose           = FALSE
+    misterRS.clusters     = 1,
+    misterRS.verbose      = TRUE,
+    misterRS.overwrite    = FALSE,
+    misterRS.tile_names   = NULL,
+    misterRS.crs          = NA,
+    misterRS.ts           = NULL,
+    lidR.progress         = FALSE,
+    lidR.verbose          = FALSE
   )
   toset <- !(names(op.misterRS) %in% names(op.current))
   if(any(toset)) options(op.misterRS[toset])

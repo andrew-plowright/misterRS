@@ -1,3 +1,80 @@
+#' @export
+
+final_trees <- function(seg_vts,iteration,class_table, boundary, out_file,
+                        boundary_buff = 0){
+
+  process_timer <- .headline("FINAL TREES")
+
+  .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
+
+  ### INPUT CHECKS ----
+
+  # Iteration label
+  class_label <- paste0("class_", iteration)
+
+  # Check that inputs are complete
+  .complete_input(seg_vts, attribute = class_label)
+
+    # Tile names
+  ts <- .tilescheme()
+
+  # Read boundary
+  boundary_sp <- sf::st_read(boundary, quiet = TRUE)
+  boundary_sp$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(boundary_sp$geom))
+  boundary_sp <- sf::st_transform(boundary_sp, getOption("misterRS.crs"))
+
+  ### CREATE WORKER ----
+
+  pb <- .progbar(length( ts[["tile_name"]]))
+
+  for(tile_name in ts[["tile_name"]]){
+
+    # File paths
+    polys <- seg_vts$read_tile(tile_name = tile_name, fields = c("height", "crown_area", class_label, "geom"))
+
+    if(nrow(polys) == 0){
+      pb$tick()
+      next
+    }
+
+    # Correct geometry
+    is_valid <- sf::st_is_valid(polys)
+    if(any(!is_valid)) polys <- sf::st_make_valid(polys)
+
+    # Intersection with boundary
+    ints <- sf::st_intersects(boundary_sp, polys)
+    polys <- polys[unique(unlist(ints)),]
+
+    # Reclass
+    polys[["class"]] <- class_table[["label"]][match(polys[[class_label]], class_table[,'id'])]
+
+    # Remove NA
+    polys <- polys[!is.na(polys[["class"]]),]
+
+    if(nrow(polys) == 0){
+      pb$tick()
+      next
+    }
+
+    # Remove non-classified
+    polys <- polys[,c("height", "crown_area", "class")]
+
+    # Write output
+    sf::st_write(
+      polys,
+      out_file,
+      append = file.exists(out_file),
+      quiet = TRUE,
+      fid_column_name = "FID"
+    )
+
+    pb$tick()
+  }
+
+  # Conclude
+  .conclusion(process_timer)
+}
+
 #' Final Canopy
 #'
 #' Applies the following process:
@@ -9,7 +86,7 @@
 #'
 #' @export
 
-final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file,
+final_canopy <- function(trees_class_rts, canopyClasses, boundary, out_file,
                         boundary_buff = 0){
 
   .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
@@ -19,10 +96,10 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds)
+  .complete_input(trees_class_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Create temporary directories
   dirs <- list(
@@ -34,7 +111,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
+  trees_class_ras_paths <- .rts_tile_paths(trees_class_rts)
   tile_names  <- names(trees_class_ras_paths)
   out_paths   <- setNames(file.path(dirs$canopy, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -133,7 +210,7 @@ final_canopy <- function(trees_class_ras_rsds, canopyClasses, boundary, out_file
 
 #' @export
 
-final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, out_file,
+final_chm <- function(ndsm_rts, trees_class_rts, canopyClasses, boundary, out_file,
                      boundary_buff = 0){
 
   process_timer <- .headline("FINAL CANOPY HEIGHT MODEL")
@@ -143,10 +220,10 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   ### INPUT CHECKS ----
 
   # Check that inputs are complete
-  .check_complete_input(trees_class_ras_rsds)
+  .complete_input(trees_class_rts)
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   # Create temporary directories
   dirs <- list(
@@ -158,8 +235,8 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
   withr::defer(unlink(dirs$temproot, recursive = TRUE))
 
   # Get file paths
-  trees_class_ras_paths <- .rsds_tile_paths(trees_class_ras_rsds)
-  ndsm_paths <- .rsds_tile_paths(ndsm_rsds)
+  trees_class_ras_paths <- .rts_tile_paths(trees_class_rts)
+  ndsm_paths <- .rts_tile_paths(ndsm_rts)
   tile_names <- names(trees_class_ras_paths)
   out_paths  <- setNames(file.path(dirs$CHM, paste0(tile_names, ".tif")),tile_names)
   boundary_mask_path <- file.path(dirs$temproot, "boundary_mask.shp")
@@ -258,121 +335,3 @@ final_chm <- function(ndsm_rsds, trees_class_ras_rsds, canopyClasses, boundary, 
 
 }
 
-
-#' @export
-
-final_trees <- function(trees_class_poly_rsds, reclassList, boundary, out_file, tile_names = NULL){
-
-  process_timer <- .headline("FINAL TREES")
-
-  .env_misterRS(list(tile_names = NULL, overwrite = TRUE))
-
-  ### INPUT CHECKS ----
-
-  # Check that inputs are complete
-  .check_complete_input(trees_class_poly_rsds)
-
-  # Create temporary directories
-  dirs <- list(
-    temproot    = file.path(tempdir(), "final_trees")
-  )
-  for(dir in dirs) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  withr::defer(unlink(dirs$temproot, recursive = TRUE))
-
-  # Get file paths
-  trees_class_poly_paths <- .rsds_tile_paths(trees_class_poly_rsds)
-  outTrees_gpkg <- file.path(dirs$temproot, "outTrees.gpkg")
-
-  # Select tiles
-  selected_tiles <- if(is.null(tile_names)){
-
-    names(trees_class_poly_paths)
-
-  }else{
-
-    notExist <- !tile_names %in% names(trees_class_poly_paths)
-    if(any(notExist)) stop("Following tile names do not exist:\n  ", paste(tile_names[notExist], collapse = "\n  "))
-
-    tile_names
-  }
-
-  # Initiate ID counter
-  IDcounter <- 0
-
-  ### BOUNDARY ----
-
-  # Read boundary
-  boundary_sp <- sf::st_read(boundary, quiet = TRUE)
-  boundary_sp$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(boundary_sp$geom))
-  boundary_sp <- sf::st_transform(boundary_sp,   getOption("misterRS.crs"))
-
-  ### CREATE WORKER ----
-
-  for(tile_name in selected_tiles){
-
-    # File paths
-    trees_class_poly_path <- trees_class_poly_paths[tile_name]
-
-    # Read in polygons
-    trees_class_poly <- sf::st_read(trees_class_poly_path, quiet = TRUE)
-
-    # Correct geometry
-    is_valid <- sf::st_is_valid(trees_class_poly)
-    if(any(!is_valid)){
-      trees_class_poly <- sf::st_make_valid(trees_class_poly)
-    }
-
-    # Intersection with boundary
-    ints <- sf::st_intersects(boundary_sp, trees_class_poly)
-    trees_class_poly <- trees_class_poly[unique(unlist(ints)),]
-
-    # Remove non trees
-    if("NotTree" %in% names(reclassList)){
-
-      trees_class_poly <- trees_class_poly[!trees_class_poly[["segClass"]] %in% reclassList[["NotTree"]],]
-
-    }
-
-    # Remove non-classified
-    trees_class_poly <- trees_class_poly[!is.na(trees_class_poly[["segClass"]]),]
-
-    if(nrow(trees_class_poly) > 0){
-
-      # Reclassify trees
-      treeClasses <- reclassList[names(reclassList) != "NotTree"]
-      for(class in names(treeClasses)){
-        trees_class_poly[trees_class_poly[["segClass"]] %in% treeClasses[[class]], "segClass"] <- class
-      }
-
-      # Add tree ID
-      newIDs <- IDcounter + 1:nrow(trees_class_poly)
-      IDcounter <- max(newIDs)
-      trees_class_poly[["ID"]] <- newIDs
-      #trees_class_poly[["FID"]] <- newIDs
-
-      # Remove and rename attribute columns
-      trees_class_poly <- trees_class_poly[,c("ID", "height", "crownArea", "segClass")]
-      names(trees_class_poly)[names(trees_class_poly) == "segClass"] <- "class"
-
-      # Write output
-      sf::st_write(
-        trees_class_poly,
-        outTrees_gpkg,
-        append = file.exists(  outTrees_gpkg ),
-        quiet = TRUE,
-        fid_column_name = "FID"
-      )
-    }
-  }
-
-  ### MERGE ----
-
-  gpal2::ogr2ogr(
-    "-overwrite",
-    out_file,
-    outTrees_gpkg
-  )
-
-  # Conclude
-  .conclusion(process_timer)
-}

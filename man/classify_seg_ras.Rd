@@ -4,14 +4,7 @@
 \alias{classify_seg_ras}
 \title{Classify raster segments}
 \usage{
-classify_seg_ras(
-  seg_class_poly_rsds,
-  seg_ras_rsds,
-  seg_class_ras_rsds,
-  seg_classes,
-  seg_id,
-  ...
-)
+classify_seg_ras(seg_vts, seg_rts, seg_class_rts, iteration, ...)
 }
 \description{
 This needs \code{classify_seg_poly} to be run first

@@ -12,11 +12,11 @@
 #'
 #' @export
 
-segment_mss <- function(img_rsds, out_gpkg,
+segment_mss <- function(img_rts, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
                  writeVectoreMode = "ulu",
                  seg_id = "polyID",
-                 min_per_tile_est = 4.3, ...){
+                 min_per_tile_est = 3.5, ...){
 
   process_timer <- .headline("MEAN SHIFT SEGMENTATION")
 
@@ -29,17 +29,14 @@ segment_mss <- function(img_rsds, out_gpkg,
   bin_file <- file.path(getOption("misterRS.orfeo"), "bin", "otbcli_Segmentation.bat")
   if(!file.exists(bin_file)) stop("Orfeo Toolbox binary not found '", bin_file, "'")
 
-  .check_extension(img_rsds, "tif")
-
-  .check_complete_input(img_rsds)
+  .complete_input(img_rts)
 
   # Get tiles
-  ts <- .get_tilescheme()
-
+  ts <- .tilescheme()
 
   ### CREATE VRT MOSAIC ----
 
-  tile_paths <- .rsds_tile_paths(img_rsds)
+  tile_paths <- .rts_tile_paths(img_rts)
   if(!is.null(tile_names)) tile_paths <- tile_paths[tile_names]
   mosaic_vrt <- .mosaic_vrt(tile_paths, ts, overlap = "nbuffs")
 
@@ -117,24 +114,19 @@ segment_mss <- function(img_rsds, out_gpkg,
 #'
 #' @export
 
-tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
+tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
 
   .env_misterRS(list(...))
+
+  # Do not attempt to write to Geopackage using multiple clusters
+  withr::local_options("misterRS.cluster" = 1)
 
   process_timer <- .headline("TILE POLYGONS")
 
   # Get tile scheme
-  ts <- .get_tilescheme()
+  ts <- .tilescheme()
 
   crs <- getOption("misterRS.crs")
-
-  # Get buffered areas as Simple Features
-  ts_buffs  <- sf::st_as_sf(ts[["buffs" ]])
-  ts_tiles  <- sf::st_as_sf(ts[["tiles" ]])
-  ts_nbuffs <- sf::st_as_sf(ts[["nbuffs"]])
-
-  # Get output paths
-  out_paths <- .rsds_tile_paths(seg_poly_rsds)
 
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
@@ -142,11 +134,7 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
   # Run process
   tile_worker <-function(tile_name){
 
-    out_path <- out_paths[tile_name]
-
-    tile  <- ts_tiles [ts_tiles [["tileName"]] == tile_name,]
-    buff  <- ts_buffs [ts_buffs [["tileName"]] == tile_name,]
-    nbuff <- ts_nbuffs[ts_nbuffs[["tileName"]] == tile_name,]
+    tile <- ts[ts[["tile_name"]] == tile_name]
 
     # Get bounding box
     bbox <- sf::st_bbox(tile)
@@ -166,59 +154,63 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
     # Force crs
     suppressWarnings(sf::st_crs(polys) <- sf::st_crs(crs))
 
-    # Fix invalid geometry
-    if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
+    if(nrow(polys) > 0){
 
-    # Get vector of polygons that straddle tile borders
-    crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts_buffs,  polys))
+      # Fix invalid geometry
+      if(any(!sf::st_is_valid(polys))) polys$geom <- suppressPackageStartupMessages(lwgeom::lwgeom_make_valid(polys$geom))
 
-    if(any(crossborder)){
+      # Get vector of polygons that straddle tile borders
+      crossborder <- !1:nrow(polys) %in% unlist(sf::st_contains(ts[["buffs"]], polys))
 
-      # Break up polygons that straddle tile borders
-      brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
+      if(any(crossborder)){
 
-      # Get rid of slivers
-      brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
+        # Break up polygons that straddle tile borders
+        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], tile[["nbuff"]]))
 
-      # Get "POLYGONS" from "GEOMETRYCOLLECTION
-      brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
+        # Get rid of slivers
+        brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
 
-      # Swap cross-border polys with broken-up polys
-      polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+        # Get "POLYGONS" from "GEOMETRYCOLLECTION
+        brokeup <- suppressWarnings(sf::st_collection_extract(brokeup, "POLYGON"))
 
+        # Swap cross-border polys with broken-up polys
+        polys <- rbind(polys[!crossborder,], brokeup[,"DN"])
+
+      }
+
+      # Explode multi-part polygons
+      # As suggested by: https://github.com/r-spatial/sf/issues/763
+      polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
+
+      # Generate centroids
+      cent <- suppressWarnings(sf::st_centroid(polys))
+
+      # Subset segments with centroid within tile
+      intrs <- sapply(sf::st_intersects(cent, tile[["nbuff"]]), "[", 1)
+      polys <- polys[!is.na(intrs),]
+
+      # Assign numbers
+      polys[[seg_id]] <- 1:nrow(polys)
+
+      # Drop unwanted fields
+      polys <- polys[,seg_id]
     }
 
-    # Explode multipart polygons
-    # As suggested by: https://github.com/r-spatial/sf/issues/763
-    polys <- suppressWarnings(sf::st_cast(sf::st_cast(polys, "MULTIPOLYGON"), "POLYGON"))
-
-    # Generate centroids
-    cent <- suppressWarnings(sf::st_centroid(polys))
-
-    # Subset segments with centroid within tile
-    intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
-    polys <- polys[!is.na(intrs),]
-
-    # Assign numbers
-    polys[[seg_id]] <- 1:nrow(polys)
-    polys$FID <- as.numeric(polys[[seg_id]])
-
     # Write file
-    sf::st_write(polys, out_path, quiet = TRUE, fid_column_name = "FID", delete_dsn = overwrite)
+    out_vts$append_geom(det_ttops, tile_name)
 
-    if(file.exists(out_path)) "Success" else stop("Failed to create output")
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  ttops %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .print_process_status()
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  # Create index
+  .vts_create_index(out_vts)
 
   # Conclude
   .conclusion(process_timer)
@@ -229,90 +221,104 @@ tile_poly <- function(in_gpkg, seg_poly_rsds, seg_id = "polyID", ...){
 #'
 #' @export
 
-segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
+segment_watershed <- function(out_vts, chm_rts, ttops_vts,
                                   minCrownHgt = 0.3, ...){
 
   .env_misterRS(list(...))
 
   process_timer <- .headline("WATERSHED SEGMENTATION")
 
+  # Override parallel processing
+  withr::local_options("misterRS.clusters" = 1)
+
   ### INPUT CHECKS ----
 
-  # Check extensions
-  .check_extension(out_rsds, "shp")
-
   # Check that inputs are complete
-  .check_complete_input(chm_rsds)
-  .check_complete_input(ttops_rsds)
+  .complete_input(chm_rts)
+  .complete_input(ttops_vts, attribute = "geom", buffered = TRUE)
 
-  # Get tile scheme
-  ts <- .get_tilescheme()
+  # Get tile scheme and projection
+  ts <- .tilescheme()
+  proj <- getOption("misterRS.crs")
 
   # Get file paths
-  CHM_paths   <- .rsds_tile_paths(chm_rsds)
-  ttops_paths <- .rsds_tile_paths(ttops_rsds)
-  out_paths   <- .rsds_tile_paths(out_rsds)
+  CHM_paths   <- .rts_tile_paths(chm_rts)
+
+  out_vts$connect()
+  ttops_vts$connect()
+
+  # Add fields
+  out_vts$add_field("height",     "REAL")
+  out_vts$add_field("crown_area", "REAL")
+
+  # Get ID field
+  tree_id <- ttops_vts$id_field
 
   ### CREATE WORKER ----
 
   # Run process
   tile_worker <-function(tile_name){
 
-    # File paths
-    out_path   <- out_paths[tile_name]
-    ttops_path <- ttops_paths[tile_name]
-    CHM_path   <- CHM_paths[tile_name]
-
-    # Get tile
-    tile <- sf::st_as_sf(ts[tile_name][["tiles"]])
-    nbuff <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
-
-    # Read in files
+    # Read in CHM
+    CHM_path <- CHM_paths[tile_name]
     CHM <- terra::rast(CHM_path)
-    ttops <- sf::st_read(ttops_path, quiet = TRUE)
+
+    # Get buffered tile
+    buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
+
+    # Empty output
+    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), setNames(list(integer()), tree_id))
+
+    # Read treetops
+    ttops <- ttops_vts$read_from_polys( buff, fields = c(tree_id, "tile_name", "height", "geom"))[[1]]
 
     if(nrow(ttops) > 0){
 
-      # Apply 'marker-controlled watershed segmentation' algorithm
-      seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon")
+      # Awkward renumbering to enforce unique IDs
+      ttops_tile <- ttops[ttops$tile_name == tile_name,]
+      ttops_buff <- ttops[ttops$tile_name != tile_name,]
 
-      # Subset only those segments that have treetops within non-buffered tile boundaries
-      ttops_tile   <- ttops[nbuff,]
-      seg_poly_tile <- seg_poly[match(ttops_tile$treeID, seg_poly$treeID),]
+      if(nrow(ttops_tile) > 0){
 
-      # Seg poly attributes
-      seg_poly_tile[["height"]] <- ttops_tile$height
-      seg_poly_tile[["crownArea"]] <- as.numeric(sf::st_area(seg_poly_tile))
+        if(nrow(ttops_buff) > 0){
 
-      # Remove polygons with no 'treeID'
-      # (This happens when a treetop does not have an associated polygon)
-      seg_poly_tile <- seg_poly_tile[!is.na(seg_poly_tile$treeID),]
+          max_id <- max(ttops_tile[[tree_id]], na.rm=T)
 
-      # Subset desired columns
-      seg_poly_tile <- seg_poly_tile[,c("treeID", "height", "crownArea", "geometry")]
+          ttops_buff[[tree_id]] <- 1:nrow(ttops_buff) + max_id
+        }
 
-    }else{
+        ttops <- rbind(ttops_tile, ttops_buff)
 
-      # Create blank polygons
-      seg_poly_tile <- sf::st_sf(data.frame(treeID = integer(), height = numeric(), crownArea = numeric()), geometry = sf::st_sfc(crs = sf::st_crs(ttops)))
+        # Apply 'marker-controlled watershed segmentation' algorithm
+        seg_poly  <- ForestTools::mcws(ttops, CHM, minHeight = minCrownHgt, format = "polygon", IDfield = tree_id)
+
+        sf::st_geometry(seg_poly) <- "geom"
+
+        # Subset only those segments that have treetops within non-buffered tile boundaries
+        seg_poly_tile <-  seg_poly[match(ttops_tile[[tree_id]], seg_poly[[tree_id]]),]
+
+        # Seg poly attributes
+        seg_poly_tile[["height"]]     <- ttops_tile$height
+        seg_poly_tile[["crown_area"]] <- as.numeric(sf::st_area(seg_poly_tile))
+
+      }
     }
 
-    # Write file
-    sf::st_write(seg_poly_tile, out_path, layer_options = "SHPT=POLYGON", quiet = T, delete_dsn = overwrite & file.exists(out_path))
+    out_vts$append_geom(seg_poly_tile, tile_name = tile_name)
 
-    if(file.exists(out_path)) "Success" else stop("Failed to create output")
+    # Write file
+    return("Success")
   }
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
+  out_vts %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .print_process_status()
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  # Create index
+  out_vts$index()
 
   # Conclude
   .conclusion(process_timer)
@@ -324,8 +330,7 @@ segment_watershed <- function(out_rsds, chm_rsds, ttops_rsds,
 #'
 #' @export
 
-poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
-                          ...){
+poly_to_ras <- function(in_vts, out_rts, res, ...){
 
   .env_misterRS(list(...))
 
@@ -333,34 +338,32 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
 
   ### INPUT CHECKS ----
 
-  .check_complete_input(seg_poly_rsds)
+  .complete_input(in_vts, attribute = "geom")
 
-  .check_extension(seg_ras_rsds, "tif")
+  ts <- .tilescheme()
 
-  ts <- .get_tilescheme()
+  out_paths <- .rts_tile_paths(out_rts)
 
-  # Get output file paths
-  in_paths  <- .rsds_tile_paths(seg_poly_rsds)
-  out_paths <- .rsds_tile_paths(seg_ras_rsds)
+  in_vts$connect()
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
-    in_path  <- in_paths[tile_name]
     out_path <- out_paths[tile_name]
 
     tile <- sf::st_as_sf(ts[tile_name][["buffs"]])
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(
-      a = seg_id,
+      a = in_vts$id_field,
       a_nodata = 0,
       co = c("COMPRESS=LZW"),
       te = terra::ext(tile),
       tr = c(res,res),
       ot = "UInt32",
-      in_path,
+      sql = sprintf("SELECT * FROM %s WHERE tile_name = '%s'", in_vts$geom_layer, tile_name),
+      in_vts$gpkg,
       out_path
     )
 
@@ -369,14 +372,10 @@ poly_to_ras <- function(seg_poly_rsds, seg_ras_rsds, res, seg_id = "polyID",
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_paths)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  out_rts %>%
+    .tile_queue  %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
   # Conclude
   .conclusion(process_timer)

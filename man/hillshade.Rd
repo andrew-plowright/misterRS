@@ -4,7 +4,7 @@
 \alias{hillshade}
 \title{Hillshade}
 \usage{
-hillshade(rsds)
+hillshade(in_rts)
 }
 \description{
 Hillshade

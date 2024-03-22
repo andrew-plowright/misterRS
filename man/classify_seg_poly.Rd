@@ -6,11 +6,10 @@
 \usage{
 classify_seg_poly(
   classifier_file,
-  seg_poly_rsds,
-  seg_class_poly_rsds,
+  seg_vts,
+  iteration,
+  class_table,
   class_edits,
-  metrics,
-  seg_id,
   ...
 )
 }

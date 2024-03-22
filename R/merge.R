@@ -1,8 +1,8 @@
-#' Merge multiple RSDS into a single one according to zones
+#' Merge multiple VTS into a single one according to zones
 #'
 #' @export
 
-merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
+merge_vts <- function(in_vts_list, out_vts, zones_path, zone_field,
                     id_field = NULL, ...){
 
   .env_misterRS(list(...))
@@ -11,79 +11,63 @@ merge_rs <- function(in_rsds, out_rsds, zones_path, zone_field,
 
   ### INPUT CHECKS ----
 
-  for(in_rsds_i in in_rsds){
-    .check_complete_input(in_rsds_i)
-    .check_extension(in_rsds_i,  "shp")
-  }
-  .check_extension(out_rsds,  "shp")
-
-  # Get tiles
-  #ts <- .get_tilescheme()
+  for(in_vts in in_vts_list) .complete_input(in_vts)
 
   # Get file paths
-  out_files  <- .rsds_tile_paths(out_rsds)
-  in_files <- lapply(in_rsds, function(in_rsds_i){.rsds_tile_paths(in_rsds_i)})
 
   # Read zones
   zones <- sf::st_read(zones_path, quiet = TRUE)
 
-  if(!all(setdiff(names(in_rsds), "<none>") %in% unique(zones[[zone_field]]))) stop(
-    "Could match list names of 'in_rsds' to the values in the '", zone_field,
+  if(!all(setdiff(names(in_vts_list), "<none>") %in% unique(zones[[zone_field]]))) stop(
+    "Could match list names of 'in_vts' to the values in the '", zone_field,
     "' attribute of '", basename(zones_path), "'")
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
-    # Output file
-    out_file  <- out_files[tile_name]
-
     # Read in files and merge according to zones
-    in_sps <- lapply(names(in_files), function(zone_name){
+    in_sfs <- lapply(names(in_vts_list), function(zone_name){
 
-      in_file <- in_files[[zone_name]][tile_name]
+      in_vts <- in_vts_list[[zone_name]]
 
-      in_sp <- sf::st_read(in_file, quiet = TRUE)
+      in_sf <- .vts_read(in_vts, tile_name = tile_name)
 
       # Intersect with no zone
       if(zone_name == "<none>"){
 
-        intersec <- sapply(sf::st_intersects(in_sp, zones), function(x) if(length(x) >0) FALSE else TRUE)
+        intersec <- sapply(sf::st_intersects(in_sf, zones), function(x) if(length(x) >0) FALSE else TRUE)
 
       # Intersect with a given zone
       }else{
 
         zone <- zones[zones[[zone_field]] == zone_name, ]
 
-        intersec <- sapply(sf::st_intersects(in_sp, zone), function(x) if(length(x) >0) TRUE else FALSE)
+        intersec <- sapply(sf::st_intersects(in_sf, zone), function(x) if(length(x) >0) TRUE else FALSE)
       }
 
       if(length(intersec) > 0 && any(intersec)){
-        return(in_sp[intersec,])
+        return(in_sf[intersec,])
       }else{
-        in_sp[c(),]
+        return(in_sf[c(),])
       }
     })
-    out_sp <- do.call(dplyr::bind_rows, in_sps)
+    out_sf <- do.call(dplyr::bind_rows, in_sfs)
 
     # Create new field ID
-    if(!is.null(id_field) & nrow(out_sp) > 0){
-      out_sp[[id_field]] <- 1:nrow(out_sp)
+    if(!is.null(id_field) & nrow(out_sf) > 0){
+      out_sf[[id_field]] <- 1:nrow(out_sf)
     }
 
+    .vts_write(out_sf, out_vts = out_vts, tile_name, overwrite=overwrite)
 
-    sf::st_write(out_sp, out_file, quiet=TRUE, delete_dsn = overwrite)
+    return("Success")
 
-    if(file.exists(out_file)){
-      return("Success")
-    }else{
-      stop("Failed to create tile")
-    }
   }
   ### APPLY WORKER ----
 
   # Get tiles for processing
-  queued_tiles <- .tile_queue(out_files)
+  queued_tiles <- .tile_queue(out_vts)
 
   # Process
   process_status <- .exe_tile_worker(queued_tiles, tile_worker)

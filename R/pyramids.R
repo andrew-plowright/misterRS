@@ -2,14 +2,12 @@
 #'
 #' @export
 
-pyramids <- function(rsds, overwrite = FALSE){
-
-  .check_extension(rsds, "tif")
+pyramids <- function(in_rts, overwrite = FALSE){
 
   process_timer <- .headline("BUILD PYRAMIDS")
 
-  # Existing RSDS files
-  existingFiles <- rsds@tilePaths[file.exists(rsds@tilePaths)]
+  # Existing RTS files
+  existingFiles <- in_rts@tilePaths[file.exists(in_rts@tilePaths)]
 
   # Pyramid paths
   OVRfiles <- gsub("\\.tif$", "\\.ovr", existingFiles)
@@ -23,7 +21,7 @@ pyramids <- function(rsds, overwrite = FALSE){
 
   cat(
     "  Overwrite  : ", overwrite, "\n",
-    "  Processing : ", length(procFiles), "/", length(rsds@tilePaths), " tiles", "\n",
+    "  Processing : ", length(procFiles), "/", length(in_rts@tilePaths), " tiles", "\n",
     sep = ""
   )
 

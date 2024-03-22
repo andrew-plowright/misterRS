@@ -5,14 +5,12 @@
 \title{Segment Metrics - Spectral}
 \usage{
 seg_metrics_spec(
-  seg_ras_rsds,
-  seg_poly_rsds,
-  img_rsds,
-  out_rsds,
+  seg_rts,
+  seg_vts,
+  img_rts,
+  attribute_set,
   bands = c(R = 1, G = 2, B = 3),
   zonalFun = c("mean", "sd"),
-  seg_id,
-  prefix = NULL,
   ...
 )
 }

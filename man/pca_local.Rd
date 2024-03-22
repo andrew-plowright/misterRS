@@ -4,7 +4,7 @@
 \alias{pca_local}
 \title{Principal Component Analysis - local}
 \usage{
-pca_local(img_rsds, out_rsds, n_comp = 2, in_bands = c(1, 2, 3), ...)
+pca_local(img_rts, out_rts, n_comp = 2, in_bands = c(1, 2, 3), ...)
 }
 \description{
 This is the first approach I tried: calculate a different PCA for each tile.
