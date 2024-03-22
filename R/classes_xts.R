@@ -1,7 +1,10 @@
+# XTS ----
+
 #' @title Generic tileset
 #' @description Generic tileset.
 #' @export
-xts = R6::R6Class("xts",
+xts = R6::R6Class(
+  "xts",
 
   public = list(
 
@@ -29,10 +32,111 @@ xts = R6::R6Class("xts",
   )
 )
 
+# RTS ----
+
+#' @title Raster tileset
+#' @description Raster tileset.
+#' @export
+rts = R6::R6Class(
+  "rts",
+
+  inherit = xts,
+
+  cloneable = TRUE,
+
+  public = list(
+
+    file_ext = NA_character_,
+
+    initialize = function(id, name, dir, file_ext = "tif") {
+
+      super$initialize(id, name, dir)
+
+      self$file_ext <- file_ext
+
+    },
+
+    #' @description Get folder path for tiles.
+    tile_dir = function(){
+      return(file.path(self$dir, "tiles"))
+    },
+
+    #' @description Get file path for a given tile.
+    #' @param tile_name name of tile
+    tile_path = function(tile_name){
+      return(file.path(self$tile_dir(), paste0(tile_name, ".", self$file_ext)))
+    },
+
+    #' @description Check what tiles are available.
+    #' @param ts tileScheme
+    available_tiles = function(ts = getOption("misterRS.ts")){
+
+      tile_files <- list.files(self$tile_dir(), pattern = paste0("\\.", self$file_ext ,"$"))
+      tiles <- tools::file_path_sans_ext(tile_files)
+
+      return(tiles[tiles %in% ts[["tile_name"]]])
+    },
+
+    #' @description Print.
+    #' @param ts tileScheme.
+    print = function(ts = getOption("misterRS.ts")){
+
+      cat("RASTER TILESET", "\n")
+
+        total_tiles <- length(ts)
+
+        available_tiles <- length(self$available_tiles())
+
+        print_col <- if(available_tiles == total_tiles){ crayon::green }else{ crayon::yellow }
+
+        cat(
+          "ID    : ", self$id ,  "\n",
+          "Name  : ", self$name, "\n",
+          "Dir   : ", self$dir,  "\n",
+          "Tiles : ", print_col(available_tiles), "/", total_tiles, "\n",
+          sep = ""
+        )
+    },
+
+    #' @description Check if has tiles.
+    #' @param tile_names Name of tile(s).
+    #'  @param ts tileScheme.
+    has_tiles = function(tile_names, ts = getOption("misterRS.ts")){
+
+      if(is.null(tile_names) | length(tile_names) == 0){
+
+        return(character())
+
+      }else{
+
+        # Check that all input tile_names are registered
+        if(any(!tile_names %in% ts[["tile_name"]])) stop("One or more 'tile_names' were missing from tile scheme")
+
+        # Check if the tiles exist for this attribute
+        tiles_exist <- setNames(tile_names %in% self$available_tiles(), tile_names)
+
+        return(tiles_exist)
+      }
+    },
+
+    #' @description Is this VTS complete?
+    #' @param tile_names Name of tiles. If set to NULL, all tiles will be selected.
+    complete = function(attribute, tile_names = NULL, ts = getOption("misterRS.ts")){
+
+      if(is.null(tile_names)) tile_names <- ts[["tile_name"]]
+
+      return(all(self$has_tiles(tile_names)))
+    }
+  )
+)
+
+# VTS ----
+
 #' @title Vector tileset
 #' @description Vector tileset.
 #' @export
-vts = R6::R6Class("vts",
+vts = R6::R6Class(
+  "vts",
 
   inherit = xts,
 
