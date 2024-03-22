@@ -18,11 +18,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   .complete_input(seg_rts)
   .complete_input(img_rts)
 
-  # Get file paths
-  seg_ras_paths <- .rts_tile_paths(seg_rts)
-  img_paths     <- .rts_tile_paths(img_rts)
-
-  # Get tilepaths
+  # Get tilescheme
   ts <- .tilescheme()
 
   cat("  Image            :", img_rts@name, "\n")
@@ -57,10 +53,6 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
     # Get tile
     tile <- ts[tile_name]
 
-    # Get output file path
-    img_path      <- img_paths[tile_name]
-    seg_ras_path  <- seg_ras_paths[tile_name]
-
     # Get seg IDs
     seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = seg_id)
 
@@ -68,10 +60,10 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
     if(nrow(seg_data) > 0){
 
       # Read segments
-      seg_ras <- terra::rast(seg_ras_path)
+      seg_ras <- terra::rast(seg_rts$tile_path(tile_name))
 
       # Get image
-      img <- terra::rast(img_path, lyrs = band)
+      img <- terra::rast(img_rts$tile_path(tile_name), lyrs = band)
 
       # Cap min.max va
       img[img < min(discretize_range)] <- min(discretize_range)
@@ -147,11 +139,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   .complete_input(seg_rts)
   .complete_input(img_rts)
 
-  # Get file paths
-  seg_ras_paths <- .rts_tile_paths(seg_rts)
-  ortho_paths   <- .rts_tile_paths(img_rts)
-
-  # Get tilepaths
+  # Get tilescheme
   ts <- .tilescheme()
 
   do_metrics_RGB <- all(c("R", "G", "B") %in% names(bands))
@@ -188,10 +176,6 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
     # Get tile
     tile <- ts[tile_name]
 
-    # Get output file path
-    ortho_path   <- ortho_paths[tile_name]
-    seg_ras_path  <- seg_ras_paths[tile_name]
-
     # Get seg IDs
     seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = c(seg_id))
 
@@ -199,8 +183,8 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
     if(nrow(seg_data) > 0){
 
       # Read ortho and segment raster
-      o <- terra::rast(ortho_path)
-      seg_ras <- terra::rast(seg_ras_path)
+      o <- terra::rast(img_rts$tile_path(tile_name))
+      seg_ras <- terra::rast(seg_rts$tile_path(tile_name))
 
       # Subset bands
       if(max(bands) > terra::nlyr(o)) stop("Ortho has fewer bands than those specified in the 'bands' argument")
@@ -327,10 +311,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
 
   ### PREPARE DATA ----
 
-  # Get file paths
-  seg_ras_paths <- .rts_tile_paths(seg_rts)
-  dem_paths     <- .rts_tile_paths(dem_rts)
-
   # Get tile scheme
   ts <- .tilescheme()
 
@@ -405,10 +385,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
     # Get tile
     tile <- ts[tile_name]
 
-    # Get output file path
-    dem_path     <- dem_paths[tile_name]
-    seg_ras_path  <- seg_ras_paths[tile_name]
-
     # Get seg IDs
     seg_data <- seg_vts$read_tile(tile_name = tile_name, fields = seg_id)
 
@@ -421,13 +397,13 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
       if(!is.null(las_tile)){
 
         # Normalize LAS tile
-        las_tile <- .normalize_las(las_tile, DEM_path = dem_path, z_min, z_max)
+        las_tile <- .normalize_las(las_tile, DEM_path = dem_rts$tile_path(tile_name), z_min, z_max)
       }
 
       if(!is.null(las_tile)){
 
         # Read segment rasters
-        seg_ras <- terra::rast(seg_ras_path)
+        seg_ras <- terra::rast(seg_rts$tile_path(tile_name))
 
         # Get segment subset. Multiply by 1 to force it into a FLOAT format, otherwise it won't work
         seg_ras <- terra::crop(seg_ras, lidR::ext(las_tile))

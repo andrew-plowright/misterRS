@@ -24,9 +24,6 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   # Get projection
   proj <- getOption("misterRS.crs")
 
-  # Get file paths
-  CHM_paths <- .rts_tile_paths(chm_rts)
-
   # Write function
   win_fun_text <- deparse(win_fun)[2]
   win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts$dir), "win_fun.txt")
@@ -47,7 +44,7 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
     tile <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
 
     # Read CHM
-    CHM  <- terra::rast(CHM_paths[tile_name])
+    CHM  <- terra::rast(chm_rts$tile_path(tile_name))
 
     # Get CHM range
     CHM_rng <- terra::minmax(CHM, compute = TRUE)[,1, drop = TRUE]

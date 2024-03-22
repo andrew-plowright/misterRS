@@ -36,8 +36,10 @@ segment_mss <- function(img_rts, out_gpkg,
 
   ### CREATE VRT MOSAIC ----
 
-  tile_paths <- .rts_tile_paths(img_rts)
-  if(!is.null(tile_names)) tile_paths <- tile_paths[tile_names]
+  if(!is.null(tile_names)) tile_names <- img_rts$available_tiles()
+
+  tile_paths <- img_rts$tile_path(tile_names)
+
   mosaic_vrt <- .mosaic_vrt(tile_paths, ts, overlap = "nbuffs")
 
   ### PROCESS ----
@@ -241,9 +243,6 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   ts <- .tilescheme()
   proj <- getOption("misterRS.crs")
 
-  # Get file paths
-  CHM_paths   <- .rts_tile_paths(chm_rts)
-
   out_vts$connect()
   ttops_vts$connect()
 
@@ -260,8 +259,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   tile_worker <-function(tile_name){
 
     # Read in CHM
-    CHM_path <- CHM_paths[tile_name]
-    CHM <- terra::rast(CHM_path)
+    CHM <- terra::rast(chm_rts$tile_path(tile_name))
 
     # Get buffered tile
     buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
@@ -342,15 +340,13 @@ poly_to_ras <- function(in_vts, out_rts, res, ...){
 
   ts <- .tilescheme()
 
-  out_paths <- .rts_tile_paths(out_rts)
-
   in_vts$connect()
 
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
-    out_path <- out_paths[tile_name]
+    out_path <- out_rts$tile_path(tile_name)
 
     tile <- sf::st_as_sf(ts[tile_name][["buffs"]])
 

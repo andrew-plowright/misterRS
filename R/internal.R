@@ -27,11 +27,7 @@
 
   }else if("rts" %in% xts_class){
 
-    tile_paths <- .rts_tile_paths(xts)[selected_tiles]
-
-    incomplete <- !all(file.exists(tile_paths))
-
-    if(incomplete) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
+    if(!xts$complete(selected_tiles)) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
 
   }else stop("Invalid input")
 
