@@ -470,6 +470,11 @@ vts = R6::R6Class(
     #' @param tile_name Name of tile.
     #' @param attribute Name of attribute.
     #' @param overwrite Overwrite this tile.
+    #'
+    #' NOTE: I tried overwriting geometry using this method and it seems to have somehow corrupted the GPKG.
+    #' The st_write function would execute without error, but the geometry would be invalid and wouldn't show up when loaded into QGIS
+    #' This needs to be fixed, but will require additional investimgation
+
     append_geom = function(data, tile_name){
 
       # Check if tile exists
@@ -496,65 +501,90 @@ vts = R6::R6Class(
       if(nrow(data) > 0){
 
         # Get output fields. It may be necessary to order the output data correctly
-        gpkg_fields <-  setdiff(DBI::dbListFields(self$con, self$geom_layer), "fid")
+        gpkg_fields <- setdiff(DBI::dbListFields(self$con, self$geom_layer), "fid")
 
         sf::st_write(data[,gpkg_fields], dsn = self$gpkg, layer = self$geom_layer, append = TRUE, quiet = TRUE)
       }
 
       # Update tile registry
-      self$transact({
-
-        DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", "geom", tile_name))
-      })
+      self$transact({ DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", "geom", tile_name))})
 
       invisible(self)
     },
 
     update_data = function(data, tile_name, attribute, overwrite = FALSE){
 
+      # Check if tile already exists
       tile_exists <-  self$has_tiles(tile_name, attribute)
       if(tile_exists & !overwrite) stop("Tile '", tile_name ,"' exists for VTS '", self$id ,"' attribute '", attribute, "' and overwrite is set to FALSE", call. = FALSE)
 
       if(nrow(data) > 0){
 
-        # Check for unique identifier
-        if(!self$id_field %in% names(data)) stop("Input data does not contain unique identifier '", self$id_field, "'")
-
         # ID field and geometry layer
         id_field <- self$id_field
-        geom_layer <- self$geom_layer
+
+        if(!id_field %in% names(data)) stop("Missing '", id_field, "' field from update data table")
+        if("tile_name" %in% names(data)) stop("Don't include 'tile_name' in update data table")
 
         # Data fields (excluding id field)
         data_fields <- setdiff(names(data), id_field)
 
-        # Add quotes to characters
-        for(i in 1:ncol(data)){
-          if(class(data[[i]]) == "character") data[[i]] <- sQuote(data[[i]], FALSE)
-        }
+        self$transact({
 
-        # SQL
-        sql_data_fields <- paste(c(id_field, data_fields), collapse = ", ")
+          # Write temporary table
+          DBI::dbWriteTable(con = self$con, name = "temp_data", value = data, overwrite = TRUE)
 
-        sql_values <- paste(sapply(1:nrow(data), function(i) paste0("(", paste(data[i,c(id_field, data_fields)], collapse=", "), ")")  ), collapse=", ")
+          # Update data
+          DBI::dbExecute(self$con, sprintf("UPDATE %1$s SET (%4$s) = (SELECT %5$s FROM temp_data WHERE temp_data.%2$s = %1s.%2$s) WHERE tile_name = '%3$s'",
+                                           self$geom_layer, id_field,  tile_name, paste(data_fields, collapse = ", "), paste(paste("temp_data", data_fields, sep = "."), collapse = ", ")))
 
-        sql_field_mapping <- paste(sapply(data_fields, function(field){
-          sprintf("%s = (SELECT %s FROM Tmp WHERE %s.%s = Tmp.%s)", field, field, geom_layer, id_field, id_field)
-        }), collapse = ", ")
+          # Drop temporary table
+          DBI::dbExecute(self$con, "DROP TABLE temp_data")
+        })
 
-        sql_insert <- sprintf(
-          "WITH Tmp(%s) AS (VALUES%s) UPDATE %s SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
-          sql_data_fields, sql_values, geom_layer, sql_field_mapping, id_field, id_field, tile_name
-        )
       }
 
-      if(nrow(data) > 0){
+      # OLD METHOD FOR UPDATING DATA
 
-        # Execute insertion
-        self$transact({ DBI::dbExecute(self$con, sql_insert) })
-      }
+      # if(nrow(data) > 0){
+      #
+      #   # Check for unique identifier
+      #   if(!self$id_field %in% names(data)) stop("Input data does not contain unique identifier '", self$id_field, "'")
+      #
+      #   # ID field and geometry layer
+      #   id_field <- self$id_field
+      #   geom_layer <- self$geom_layer
+      #
+      #   # Data fields (excluding id field)
+      #   data_fields <- setdiff(names(data), id_field)
+      #
+      #   # Add quotes to characters
+      #   for(i in 1:ncol(data)){
+      #     if(class(data[[i]]) == "character") data[[i]] <- sQuote(data[[i]], FALSE)
+      #   }
+      #
+      #   # SQL
+      #   sql_data_fields <- paste(c(id_field, data_fields), collapse = ", ")
+      #
+      #   sql_values <- paste(sapply(1:nrow(data), function(i) paste0("(", paste(data[i,c(id_field, data_fields)], collapse=", "), ")")  ), collapse=", ")
+      #
+      #   sql_field_mapping <- paste(sapply(data_fields, function(field){
+      #     sprintf("%s = (SELECT %s FROM Tmp WHERE %s.%s = Tmp.%s)", field, field, geom_layer, id_field, id_field)
+      #   }), collapse = ", ")
+      #
+      #   sql_insert <- sprintf(
+      #     "WITH Tmp(%s) AS (VALUES%s) UPDATE %s SET %s WHERE %s IN (SELECT %s FROM Tmp) AND tile_name = '%s';",
+      #     sql_data_fields, sql_values, geom_layer, sql_field_mapping, id_field, id_field, tile_name
+      #   )
+      #
+      #   # Execute insertion
+      #   self$transact({ DBI::dbExecute(self$con, sql_insert) })
+      # }
 
       # Update tile registry
       self$transact({ DBI::dbExecute(self$con, sprintf("UPDATE tile_reg SET %s = TRUE where tile_name = '%s'", attribute, tile_name)) })
+
+      invisible(self)
     },
 
 

@@ -1,18 +1,19 @@
 
 if(basename(getwd()) != "testthat") setwd(file.path(getwd(), "tests", "testthat"))
 
+# Test tileset
+test_ts <- TileManager::tileScheme(terra::ext(0, 2, 0, 2), dim = c(1,1), crs = sp::CRS(paste0("epsg:2955")))
+
+# Local environments
+withr::local_options(
+  misterRS.crs        = 2955,
+  misterRS.clusters   = 1,
+  misterRS.verbosity  = FALSE,
+  misterRS.ts = test_ts
+)
+
+
 test_that("Create VTS", {
-
-  # Test tileset
-  test_ts <- TileManager::tileScheme(terra::ext(0, 2, 0, 2), dim = c(1,1), crs = sp::CRS(paste0("epsg:", test_crs)))
-
-  # Local environments
-  withr::local_options(
-    misterRS.crs        = 2955,
-    misterRS.clusters   = 1,
-    misterRS.verbosity  = FALSE,
-    misterRS.ts = test_ts
-  )
 
   # Temporary directory
   vts_dir <- withr::local_tempdir()
@@ -68,14 +69,6 @@ test_that("Create VTS", {
 
 test_that("Append geometry to VTS", {
 
-  # Local environments
-  withr::local_options(
-    misterRS.crs        = 2955,
-    misterRS.clusters   = 1,
-    misterRS.verbosity  = FALSE,
-    misterRS.ts = test_ts
-  )
-
   # Temporary directory
   vts_dir <- withr::local_tempdir()
 
@@ -105,7 +98,6 @@ test_that("Append geometry to VTS", {
       list(poly_geom, poly_geom, poly_geom),
       crs = sf::st_crs(getOption("misterRS.crs"))
     ),
-    tile_name = "R1C1",
     poly_id = 1:3,
     poly_name = LETTERS[1:3]
   )
@@ -144,14 +136,6 @@ test_that("Append geometry to VTS", {
 
 test_that("Update data for VTS", {
 
-  # Local environments
-  withr::local_options(
-    misterRS.crs        = 2955,
-    misterRS.clusters   = 1,
-    misterRS.verbosity  = FALSE,
-    misterRS.ts = test_ts
-  )
-
   # Temporary directory
   vts_dir <- withr::local_tempdir()
 
@@ -177,13 +161,12 @@ test_that("Update data for VTS", {
       list(point_geom, point_geom, point_geom),
       crs = sf::st_crs(getOption("misterRS.crs"))
     ),
-    tile_name = "R1C1",
     poly_id = 1:3
   )
 
   # Append
   my_vts$append_geom(init_geom, "R1C1")
-
+  my_vts$append_geom(init_geom, "R1C2")
 
   # Add attribute
   my_vts$add_attribute("myattr")
@@ -210,6 +193,7 @@ test_that("Update data for VTS", {
   expect_true(all(is.na(tile_data[["myattr_char"]])))
   expect_true(all(is.na(tile_data[["myattr_num"]])))
 
+
   # Updated data
   update_data <- data.frame(
     poly_id = 1:3,
@@ -224,6 +208,11 @@ test_that("Update data for VTS", {
   tile_data <- my_vts$read_tile("R1C1")
   expect_equal(c(10, 20, 30),  tile_data$myattr_num)
   expect_equal(c("a","b","c"), tile_data$myattr_char)
+
+  # Make sure that only the targeted tile was updated
+  untouched_tile_data <- my_vts$read_tile("R1C2")
+  expect_true(all(is.na(untouched_tile_data[["myattr_char"]])))
+  expect_true(all(is.na(untouched_tile_data[["myattr_num"]])))
 
   # Try updating without overwrite
   expect_error(my_vts$update_data(update_data, tile_name = "R1C1", attribute = "myattr"))
@@ -240,5 +229,6 @@ test_that("Update data for VTS", {
   expect_equal(c(50, 60, 40),  tile_data$myattr_num)
   expect_equal(c("a","b","c"), tile_data$myattr_char)
 
+  rm(my_vts)
 })
 
