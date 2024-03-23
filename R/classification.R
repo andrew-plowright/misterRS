@@ -397,7 +397,6 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   # Get tile scheme
   ts <- .tilescheme()
-  tiles_sf <- sf::st_as_sf(ts[["tiles"]])
 
   # Add column
   class_label <- paste0("class_", iteration)
@@ -409,7 +408,7 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Read in class edits
   class_edits <- sf::st_read(class_edits@file_path, quiet = TRUE)
   if(nrow(class_edits) > 0){
-    class_edits_bytile <- setNames(sf::st_intersects(tiles_sf, class_edits), ts[["tile_name"]])
+    class_edits_bytile <- setNames(sf::st_intersects(ts[["tiles"]], class_edits), ts[["tile_name"]])
   }
 
   # Unique id field
@@ -531,9 +530,6 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
 
   seg_vts$disconnect()
 
-  seg_paths <- .rts_tile_paths(seg_rts)
-  out_paths <- .rts_tile_paths(seg_class_rts)
-
   # Unique id field
   seg_id <- seg_vts$id_field
 
@@ -543,9 +539,8 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
   tile_worker <-function(tile_name){
 
     # Get file paths
-
-    seg_path <- seg_paths[tile_name]
-    out_path <- out_paths[tile_name]
+    seg_path <- seg_rts$tile_path(tile_name)
+    out_path <- seg_class_rts$tile_path(tile_name)
 
     # Read polygons (which have classes)
     seg_poly <-  seg_vts$read_tile(tile_name = tile_name, field = c(seg_id, class_label))

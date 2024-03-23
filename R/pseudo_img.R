@@ -25,23 +25,19 @@ pseudo_img <- function(inputs, out_rts, ...){
   # Get tiles
   ts <- .tilescheme()
 
-  # Get file paths
-  out_files  <- .rts_tile_paths(out_rts)
-  in_files <- lapply(inputs, function(input){.rts_tile_paths(input$rts)})
-
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
 
     # Output file
-    out_file  <- out_files[tile_name]
+    out_file  <- out_rts$tile_path(tile_name)
 
     # Create raster stack
     ras_stack <- do.call(c, lapply(1:length(inputs), function(i){
 
       # Read in band
       input <- inputs[[i]]
-      in_file <- in_files[[i]][tile_name]
+      in_file <- input$rts$tile_path(tile_name)
       in_ras <- terra::rast(in_file, lyrs = input$band)
 
       # Remove NA values

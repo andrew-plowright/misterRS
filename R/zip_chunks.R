@@ -6,7 +6,12 @@ zip_chunks <- function(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 
 
   out_dir <- tools::file_path_as_absolute(out_dir)
 
-  in_tile_paths <- .rts_tile_paths(in_rts)
+  .complete_input(in_rts)
+
+  # Get tiles
+  ts <- .tilescheme()
+
+  in_tile_paths <- in_rts$tile_path(ts[["tile_name"]])
 
   cat("ZIP CHUNKS", "\n\n",
       "  Chunk size : ", chunk_size,"\n",
@@ -14,8 +19,6 @@ zip_chunks <- function(in_rts, out_dir, prefix, overlap = "buffs", chunk_size = 
       "\n\n", sep=""
   )
 
-  # Get tiles
-  ts <- .tilescheme()
 
   if(!overlap %in% c("buffs", "nbuffs", "tiles")) stop("Invalid input for 'overlap'")
 

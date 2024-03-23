@@ -19,16 +19,13 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
   # Get tiles
   ts <- .tilescheme()
 
-  # Get file paths
-  out_files   <- .rts_tile_paths(out_rts)
-  ortho_files <- .rts_tile_paths(img_rts)
 
   ### PROCESS ----
 
   tile_worker <-function(tile_name){
 
-    in_file  <- ortho_files[tile_name]
-    out_file <- out_files[tile_name]
+    in_file  <- img_rts$tile_path(tile_name)
+    out_file <- out_rts$tile_path(tile_name)
 
     # NOTE: Don't include the fourth band (the alpha band) or it'll mess things up
     in_ras <- terra::rast(in_file)[[in_bands]]
@@ -51,14 +48,10 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_rts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  out_rts %>%
+    .tile_queue() %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
   # Conclude
   .conclusion(process_timer)
@@ -75,7 +68,7 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
 #'
 #' @export
 
-pca_global <- function(img_rts, out_rts, PCA_model,
+pca_global <- function(img_rts, out_rts, pca_model,
                        n_comp = 2, in_bands = c(1,2,3), ...){
 
   .env_misterRS(list(...))
@@ -89,19 +82,15 @@ pca_global <- function(img_rts, out_rts, PCA_model,
   # Get tiles
   ts <- .tilescheme()
 
-  # Get file paths
-  out_files   <- .rts_tile_paths(out_rts)
-  ortho_files <- .rts_tile_paths(img_rts)
-
   # Read model
-  model <- readRDS(PCA_model)
+  model <- readRDS(pca_model)
 
   ### PROCESS ----
 
   tile_worker <-function(tile_name){
 
-    in_file  <- ortho_files[tile_name]
-    out_file <- out_files[tile_name]
+    in_file  <- img_rts$tile_path(tile_name)
+    out_file <- out_rts$tile_path(tile_name)
 
     in_ras <- terra::rast(in_file, lyrs = in_bands)
     names(in_ras) <- in_bands
@@ -110,7 +99,7 @@ pca_global <- function(img_rts, out_rts, PCA_model,
     out_pca <- terra::predict(in_ras, model, index = 1:n_comp)
 
     # Write output
-    terra::writeRaster(out_pca,   filename = out_file, overwrite = overwrite)
+    terra::writeRaster(out_pca, filename = out_file, overwrite = overwrite)
 
 
     if(file.exists(out_file)){
@@ -122,14 +111,11 @@ pca_global <- function(img_rts, out_rts, PCA_model,
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_rts)
+  out_rts %>%
+    .tile_queue() %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
 
   # Conclude
   .conclusion(process_timer)
@@ -142,22 +128,18 @@ pca_global <- function(img_rts, out_rts, PCA_model,
 #'
 #' @export
 
-pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), removeBlack = T){
+pca_model <- function(img_rts, out_file, n_samples = NULL, in_bands = c(1,2,3), remove_black = TRUE){
 
   process_timer <- .headline("PCA MODEL")
-
-  # Get paths
-  in_paths <- .rts_tile_paths(img_rts)
 
   # Get tiles
   ts <- .tilescheme()
 
-
   # Default number of samples if it's not specified
-  if(is.null(nSamples)) nSamples <- length(ts) * 1100
+  if(is.null(n_samples)) n_samples <- length(ts) * 1100
 
   # Create sample points
-  samples <- sf::st_as_sf(sf::st_sample(ts[["tiles"]], size = nSamples))
+  samples <- sf::st_sample(ts[["tiles"]], size = n_samples)
 
   # Assign each sample its tile
   sample_intersec <- sapply(sf::st_intersects(samples, ts[["tiles"]]), "[[", 1)
@@ -176,12 +158,12 @@ pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), r
   pb <- .progbar(length(unique_tiles))
 
   # Read training data
-  samples_vals <- lapply(unique_tiles, function(tile_name){
+  samples_vals <- do.call(rbind, lapply(unique_tiles, function(tile_name){
 
-    ras_path <- in_paths[tile_name]
+    ras_path <- img_rts$tile_path(tile_name)
 
     # Read ortho tile
-    ras <- terra::rast(ras_path, lyrs = in_bands )
+    ras <- terra::rast(ras_path, lyrs = in_bands)
     names(ras) <- in_bands
 
     # Subset of sample points
@@ -193,8 +175,7 @@ pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), r
     pb$tick()
 
     return(samples_val)
-  })
-  samples_vals <- do.call(rbind,samples_vals)
+  }))
 
   # Remove NAs
   remove_nas <- apply(samples_vals, 1, function(x) any(is.na(x)))
@@ -202,16 +183,16 @@ pca_model <- function(img_rts, out_file, nSamples = NULL, in_bands = c(1,2,3), r
   cat("  Removing NA px    : ", length(remove_nas[remove_nas]), "\n", sep = "")
 
   # Remove black points
-  if(removeBlack){
+  if(remove_black){
 
-    remove_blacks <- !apply(samples_vals, 1, function(x) all(x==0))
-    samples_vals <- samples_vals[remove_blacks,]
-    cat("  Removing black px : ", length(remove_blacks[!remove_blacks]), "\n", sep = "")
+    removed_blacks <- !apply(samples_vals, 1, function(x) all(x==0))
+    samples_vals <- samples_vals[removed_blacks,]
+    cat("  Removing black px : ", length(removed_blacks[!removed_blacks]), "\n", sep = "")
 
   }
 
   cat("  Creating model",  "\n", sep = "")
-  #model <- princomp(samples_vals, scores = FALSE, cor = spca)
+
   model <- prcomp(samples_vals)
 
   # Save classifier

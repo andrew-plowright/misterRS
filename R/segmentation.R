@@ -262,7 +262,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
     CHM <- terra::rast(chm_rts$tile_path(tile_name))
 
     # Get buffered tile
-    buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
+    buff <- ts[tile_name][["buffs"]]
 
     # Empty output
     seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), setNames(list(integer()), tree_id))
@@ -348,7 +348,7 @@ poly_to_ras <- function(in_vts, out_rts, res, ...){
 
     out_path <- out_rts$tile_path(tile_name)
 
-    tile <- sf::st_as_sf(ts[tile_name][["buffs"]])
+    tile <- ts[tile_name][["buffs"]]
 
     # Rasterize asset outline
     gpal2::gdal_rasterize(

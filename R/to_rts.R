@@ -59,10 +59,6 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
   ts <- .tilescheme()
   crs <- getOption('misterRS.crs')
 
-  # Get tile names
-  out_files <- .rts_tile_paths(out_rts)
-
-
   if(in_ext == "tif"){
 
     # Set file paths
@@ -97,8 +93,10 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
 
   tile_worker <-function(tile_name){
 
+    out_path <- out_rts$tile_path(tile_name)
+
     # Get tile
-    tile <- sf::st_as_sf(ts[tile_name,][["buffs"]])
+    tile <- ts[tile_name,][["buffs"]]
 
     # Resample
     gpal2::gdalwarp(
@@ -108,10 +106,10 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
       r         = "bilinear",
       overwrite = overwrite,
       temp_vrt,
-      out_files[tile_name]
+      out_path
     )
 
-    if(!file.exists(out_files[tile_name])) stop("Failed to create output for tile '", tile_name, "'")
+    if(!file.exists(out_path)) stop("Failed to create output for tile '", tile_name, "'")
 
     return("Success")
   }

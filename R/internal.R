@@ -292,28 +292,15 @@
   proc_tiles <- selected_tiles
 
   # If not overwriting, subset only non-existent tiles
-  if(length(proc_tiles) > 0){
+  if(length(proc_tiles) > 0 && !overwrite){
 
-    if("vts" %in% in_class){
+      args <- list(tile_names = proc_tiles)
 
-      if(!overwrite){
+      if("vts" %in% in_class){ args[["attribute"]] <- attribute_set_name }
 
-        has_tiles <- xts$has_tiles(selected_tiles, attribute_set_name)
+      has_tiles <-  do.call(args, xts$has_tiles)
 
-        proc_tiles <- names(has_tiles)[!has_tiles]
-      }
-
-
-    }else if("rts" %in% in_class){
-
-      if(!overwrite){
-
-        tile_paths   <- .rts_tile_paths(xts)
-
-        proc_tiles <- proc_tiles[!file.exists(tile_paths[proc_tiles])]
-      }
-
-    }else stop("Invalid input")
+      proc_tiles <- names(has_tiles)[!has_tiles]
   }
 
   if(verbose){
@@ -433,39 +420,6 @@
   system(command)
 }
 
-
-
-.rts_tile_paths <- function(rts){
-
-  # Get tile scheme
-  ts <- .tilescheme()
-
-  # Get file paths
-  tilePaths <- file.path(rts@dir, "tiles", paste0(ts[["tile_name"]], ".", rts@ext))
-
-  # Get absolute path
-  tilePaths <- suppressMessages(R.utils::getAbsolutePath(tilePaths))
-
-  # Set names
-  tilePaths <- setNames(tilePaths, ts[["tile_name"]])
-
-  return(tilePaths)
-
-}
-
-
-.rts_mosaic_path <- function(rts){
-
-  ext <- if( rts@ext == 'shp') 'gpkg' else rts@ext
-
-  # Get file path
-  mosaic_path <- file.path(rts@dir, paste0(rts@id, ".", ext))
-
-  # Get absolute path
-  mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
-
-  return(mosaic_path)
-}
 
 .normalize_las <- function(inLAS, DEM_path, z_min, z_max){
 

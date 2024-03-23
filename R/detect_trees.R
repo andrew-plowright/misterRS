@@ -41,7 +41,7 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   tile_worker <-function(tile_name){
 
     # Get tile and buff
-    tile <- sf::st_as_sf(ts[tile_name][["nbuffs"]])
+    tile <- ts[tile_name][["nbuffs"]]
 
     # Read CHM
     CHM  <- terra::rast(chm_rts$tile_path(tile_name))
@@ -80,8 +80,6 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   }
 
   ### APPLY WORKER ----
-
-  # Get tiles for processing
   ttops_vts %>%
     .tile_queue("geom") %>%
     .exe_tile_worker(tile_worker, cluster_vts = "ttops_vts") %>%

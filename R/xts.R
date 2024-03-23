@@ -28,7 +28,68 @@ xts = R6::R6Class(
 
       # Create folder
       if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
+    },
+
+    metadata <- function(attribute){
+
+      metadata <- self$metadata_read()
+
+      if(attribute %in% names(metadata)){
+
+        metadata_attribute <- metadata[[attribute]]
+
+      }else{
+
+        metadata_attribute <- self$metadata_calc(attribute)
+
+        metadata[[attribute]] <- metadata_attribute
+
+        self$metadata_save(metadata)
+      }
+
+      return(metadata_attribute)
+    },
+
+    metadata_path <- function(){
+
+      # Get file path
+      metadata_path <- file.path(self$dir, paste0(self$id, "_metadata.json"))
+
+      # Get absolute path
+      metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
+
+      return(metadata_path)
+    },
+
+    metadata_read <- function(){
+
+      metadata_path <- self$metadata_path()
+
+      if(file.exists(metadata_path)){
+        metadata <- jsonlite::read_json(metadata_path)
+      }else{
+        metadata <- list()
+      }
+      return(metadata)
+    },
+
+    metadata_calc <- function(attribute){
+
+      if(attribute %in% names(self)){
+        value <- self[[attribute]]()
+      }else{
+        stop("Unrecognized metadata attribute '", attribute, "'")
+      }
+      return(value)
+    },
+
+    metadata_save <- function(metadata){
+
+      metadata_path <- self$metadata_path()
+
+      jsonlite::write_json(metadata, metadata_path, auto_unbox=T)
     }
+
   )
 )
 
@@ -65,6 +126,18 @@ rts = R6::R6Class(
     #' @param tile_name name of tile
     tile_path = function(tile_name){
       return(file.path(self$tile_dir(), paste0(tile_name, ".", self$file_ext)))
+    },
+
+    mosaic_path = function(){
+
+      # Get file path
+      mosaic_path <- file.path(self$dir, paste0(self$id, ".", self$file_ext))
+
+      # Get absolute path
+      mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
+
+      return(mosaic_path)
+
     },
 
     #' @description Check what tiles are available.
@@ -126,6 +199,31 @@ rts = R6::R6Class(
       if(is.null(tile_names)) tile_names <- ts[["tile_name"]]
 
       return(all(self$has_tiles(tile_names)))
+    },
+
+    range = function(){
+
+      tile_names <- self$available_tiles()
+
+      mm <- lapply(tile_names, function(tile_name){
+        ras <- terra::rast(self$tile_path(tile_name))
+        terra::minmax(ras)
+      })
+
+      nlyrs <- ncol(mm[[1]])
+
+      out_range <- list()
+
+      for(i in 1:nlyrs){
+
+        out_range[[i]] <- list(
+          min = min(sapply(mm, function(m) m["min", i]), na.rm=T),
+          max = max(sapply(mm, function(m) m["max", i]), na.rm=T)
+        )
+      }
+
+      return(out_range)
+
     }
   )
 )

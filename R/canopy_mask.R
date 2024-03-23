@@ -18,10 +18,6 @@ canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
   # Check that inputs are complete
   .complete_input(seg_class_rts, buffered = TRUE)
 
-  # Get file paths
-  seg_class_ras_paths <- .rts_tile_paths(seg_class_rts)
-  out_paths           <- .rts_tile_paths(out_rts)
-
   ts <- .tilescheme()
 
   if(!is.numeric(openings) || openings < 0) stop("Invalid input for 'openings':", openings)
@@ -45,14 +41,14 @@ canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
   tile_worker <-function(tile_name){
 
     # Get paths
-    out_path <- out_paths[tile_name]
+    out_path <- out_rts$tile_path(tile_name)
 
     # Buffered tile
-    buff <- sf::st_as_sf(ts[tile_name][["buffs"]])
+    buff <- ts[tile_name][["buffs"]]
 
     # Get neighbours
     neib_names <- .tile_neibs(tile_name, ts)
-    seg_class_ras_neibs <- lapply(seg_class_ras_paths[neib_names], terra::rast)
+    seg_class_ras_neibs <- lapply(neib_names, function(tile_name) terra::rast(seg_class_rts$tile_path(tile_name)))
     seg_class_ras <- seg_class_ras_neibs %>%
       terra::sprc() %>%
       terra::merge() %>%

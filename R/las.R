@@ -227,7 +227,7 @@ lax <- function(in_cat){
 .read_las_tile <- function(in_cat, tile, select, classes = NULL){
 
   # Tile buffer
-  buff_sf <- sf::st_as_sf(tile[["buffs"]])
+  buff_sf <- tile[["buffs"]]
 
   # LAS catalog geometry
   las_grid <- in_cat$geometry

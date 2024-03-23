@@ -17,11 +17,6 @@ mask_rts <- function(in_rts, out_rts, mask_rts,
   .complete_input(in_rts)
   .complete_input(mask_rts)
 
-  # Get paths
-  in_paths   <- .rts_tile_paths(in_rts)
-  out_paths  <- .rts_tile_paths(out_rts)
-  mask_paths <- .rts_tile_paths(mask_rts)
-
   # Get tile scheme
   ts <- .tilescheme()
 
@@ -30,16 +25,16 @@ mask_rts <- function(in_rts, out_rts, mask_rts,
   # Run process
   tile_worker <-function(tile_name){
 
-    in_path   <- in_paths[tile_name]
-    out_path  <- out_paths[tile_name]
+    in_path   <- in_rts$tile_path(tile_name)
+    out_path  <- out_rts$tile_path(tile_name)
 
     # Read mask file(s)
     if(use_neibs){
 
-      buff <- sf::st_as_sf(ts[ts[["tile_name"]] == tile_name][["buffs"]])
+      buff <- ts[tile_name][["buffs"]]
 
       neib_names <- .tile_neibs(tile_name, ts)
-      mask_neibs <- lapply(mask_paths[neib_names], terra::rast)
+      mask_neibs <- lapply(neib_names, function(tile_name) terra::rast(mask_rts$tile_path(tile_name)))
 
       # Merge and then crop
       mask_ras <- mask_neibs %>%
@@ -49,7 +44,7 @@ mask_rts <- function(in_rts, out_rts, mask_rts,
 
     }else{
 
-      mask_ras <- terra::rast(mask_paths[tile_name])
+      mask_ras <- terra::rast(mask_rts$tile_path(tile_name))
     }
 
     # Read input raster

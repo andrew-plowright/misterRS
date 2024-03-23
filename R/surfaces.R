@@ -3,7 +3,7 @@
 #'
 #' @export
 
-surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
+surface_dem <- function(in_cat, out_rts, las_select = "xyzc", res = 1, ...){
 
   .env_misterRS(list(...))
 
@@ -17,9 +17,6 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
   # # Get CRS
   crs <- getOption("misterRS.crs")
 
-  # Get output file paths
-  out_files <- .rts_tile_paths(out_rts)
-
   ### CREATE WORKER ----
 
   # Run process
@@ -29,16 +26,16 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
     tile <- ts[tile_name,]
 
     # Set output file
-    out_file <- out_files[tile_name]
+    out_file <- out_rts$tile_path(tile_name)
 
     # Read LAS file
-    LAStile <- .read_las_tile(in_cat = in_cat, tile = tile, select = LAS_select)
+    las_tile <- .read_las_tile(in_cat = in_cat, tile = tile, select = las_select)
 
     # Filter duplicates
-    LAStile <- if(!is.null(LAStile)) lidR::filter_duplicates(LAStile)
+    las_tile <- if(!is.null(las_tile)) lidR::filter_duplicates(las_tile)
 
-    # If LAStile is NULL or contains insufficient points, return a NA file
-    DEM <- if(is.null(LAStile) | sum(LAStile$Classification == 2) <= 3){
+    # If las_tile is NULL or contains insufficient points, return a NA file
+    DEM <- if(is.null(las_tile) | sum(las_tile$Classification == 2) <= 3){
 
       terra::rast(terra::ext( tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs), vals = NA)
 
@@ -49,7 +46,7 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
       # I would prefer that the 'res' argument take a template for creating the rasterized terrain, but for mysterious reasons that's not currently working
 
       lidR::rasterize_terrain(
-        LAStile,
+        las_tile,
         res         = res,
         algorithm   = lidR::tin(),
         keep_lowest = FALSE,
@@ -88,7 +85,7 @@ surface_dem <- function(in_cat, out_rts, LAS_select = "xyzc", res = 1, ...){
 
 surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
                      res = 0.25, z_min = 0, z_max = 80,
-                     LAS_select = "xyzcr", LAS_classes = NULL, ...){
+                     las_select = "xyzcr", las_classes = NULL, ...){
 
   .env_misterRS(list(...))
 
@@ -109,8 +106,6 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
   if(is_nDSM) .complete_input(dem_rts)
 
   # Get file paths
-  out_files <- .rts_tile_paths(out_rts)
-  if(is_nDSM) DEM_paths <- .rts_tile_paths(dem_rts)
 
   ### CYCLE THROUGH TILES ----
 
@@ -120,22 +115,21 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
     tile <- ts[tile_name,]
 
     # File paths
-    out_file <- out_files[tile_name]
+    out_file <- out_rts$tile_path(tile_name)
 
     # Out raster layout
     out_template <- terra::rast(terra::ext(tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs))
 
     # Read LAS tile
-    LAStile <- .read_las_tile(in_cat = in_cat, tile = tile, select = LAS_select, classes = LAS_classes)
+    las_tile <- .read_las_tile(in_cat = in_cat, tile = tile, select = las_select, classes = las_classes)
 
     # Normalize LAS tile
-    if(is_nDSM & !is.null(LAStile)){
+    if(is_nDSM & !is.null(las_tile)){
 
-      DEM_path <- DEM_paths[tile_name]
-      LAStile %<>% .normalize_las(DEM_path = DEM_path, z_min, z_max)
+      las_tile %<>% .normalize_las(dem_path = dem_rts$tile_path(tile_name), z_min, z_max)
     }
 
-    if(is.null(LAStile)){
+    if(is.null(las_tile)){
 
       # Blank nDSM
       blank_value <- if(is_nDSM) 0 else NA
@@ -144,7 +138,7 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
     }else{
 
       # Generate surface
-      out_DSM <- lidR::rasterize_canopy(LAStile, res = out_template, algorithm = alg)
+      out_DSM <- lidR::rasterize_canopy(las_tile, res = out_template, algorithm = alg)
 
       if(is.null(out_DSM)) stop("Failed to create DSM file")
 
@@ -189,7 +183,7 @@ hillshade <- function(in_rts){
 
   process_timer <- .headline("HILLSHADE")
 
-  in_file <- .rts_mosaic_path(in_rts)
+  in_file <- in_rts$mosaic_path()
 
   if(!file.exists(in_file)) stop("No mosaic file found")
 

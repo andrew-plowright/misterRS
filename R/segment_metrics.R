@@ -26,7 +26,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   ### GET RANGE ----
 
   if(is.null(discretize_range)){
-    discretize_range <- unlist(.metadata(img_rts, "range")[[band]])
+    discretize_range <- unlist(img_rts$metadata("range")[[band]])
   }
 
   ### METRIC FIELDS ----
@@ -453,14 +453,10 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(seg_vts, attribute_set)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
-
-  # Report
-  .print_process_status(process_status)
+  seg_vts %>%
+    .tile_queue(attribute_set) %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .print_process_status()
 
   # Conclude
   .conclusion(process_timer)
