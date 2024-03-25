@@ -102,7 +102,7 @@ canopy_mask <- function(seg_class_rts, out_rts, canopy_classes,
     canopy_ras[canopy_ras == 0] <- NA
 
     # Save output
-    terra::writeRaster( canopy_ras, out_path, overwrite = overwrite, datatype = "INT1U")
+    terra::writeRaster( canopy_ras, out_path, overwrite = TRUE, datatype = "INT1U")
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

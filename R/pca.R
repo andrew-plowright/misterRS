@@ -37,7 +37,7 @@ pca_local <- function(img_rts, out_rts, n_comp = 2, in_bands = c(1,2,3),  ...){
     pca_ras <- terra::predict(in_ras, pca, index = 1:n_comp)
 
     # Write PCA
-    terra::writeRaster(pca_ras, out_file, overwrite = overwrite)
+    terra::writeRaster(pca_ras, out_file, overwrite = TRUE)
 
     if(file.exists(out_file)){
       return("Success")
@@ -99,14 +99,9 @@ pca_global <- function(img_rts, out_rts, pca_model,
     out_pca <- terra::predict(in_ras, model, index = 1:n_comp)
 
     # Write output
-    terra::writeRaster(out_pca, filename = out_file, overwrite = overwrite)
+    terra::writeRaster(out_pca, filename = out_file, overwrite = TRUE)
 
-
-    if(file.exists(out_file)){
-      return("Success")
-    }else{
-      stop("Failed to create tile")
-    }
+    if(file.exists(out_file)) "Success" else stop("Failed to create tile")
   }
 
   ### APPLY WORKER ----
@@ -143,7 +138,7 @@ pca_model <- function(img_rts, out_file, n_samples = NULL, in_bands = c(1,2,3), 
 
   # Assign each sample its tile
   sample_intersec <- sapply(sf::st_intersects(samples, ts[["tiles"]]), "[[", 1)
-  samples[["tile_name"]] <- ts[sample_intersec][["tile_name"]]
+  samples <- sf::st_sf(samples, tile_name = ts[["tile_name"]][sample_intersec])
 
   # Get unique tiles
   unique_tiles <- unique(samples[["tile_name"]])
@@ -188,11 +183,9 @@ pca_model <- function(img_rts, out_file, n_samples = NULL, in_bands = c(1,2,3), 
     removed_blacks <- !apply(samples_vals, 1, function(x) all(x==0))
     samples_vals <- samples_vals[removed_blacks,]
     cat("  Removing black px : ", length(removed_blacks[!removed_blacks]), "\n", sep = "")
-
   }
 
-  cat("  Creating model",  "\n", sep = "")
-
+  # Create model
   model <- prcomp(samples_vals)
 
   # Save classifier

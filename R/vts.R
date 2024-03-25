@@ -45,7 +45,7 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
   process_timer <- .headline("VTS ROW COUNT")
 
   cat(
-    "  VTS  : ", in_vts@name, "\n",
+    "  VTS  : ", in_vts$name, "\n",
     "  File : ", out_file, "\n",
     sep = "")
 
@@ -55,8 +55,7 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
 
   tiles <- .tilescheme()[["tiles"]]
 
-  con <- DBI::dbConnect(RSQLite::SQLite(), dbname = in_vts@gpkg)
-
+  con <- in_vts$temp_con()
   withr::defer(  DBI::dbDisconnect(con))
 
   tiles[["seg_count"]] <- sapply(tiles[["tile_name"]], function(tile_name){

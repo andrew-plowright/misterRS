@@ -12,8 +12,8 @@ surface_dsm(
   res = 0.25,
   z_min = 0,
   z_max = 80,
-  LAS_select = "xyzcr",
-  LAS_classes = NULL,
+  las_select = "xyzcr",
+  las_classes = NULL,
   ...
 )
 }

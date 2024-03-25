@@ -23,11 +23,11 @@
 
     if(is.null(attribute)) stop("Define an attribute for VTS")
 
-    if(!xts$complete(attribute, selected_tiles)) stop("Input VTS '", xts$name, "' is incomplete", call. = FALSE)
+    if(!xts$complete(attribute, tile_names = selected_tiles)) stop("Input VTS '", xts$name, "' is incomplete", call. = FALSE)
 
   }else if("rts" %in% xts_class){
 
-    if(!xts$complete(selected_tiles)) stop("Input RTS '", xts@name, "' is incomplete", call. = FALSE)
+    if(!xts$complete(tile_names = selected_tiles)) stop("Input RTS '", xts$name, "' is incomplete", call. = FALSE)
 
   }else stop("Invalid input")
 
@@ -78,7 +78,7 @@
 .exe_tile_worker <-function(tile_names, worker, cluster_vts = NULL, clusters = getOption("misterRS.clusters")){
 
   # ASsign the "overwite" value to the parent frame, which in turn gets passed to the worker functions
-  assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
+  # assign("overwrite", getOption("misterRS.overwrite"), env = parent.frame())
 
   if(length(tile_names) == 0){
 
@@ -185,15 +185,15 @@
   Sys.time()
 }
 
-.is_las_rgb <- function(inLAS){
+.is_las_rgb <- function(in_las){
 
   # Are there R, G, B fields?
-  has_rgb <- !is.null(inLAS$R) & !is.null(inLAS$G) & !is.null(inLAS$B)
+  has_rgb <- !is.null(in_las$R) & !is.null(in_las$G) & !is.null(in_las$B)
 
   if(has_rgb){
 
     # Do they contain only 0s? (Only check R to save time)
-    return(lidR:::fast_countover(inLAS$R, 0L) > 0)
+    return(lidR:::fast_countover(in_las$R, 0L) > 0)
 
   }else{
     return(FALSE)
@@ -298,7 +298,7 @@
 
       if("vts" %in% in_class){ args[["attribute"]] <- attribute_set_name }
 
-      has_tiles <-  do.call(args, xts$has_tiles)
+      has_tiles <-  do.call(xts$has_tiles, args)
 
       proc_tiles <- names(has_tiles)[!has_tiles]
   }
@@ -421,27 +421,27 @@
 }
 
 
-.normalize_las <- function(inLAS, DEM_path, z_min, z_max){
+.normalize_las <- function(in_las, dem_path, z_min, z_max){
 
-  if(!file.exists(DEM_path)) stop("Could not find DEM file '", DEM_path, "'")
+  if(!file.exists(dem_path)) stop("Could not find DEM file '", dem_path, "'")
 
   # Read segments and DEM
-  DEM <- terra::rast(DEM_path)
+  dem <- terra::rast(dem_path)
 
   # Remove points that aren't on DEM
 
-  DEM_mask <- !is.na(DEM)
-  inLAS <- lidR::merge_spatial(inLAS, DEM_mask,attribute = "onDEM")
-  inLAS <- lidR::filter_poi(inLAS, onDEM == TRUE)
+  dem_mask <- !is.na(dem)
+  in_las <- lidR::merge_spatial(in_las, dem_mask,attribute = "onDEM")
+  in_las <- lidR::filter_poi(in_las, onDEM == TRUE)
 
   # No LAS points over DEM file
-  if(lidR::is.empty(inLAS)) return(NULL)
+  if(lidR::is.empty(in_las)) return(NULL)
 
   # Normalize
-  inLAS <- lidR::normalize_height(inLAS, DEM)
+  in_las <- lidR::normalize_height(in_las, dem)
 
   # Filter LAS by height
-  outLAS <- lidR::filter_poi(inLAS, Z <= z_max & Z > z_min)
+  outLAS <- lidR::filter_poi(in_las, Z <= z_max & Z > z_min)
 
   # No LAS points within min/max Z bounds over DEM file
   if(lidR::is.empty(outLAS)) return(NULL)

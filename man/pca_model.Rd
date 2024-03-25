@@ -7,9 +7,9 @@
 pca_model(
   img_rts,
   out_file,
-  nSamples = NULL,
+  n_samples = NULL,
   in_bands = c(1, 2, 3),
-  removeBlack = T
+  remove_black = TRUE
 )
 }
 \description{

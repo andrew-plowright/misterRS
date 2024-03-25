@@ -174,10 +174,13 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
 
     # Assign training data to polygons
     for(i in 1:nrow(training_polys)){
-      seg_data[[i]][["type"]] <- 2
-      seg_data[[i]][["training_set"]] <- training_polys[["training_set"]][i]
-      seg_data[[i]][["training_fid"]] <- training_polys[["fid"]][i]
-      seg_data[[i]][["seg_class"]]    <- training_polys[["seg_class"]][i]
+      if(nrow(seg_data[[i]]) > 0){
+        seg_data[[i]][["type"]] <- 2
+        seg_data[[i]][["training_set"]] <- training_polys[["training_set"]][i]
+        seg_data[[i]][["training_fid"]] <- training_polys[["fid"]][i]
+        seg_data[[i]][["seg_class"]]    <- training_polys[["seg_class"]][i]
+      }
+
     }
 
     seg_data <- do.call(rbind, seg_data)
@@ -555,7 +558,7 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
     seg_class_ras <- terra::setValues(seg_ras, classified_ras_vals)
 
     # Save output
-    terra::writeRaster(seg_class_ras, out_path, overwrite = overwrite, datatype = "INT1U")
+    terra::writeRaster(seg_class_ras, out_path, overwrite = TRUE, datatype = "INT1U")
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

@@ -50,13 +50,10 @@ pseudo_img <- function(inputs, out_rts, ...){
     }))
 
     # Write output
-    terra::writeRaster(ras_stack, filename = out_file, datatype = "INT1U", overwrite = overwrite)
+    terra::writeRaster(ras_stack, filename = out_file, datatype = "INT1U", overwrite = TRUE)
 
-    if(file.exists(out_file)){
-      return("Success")
-    }else{
-      stop("Failed to create tile")
-    }
+    if(file.exists(out_file)) "Success" else stop("Failed to create tile")
+
   }
 
   ### APPLY WORKER ----

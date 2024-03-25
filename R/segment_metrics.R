@@ -21,7 +21,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get tilescheme
   ts <- .tilescheme()
 
-  cat("  Image            :", img_rts@name, "\n")
+  cat("  Image            :", img_rts$name, "\n")
 
   ### GET RANGE ----
 
@@ -397,7 +397,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
       if(!is.null(las_tile)){
 
         # Normalize LAS tile
-        las_tile <- .normalize_las(las_tile, DEM_path = dem_rts$tile_path(tile_name), z_min, z_max)
+        las_tile <- .normalize_las(las_tile, dem_path = dem_rts$tile_path(tile_name), z_min, z_max)
       }
 
       if(!is.null(las_tile)){

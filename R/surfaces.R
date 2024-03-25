@@ -23,7 +23,7 @@ surface_dem <- function(in_cat, out_rts, las_select = "xyzc", res = 1, ...){
   tile_worker <-function(tile_name){
 
     # Get tile
-    tile <- ts[tile_name,]
+    tile <- ts[tile_name]
 
     # Set output file
     out_file <- out_rts$tile_path(tile_name)
@@ -35,11 +35,11 @@ surface_dem <- function(in_cat, out_rts, las_select = "xyzc", res = 1, ...){
     las_tile <- if(!is.null(las_tile)) lidR::filter_duplicates(las_tile)
 
     # If las_tile is NULL or contains insufficient points, return a NA file
-    DEM <- if(is.null(las_tile) | sum(las_tile$Classification == 2) <= 3){
+    dem <- if(is.null(las_tile) | sum(las_tile$Classification == 2) <= 3){
 
-      terra::rast(terra::ext( tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs), vals = NA)
+      terra::rast(terra::ext( tile[["buffs"]]), res = res, crs = paste("epsg:", crs), vals = NA)
 
-      # Otherwise, triangulate DEM
+    # Otherwise, triangulate DEM
     }else{
 
       # NOTE:
@@ -55,7 +55,7 @@ surface_dem <- function(in_cat, out_rts, las_select = "xyzc", res = 1, ...){
     }
 
     # Save
-    terra::writeRaster(DEM, out_file, overwrite = TRUE)
+    terra::writeRaster(dem, out_file, overwrite = TRUE)
 
     if(file.exists(out_file)) "Success" else "FAILED"
   }
@@ -112,13 +112,13 @@ surface_dsm <- function(in_cat, dem_rts = NULL, out_rts, alg,
   tile_worker <-function(tile_name){
 
     # Get tile
-    tile <- ts[tile_name,]
+    tile <- ts[tile_name]
 
     # File paths
     out_file <- out_rts$tile_path(tile_name)
 
     # Out raster layout
-    out_template <- terra::rast(terra::ext(tile[["buffs"]]@bbox[c(1,3,2,4)]), res = res, crs = paste("epsg:", crs))
+    out_template <- terra::rast(terra::ext(tile[["buffs"]]), res = res, crs = paste("epsg:", crs))
 
     # Read LAS tile
     las_tile <- .read_las_tile(in_cat = in_cat, tile = tile, select = las_select, classes = las_classes)

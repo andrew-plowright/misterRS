@@ -36,7 +36,7 @@ segment_mss <- function(img_rts, out_gpkg,
 
   ### CREATE VRT MOSAIC ----
 
-  if(!is.null(tile_names)) tile_names <- img_rts$available_tiles()
+  if(is.null(tile_names)) tile_names <- img_rts$available_tiles()
 
   tile_paths <- img_rts$tile_path(tile_names)
 
@@ -116,7 +116,7 @@ segment_mss <- function(img_rts, out_gpkg,
 #'
 #' @export
 
-tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
+tile_poly <- function(in_gpkg, out_vts,  ...){
 
   .env_misterRS(list(...))
 
@@ -136,10 +136,11 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
   # Run process
   tile_worker <-function(tile_name){
 
-    tile <- ts[ts[["tile_name"]] == tile_name]
+    #tile <- ts[tile_name][["tiles"]]
+    nbuff <- ts[tile_name][["nbuffs"]]
 
     # Get bounding box
-    bbox <- sf::st_bbox(tile)
+    bbox <- sf::st_bbox(nbuff)
 
     # Get statement for selecting polygons that intersect with tile
     sel = paste0("SELECT * FROM ", lyr_name ,
@@ -154,7 +155,7 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
     polys <- sf::st_read(in_gpkg, query = sel, quiet = TRUE)
 
     # Force crs
-    suppressWarnings(sf::st_crs(polys) <- sf::st_crs(crs))
+    sf::st_crs(polys) <- sf::st_crs(crs)
 
     if(nrow(polys) > 0){
 
@@ -167,7 +168,7 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
       if(any(crossborder)){
 
         # Break up polygons that straddle tile borders
-        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], tile[["nbuff"]]))
+        brokeup <- suppressWarnings(sf::st_intersection(polys[crossborder,], nbuff))
 
         # Get rid of slivers
         brokeup <- brokeup[sf::st_geometry_type(brokeup) %in% c('POLYGON', 'MULTIPOLYGON', 'GEOMETRYCOLLECTION'),]
@@ -188,31 +189,31 @@ tile_poly <- function(in_gpkg, out_vts, seg_id = "polyID", ...){
       cent <- suppressWarnings(sf::st_centroid(polys))
 
       # Subset segments with centroid within tile
-      intrs <- sapply(sf::st_intersects(cent, tile[["nbuff"]]), "[", 1)
+      intrs <- sapply(sf::st_intersects(cent, nbuff), "[", 1)
       polys <- polys[!is.na(intrs),]
 
       # Assign numbers
-      polys[[seg_id]] <- 1:nrow(polys)
+      polys[[out_vts$id_field]] <- 1:nrow(polys)
 
       # Drop unwanted fields
-      polys <- polys[,seg_id]
+      polys <- polys[,out_vts$id_field]
     }
 
     # Write file
-    out_vts$append_geom(det_ttops, tile_name)
+    out_vts$append_geom(polys, tile_name)
 
     return("Success")
   }
 
   ### APPLY WORKER ----
 
-  ttops %>%
+  out_vts %>%
     .tile_queue("geom") %>%
     .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
     .print_process_status()
 
   # Create index
-  .vts_create_index(out_vts)
+  out_vts$index()
 
   # Conclude
   .conclusion(process_timer)
@@ -249,6 +250,9 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   # Add fields
   out_vts$add_field("height",     "REAL")
   out_vts$add_field("crown_area", "REAL")
+
+  out_vts$disconnect()
+  ttops_vts$disconnect()
 
   # Get ID field
   tree_id <- ttops_vts$id_field

@@ -8,7 +8,7 @@ mosaic_rts(
   in_rts,
   overlap = "nbuffs",
   shp_clip = FALSE,
-  outFile = NULL,
+  out_file = NULL,
   resample = "average",
   ...
 )

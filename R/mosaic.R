@@ -8,6 +8,14 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, out_file = 
 
   process_timer <- .headline("MOSAIC")
 
+  # Check input
+  .complete_input(in_rts)
+
+  # Options
+  overwrite  <- getOption("misterRS.overwrite")
+  tile_names <- getOption("misterRS.tile_names")
+  crs        <- getOption("misterRS.crs")
+
   # Get tiles
   ts <- .tilescheme()
 
@@ -20,14 +28,8 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, out_file = 
     if(overwrite) unlink(out_file) else stop("Output file already exists")
   }
 
-  # # Get CRS
-  crs <- getOption("misterRS.crs")
-
-  # Check input
-  .complete_input(in_rts)
-
   # Get input paths
-  if(!is.null(tile_names)) tile_names <- ts[["tile_name"]]
+  if(is.null(tile_names)) tile_names <- ts[["tile_name"]]
   in_paths <- in_rts$tile_path(tile_names)
 
   # Generate VRT mosaic
@@ -56,7 +58,7 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, out_file = 
 }
 
 
-.mosaic_vrt <- function(tilePaths, ts, overlap){
+.mosaic_vrt <- function(tile_paths, ts, overlap){
 
   overlap_types <- c("buffs", "tiles", "nbuffs")
   if(!overlap %in% overlap_types) stop("'overlap' argument should be: ", paste(overlap_types, collapse = ", "))
@@ -71,17 +73,17 @@ mosaic_rts <- function(in_rts, overlap = "nbuffs", shp_clip = FALSE, out_file = 
   temp_vrt   <- file.path(temp_dir, "mosaic.vrt")
 
   # Create list of temporary VRT tiles
-  temp_tiles <- setNames(file.path(temp_dir, paste0(names(tilePaths), ".vrt")), names(tilePaths))
+  temp_tiles <- setNames(file.path(temp_dir, paste0(names(tile_paths), ".vrt")), names(tile_paths))
 
   # Create VRT tiles with non-overlapping buffer
-  for(tile_name in names(tilePaths)){
+  for(tile_name in names(tile_paths)){
 
     tile <- ts[tile_name][[overlap]]
 
     gpal2::gdalbuildvrt(
       te = terra::ext(tile),
       temp_tiles[tile_name],
-      tilePaths[tile_name]
+      tile_paths[tile_name]
     )
   }
 

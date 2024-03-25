@@ -30,7 +30,7 @@ xts = R6::R6Class(
       if(!dir.exists(dir)) dir.create(dir, recursive = TRUE)
     },
 
-    metadata <- function(attribute){
+    metadata = function(attribute){
 
       metadata <- self$metadata_read()
 
@@ -50,18 +50,18 @@ xts = R6::R6Class(
       return(metadata_attribute)
     },
 
-    metadata_path <- function(){
+    metadata_path = function(){
 
       # Get file path
       metadata_path <- file.path(self$dir, paste0(self$id, "_metadata.json"))
 
       # Get absolute path
-      metadata_path <- suppressMessages(R.utils::getAbsolutePath(metadata_path))
+      metadata_path <- R.utils::getAbsolutePath(metadata_path)
 
       return(metadata_path)
     },
 
-    metadata_read <- function(){
+    metadata_read = function(){
 
       metadata_path <- self$metadata_path()
 
@@ -73,7 +73,7 @@ xts = R6::R6Class(
       return(metadata)
     },
 
-    metadata_calc <- function(attribute){
+    metadata_calc = function(attribute){
 
       if(attribute %in% names(self)){
         value <- self[[attribute]]()
@@ -83,7 +83,7 @@ xts = R6::R6Class(
       return(value)
     },
 
-    metadata_save <- function(metadata){
+    metadata_save = function(metadata){
 
       metadata_path <- self$metadata_path()
 
@@ -115,6 +115,10 @@ rts = R6::R6Class(
 
       self$file_ext <- file_ext
 
+      # Create tile directory
+      tiles_dir <- self$tile_dir()
+      if(!dir.exists(tiles_dir)) dir.create(tiles_dir)
+
     },
 
     #' @description Get folder path for tiles.
@@ -125,7 +129,8 @@ rts = R6::R6Class(
     #' @description Get file path for a given tile.
     #' @param tile_name name of tile
     tile_path = function(tile_name){
-      return(file.path(self$tile_dir(), paste0(tile_name, ".", self$file_ext)))
+
+      return(setNames(R.utils::getAbsolutePath(file.path(self$tile_dir(), paste0(tile_name, ".", self$file_ext))), tile_name))
     },
 
     mosaic_path = function(){
@@ -134,7 +139,7 @@ rts = R6::R6Class(
       mosaic_path <- file.path(self$dir, paste0(self$id, ".", self$file_ext))
 
       # Get absolute path
-      mosaic_path <- suppressMessages(R.utils::getAbsolutePath(mosaic_path))
+      mosaic_path <- R.utils::getAbsolutePath(mosaic_path)
 
       return(mosaic_path)
 

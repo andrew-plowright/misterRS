@@ -55,7 +55,7 @@ mask_rts <- function(in_rts, out_rts, mask_rts,
     if(mask_na) in_ras[is.na(mask_ras)] <- NA
 
     # Save output
-    terra::writeRaster(in_ras, out_path, overwrite = overwrite)
+    terra::writeRaster(in_ras, out_path, overwrite = TRUE)
 
     if(file.exists(out_path)) "Success" else stop("Failed to create output")
 

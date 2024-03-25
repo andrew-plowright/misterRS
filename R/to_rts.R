@@ -50,7 +50,7 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
     "  Input extension  : ", in_ext, "\n",
     "  Bands            : ", paste(bands, collapse=", "), "\n",
     "  Resolution       : ", res, "\n",
-    "  Destination RTS  : ", out_rts@name, "\n",
+    "  Destination RTS  : ", out_rts$name, "\n\n",
     sep = ""
   )
 

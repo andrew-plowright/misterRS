@@ -22,7 +22,7 @@ ras_diff <- function(A_rts, B_rts, out_rts, ...){
 
     C <- A - B
 
-    terra::writeRaster(C, out_rts$tile_path(tile_name), overwrite = overwrite)
+    terra::writeRaster(C, out_rts$tile_path(tile_name), overwrite = TRUE)
 
     if(file.exists(out_files[tile_name])){
       return("Success")
