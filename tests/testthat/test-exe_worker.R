@@ -1,9 +1,6 @@
 
 if(basename(getwd()) != "testthat") setwd(file.path(getwd(), "tests", "testthat"))
 
-
-
-
 test_that("Run .exe_tile_worker in parallel and serial", {
 
   # Test CRS

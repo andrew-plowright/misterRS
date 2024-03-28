@@ -189,16 +189,16 @@ test_that("Update data for VTS", {
   # Current data
   tile_data <- my_vts$read_tile("R1C1")
 
-  # No data yer
+  # No data yet
   expect_true(all(is.na(tile_data[["myattr_char"]])))
   expect_true(all(is.na(tile_data[["myattr_num"]])))
 
 
   # Updated data
   update_data <- data.frame(
-    poly_id = 1:3,
+    poly_id     = 1:3,
     myattr_char = letters[1:3],
-    myattr_num = 1:3 * 10
+    myattr_num  = 1:3 * 10
   )
 
   # Execute update
@@ -217,7 +217,7 @@ test_that("Update data for VTS", {
   # Try updating without overwrite
   expect_error(my_vts$update_data(update_data, tile_name = "R1C1", attribute = "myattr"))
 
-  # Mixed data
+  # Mix up order of rows
   mixed_data <- update_data[c(3,1,2), c("poly_id", "myattr_num")]
   mixed_data[["myattr_num"]] <- 4:6 * 10
 
