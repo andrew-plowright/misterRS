@@ -142,6 +142,8 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get tilescheme
   ts <- .tilescheme()
 
+  if(is.null(names(bands))) stop("Must provide named bands. ex.:: bands = c(R=1, G=2, B=3)")
+
   do_metrics_RGB <- all(c("R", "G", "B") %in% names(bands))
   do_metrics_IR  <- all(c("IR", "R")     %in% names(bands))
 

@@ -104,7 +104,7 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
       te        = terra::ext(tile),
       tr        = c(res, res),
       r         = "bilinear",
-      overwrite = overwrite,
+      overwrite = TRUE,
       temp_vrt,
       out_path
     )

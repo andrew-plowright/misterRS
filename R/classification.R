@@ -142,22 +142,8 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
     seg_data[["training_fid"]] <- training_pts[["fid"]]
     seg_data[["seg_class"]]    <- training_pts[["seg_class"]]
 
-    # Remove NAs
+    # Remove NAs (i.e.: points that intersect with nothing)
     seg_data <- seg_data[!is.na(seg_data[["fid"]]),]
-
-    # Remove duplicated
-    seg_data <- seg_data[!duplicated(seg_data[["fid"]]),]
-
-    # Remove
-
-    # Get training polygons with no data
-    empty_fids <- training_pts[["fid"]][!training_pts[["fid"]] %in% seg_data[["training_fid"]]]
-    if(length(empty_fids) > 0){
-      cat(crayon::yellow(
-        "  Following *POINT* FIDs contained no data and should be deleted:\n",
-        "  Selection query: \"fid\" in (", paste(empty_fids, collapse = ", ") ,")\n"
-      , sep=""))
-    }
 
     return(seg_data)
 
@@ -185,21 +171,28 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
 
     seg_data <- do.call(rbind, seg_data)
 
-    # Remove duplicates
-    seg_data <- seg_data[!duplicated(seg_data[['fid']]),]
-
-    # Get training polygons with no data
-    empty_fids <- training_polys[["fid"]][!training_polys[["fid"]] %in% seg_data[["training_fid"]]]
-    if(length(empty_fids) > 0){
-      cat(crayon::yellow(
-        "  Following *POLYGON* FIDs contained no data and should be deleted:\n",
-        "  Selection query: \"fid\" in (", paste(empty_fids, collapse = ", ") ,")\n"
-        , sep=""))
-    }
-
     return(seg_data)
 
   }else NULL
+}
+
+.print_fids_to_delete <- function(training_fids, extract_data, training_type){
+
+  if(training_type == "POLYGON"){
+    training_type_code <- 2
+  }else if(training_type == "POINT"){
+    training_type_code <- 1
+  }else stop("Unrecognized training type")
+
+  empty_fids <- training_fids[!training_fids %in% subset(extract_data, type == training_type_code, "training_fid", drop = TRUE)]
+
+  if(length(empty_fids) > 0){
+
+    cat(crayon::yellow(
+      "  Following *", training_type,"* FIDs contained no data or overlap over existing segments and should be deleted:\n",
+      "  Selection query: \"fid\" in (", paste(empty_fids, collapse = ", ") ,")\n"
+      , sep=""))
+  }
 }
 
 #' Extract Training data
@@ -253,22 +246,34 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
 
     # Select attributes
     attribute_names_all <- seg_vts$fields()
-    attribute_fields <- unname(unlist(sapply(attribute_set, function(attribute_prefix)  attribute_names_all[startsWith(attribute_names_all, attribute_prefix)])))
+    attribute_fields <- unname(unlist(sapply(paste0(attribute_set, "_"), function(attribute_prefix)  attribute_names_all[startsWith(attribute_names_all, attribute_prefix)])))
 
-    # Extract
+    # Extract data
     extract_data <- rbind(
       .sql_extract_poly( seg_vts, training_polys, attribute_fields),
       .sql_extract_point(seg_vts, training_pts,   attribute_fields)
     )
 
+    # Remove duplicated segments
+    extract_data <- extract_data[!duplicated(extract_data[["fid"]]),]
+
+    # Remove segments that were already in the training dataset
+    existing_fids <- DBI::dbGetQuery(train_con, "SELECT fid FROM data")[,'fid']
+    extract_data <- extract_data[!extract_data[["fid"]] %in% existing_fids,]
+
+    # Print message indicating which training geometry to delete
+    .print_fids_to_delete(training_polys[["fid"]], extract_data, "POLYGON")
+    .print_fids_to_delete(training_pts[["fid"]],   extract_data, "POINT")
+
     if(any(is.na(extract_data))) stop("Extracted training data contained NA values")
 
     # Write data
-
-    if(overwrite){
-      DBI::dbWriteTable(train_con, name = "data", value = extract_data, overwrite = TRUE)
-    }else{
-      DBI::dbWriteTable(train_con, name = "data", value = extract_data, append = TRUE)
+    if(nrow(extract_data) > 0){
+      if(overwrite){
+        DBI::dbWriteTable(train_con, name = "data", value = extract_data, overwrite = TRUE)
+      }else{
+        DBI::dbWriteTable(train_con, name = "data", value = extract_data, append = TRUE)
+      }
     }
 
     # Get total data
