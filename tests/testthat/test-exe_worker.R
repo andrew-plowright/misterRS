@@ -15,7 +15,7 @@ test_that("Run .exe_tile_worker in parallel and serial", {
   # Local environments
   withr::local_options(
     misterRS.crs        = test_crs,
-    misterRS.verbosity  = FALSE,
+    misterRS.verbose    = FALSE,
     misterRS.ts         = test_ts
   )
 
@@ -43,7 +43,7 @@ test_that("Run .exe_tile_worker in parallel and serial", {
       tile_names   = tile_names,
       worker       = worker,
       clusters     = clusters,
-      cluster_vts    = "in_vts"
+      cluster_vts  = "in_vts"
 
     )
 

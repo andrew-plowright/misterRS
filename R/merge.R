@@ -1,9 +1,15 @@
 #' Merge multiple VTS into a single one according to zones
 #'
+#' The geographical bounds of zones are defined in \code{zone}. The name of each zone is identified in the \code{zone_field}. The contents of the
+#' \code{in_vts_list} are merged according to their intersection with the zones. If a vts is identified as "<none>", it will be selected where
+#' no zones are present.
+#'
+#' @param zones a sf class MultiPolygon (or a file path). Should contain an attribute named \code{zone_field}
+#' @param zone_field character. Name of attribute which identifies the name of each zone
+#' @param in_vts_list named list of vts. The names should correspond to either 1) "<none>" or 2) values in the \code{zone_field} of the \code{zones}
 #' @export
 
-merge_vts <- function(in_vts_list, out_vts, zones_path, zone_field,
-                    id_field = NULL, ...){
+merge_vts <- function(in_vts_list, out_vts, zones, zone_field, ...){
 
   .env_misterRS(list(...))
 
@@ -11,16 +17,20 @@ merge_vts <- function(in_vts_list, out_vts, zones_path, zone_field,
 
   ### INPUT CHECKS ----
 
-  for(in_vts in in_vts_list) .complete_input(in_vts)
+  for(in_vts in in_vts_list) .complete_input(in_vts, attribute = 'geom')
 
   # Get file paths
 
   # Read zones
-  zones <- sf::st_read(zones_path, quiet = TRUE)
+  if(is.character(zones)) zones <- sf::st_read(zones, quiet = TRUE)
 
-  if(!all(setdiff(names(in_vts_list), "<none>") %in% unique(zones[[zone_field]]))) stop(
-    "Could match list names of 'in_vts' to the values in the '", zone_field,
-    "' attribute of '", basename(zones_path), "'")
+  # Check zones
+  if(!'sf' %in% class(zones)) stop("Input 'zones' should be of class 'sf'")
+
+  if(!sf::st_geometry_type(zones) %in% c("MULTIPOLYGON", "POLYGON")) stop("Input 'zones' should be polygonal")
+
+  acceptable_zones <- c("<none>", unique(zones[[zone_field]]))
+  if(!all(names(in_vts_list) %in% acceptable_zones)) stop("Could match list names of 'in_vts_list' to the values in the '", zone_field, "' attribute of 'zones'")
 
   ### CREATE WORKER ----
 
@@ -31,7 +41,7 @@ merge_vts <- function(in_vts_list, out_vts, zones_path, zone_field,
 
       in_vts <- in_vts_list[[zone_name]]
 
-      in_sf <- .vts_read(in_vts, tile_name = tile_name)
+      in_sf <- in_vts$read_tile(tile_name)
 
       # Intersect with no zone
       if(zone_name == "<none>"){
@@ -52,28 +62,26 @@ merge_vts <- function(in_vts_list, out_vts, zones_path, zone_field,
         return(in_sf[c(),])
       }
     })
+
     out_sf <- do.call(dplyr::bind_rows, in_sfs)
 
     # Create new field ID
-    if(!is.null(id_field) & nrow(out_sf) > 0){
-      out_sf[[id_field]] <- 1:nrow(out_sf)
-    }
+    if(nrow(out_sf) > 0) out_sf[[in_vts$id_field]] <- 1:nrow(out_sf)
 
-    .vts_write(out_sf, out_vts = out_vts, tile_name, overwrite=overwrite)
+    out_vts$append_geom(out_sf, tile_name)
 
     return("Success")
 
   }
+
   ### APPLY WORKER ----
+  out_vts %>%
+    .tile_queue("geom") %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .print_process_status()
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(out_vts)
-
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker)
-
-  # Report
-  .print_process_status(process_status)
+  # Create index
+  out_vts$index()
 
   # Conclude
   .conclusion(process_timer)

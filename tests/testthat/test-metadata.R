@@ -7,10 +7,10 @@ test_ts <- TileManager::tileLoad("data/test_rsds/tilescheme/tilescheme.gpkg")
 
 # Local environments
 withr::local_options(
-  misterRS.crs        = 26917,
-  misterRS.clusters   = 1,
-  misterRS.verbosity  = FALSE,
-  misterRS.ts         = test_ts
+  misterRS.crs      = 26917,
+  misterRS.clusters = 1,
+  misterRS.verbose  = FALSE,
+  misterRS.ts       = test_ts
 )
 
 test_that("Metadata: range", {

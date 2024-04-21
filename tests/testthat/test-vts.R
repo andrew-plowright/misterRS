@@ -2,14 +2,14 @@
 if(basename(getwd()) != "testthat") setwd(file.path(getwd(), "tests", "testthat"))
 
 # Test tileset
-test_ts <- TileManager::tileScheme(terra::ext(0, 2, 0, 2), dim = c(1,1), crs = sp::CRS(paste0("epsg:2955")))
+test_ts <- TileManager::tileScheme(terra::ext(0, 2, 0, 2), dim = c(1,1), crs = "epsg:2955")
 
 # Local environments
 withr::local_options(
-  misterRS.crs        = 2955,
-  misterRS.clusters   = 1,
-  misterRS.verbosity  = FALSE,
-  misterRS.ts = test_ts
+  misterRS.crs      = 2955,
+  misterRS.clusters = 1,
+  misterRS.verbose  = FALSE,
+  misterRS.ts       = test_ts
 )
 
 
