@@ -334,7 +334,8 @@ classifier_create <- function(training_data, training_set, classifier_file = NUL
   if(all("auto" %in% predictors)){
 
     # Use autoSelect to choose uncorrelated variables
-    predictors <- as.character(Biocomb::select.cfs(all_data)$Biomarker)
+    #predictors <- as.character(Biocomb::select.cfs(all_data)$Biomarker)
+    stop("Auto selection of indicators has been removed since the 'Biocomb' package is obsolete")
 
     # Predictors: all variables
   }else if(is.null(predictors)){
