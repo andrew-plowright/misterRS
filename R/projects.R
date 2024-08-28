@@ -1,4 +1,5 @@
 #' @export
+#' @param source_root
 
 new_project <- function(location, year, prefix = NULL, location_abbreviation = NULL, source_root){
 
@@ -21,8 +22,8 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
   )
 
   # Get options
-  syncback_exe <- getOption("misterRS.syncback_exe")
-  if(is.null(syncback_exe)) stop("Could not find Syncback executable")
+  #syncback_exe <- getOption("misterRS.syncback_exe")
+  #if(is.null(syncback_exe)) stop("Could not find Syncback executable")
 
   projects_root <- getOption("misterRS.projects_root")
   if(is.null(projects_root)) stop("Could not find project root directory")
@@ -58,9 +59,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
     source_dir <- file.path(source_root, project_name)
     project_dir <- file.path(projects_root, project_name)
 
-    cat("  Creating source directories", "\n    ",
-        source_dir, "\n", sep="")
-
+    cat("  Creating source directories", "\n    ",source_dir, "\n", sep="")
     dir.create(source_dir, showWarnings = FALSE)
     for(source_sub_dir in source_sub_dirs){
       cat("    ... ", source_sub_dir, "\n", sep = "")
@@ -68,8 +67,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
     }
     cat("\n")
 
-    cat("  Creating project directories", "\n    ",
-        project_dir, "\n", sep="")
+    cat("  Creating project directories", "\n    ", project_dir, "\n", sep="")
     dir.create(project_dir, showWarnings = FALSE)
     for(project_sub_dir in project_sub_dirs){
       cat("    ... ", project_sub_dir, "\n", sep = "")
@@ -85,7 +83,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
     new_project_R_files <- .R_project_files(source_dir, project_name)
     new_project_Rproj <- file.path(source_dir, paste0(project_name, ".Rproj"))
     file.copy(last_project_R_files, new_project_R_files)
-    file.copy(last_project_Rproj, new_project_R_files)
+    file.copy(last_project_Rproj, new_project_Rproj)
 
     cat("  Creating scratch file", "\n")
     new_scratch_file <- file.path(source_dir, "R", paste0(project_name, "_0_scratch.R"))
@@ -101,15 +99,16 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
 
     write.csv(project_register, project_register_path, row.names = FALSE)
 
-    # Launching Syncback
-    cat("  Launching Syncback", "\n")
-    shell(shQuote(syncback_exe), wait = FALSE)
+    # # Launching Syncback
+    # cat("  Launching Syncback", "\n")
+    # shell(shQuote(syncback_exe), wait = FALSE)
 
     cat("  Launching QGIS", "\n")
-    shell(paste("start", shQuote(""), shQuote(new_project_qgz)), wait = FALSE)
+    system(paste("qgis", shQuote(new_project_qgz)), wait = FALSE)
 
     cat("  Launching R", "\n")
-    shell(paste("start", shQuote(""), shQuote(new_project_Rproj)), wait = FALSE)
+    system(paste("rstudio", shQuote(new_project_Rproj)), wait = FALSE)
+
     cat("\n")
 
     cat("  Reminders:", "\n",
@@ -139,7 +138,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
   # writeLines(c(
   #   paste("#", location, year),
   #   "",
-  #   paste("##", Sys.Date()),
+    # paste("##", Sys.Date()),
   #   "",
   #   "Project created"
   #
@@ -156,7 +155,7 @@ new_project <- function(location, year, prefix = NULL, location_abbreviation = N
     writeLines(c(
     'rm(list = ls(all.names = TRUE))',
     '',
-    'setwd("D:/Projects/libraries/misterRS")',
+    'setwd("/mnt/working/Projects/libraries/misterRS")',
     'devtools::load_all()',
     '',
     '# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
