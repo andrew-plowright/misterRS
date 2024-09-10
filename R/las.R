@@ -36,10 +36,10 @@ noise_filter <- function(in_files, out_dir, filter_noise_alg, remove_noise = TRU
 #'
 #' @export
 
-las_qc <- function(las_cat){
-
+las_qc <- function(las_cat, las_qc_file){
 
   process_timer <- .headline("LAS QUALITY CHECK")
+
 
   las_class_nums = list(
     "Unclassified" = lidR::LASUNCLASSIFIED,
@@ -54,36 +54,50 @@ las_qc <- function(las_cat){
 
   # LAS files are valid ----
 
-  file_n <- length(las_cat@data$filename)
-  file_status <- list()
-
   cat("  Reading files...", "\n")
+  file_n <- length(las_cat@data$filename)
   pb <- .progbar(file_n)
+
+  las_qc_results <- if(file.exists(las_qc_file)){
+    read.csv(las_qc_file)
+  }else{
+    data.frame(file=character(), status=character())
+  }
 
   for(i in 1:file_n){
 
-    filename <- las_cat@data$filename[i]
-    res <- tryCatch({
-      lidR::readLAS(filename)
-      "Valid"
-    },
-    error = function(e){e$message},
-    warning = function(w){w$message}
-    )
-    file_status[[filename]] <- res
+    las_path <- las_cat@data$filename[i]
+    las_file <- basename(las_path)
+
+    if(!las_file %in% las_qc_results[["file"]]){
+
+      res <- tryCatch({
+        lidR::readLAS(las_path)
+        "Valid"
+      },
+      error = function(e){e$message},
+      warning = function(w){w$message}
+      )
+
+      las_qc_results %<>% dplyr::add_row(file=las_file, status=res)
+      write.csv(las_qc_results, las_qc_file, row.names = FALSE)
+
+      gc()
+    }
+
 
     pb$tick()
   }
   cat("\n")
 
-  files_valid <- sapply(file_status, function(x) x == "Valid")
+  files_valid <- sapply(las_qc_results[["status"]], function(x) x == "Valid")
 
   cat("  All files valid : ")
   if(all(files_valid)){
     cat(crayon::green("Yes"), "\n")
   }else{
     cat(crayon::red("Following files are invalid\n\n     ",
-                    paste(basename(names(files_valid[!files_valid])), collapse = "\n     "), "\n\n",
+                    paste(las_qc_results[!files_valid, "file", drop=TRUE], collapse = "\n     "), "\n\n",
                     sep=""
     ))
   }
@@ -127,10 +141,13 @@ las_qc <- function(las_cat){
 #'
 #' @export
 
-las_coverage <- function(in_cat, boundary){
+las_coverage <- function(in_cat, boundary, buffer = NULL){
 
   # Get boundary
   boundary <- sf::st_read(boundary, quiet = TRUE)
+
+  # Add buffer
+  if(!is.null(buffer)) boundary %<>% sf::st_buffer(buffer)
 
   # Get LAS geometry
   las_geom <- in_cat@data$geometry

@@ -59,7 +59,7 @@ to_rts <- function(in_files, out_rts, res, bands = NULL, ...){
   ts <- .tilescheme()
   crs <- getOption('misterRS.crs')
 
-  if(in_ext == "tif"){
+  if(in_ext %in% c("tif", "sid")){
 
     # Set file paths
     temp_list <- tempfile(fileext = ".txt")
