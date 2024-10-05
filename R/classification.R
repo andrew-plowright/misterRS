@@ -199,7 +199,7 @@ class_edits <- function(name, dir, proj = getOption("misterRS.crs"), overwrite =
 #'
 #' @export
 
-training_data_extract <- function(training_data, attribute_set, seg_vts,   overwrite = FALSE){
+training_data_extract <- function(training_data, attribute_set, seg_vts, overwrite = FALSE){
 
   process_timer <- .headline("EXTRACT TRAINING DATA")
 
@@ -210,6 +210,13 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
   # Read training points and polygons
   training_pts   <- sf::st_read(training_data@file_path, "points",   fid_column_name ="fid", quiet = TRUE)
   training_polys <- sf::st_read(training_data@file_path, "polygons", fid_column_name ="fid", quiet = TRUE)
+
+  if(any(is.na(sf::st_drop_geometry(training_pts)))){
+    stop("Some training points were missing 'training_set', 'seg_class', or 'fid' attribute")
+  }
+  if(any(is.na(sf::st_drop_geometry(training_polys)))){
+    stop("Some training polygons were missing 'training_set', 'seg_class', or 'fid' attribute")
+  }
 
   # Connect to training data
   train_con = DBI::dbConnect(RSQLite::SQLite(),dbname= training_data@file_path)
@@ -258,12 +265,14 @@ training_data_extract <- function(training_data, attribute_set, seg_vts,   overw
     extract_data <- extract_data[!duplicated(extract_data[["fid"]]),]
 
     # Remove segments that were already in the training dataset
-    existing_fids <- DBI::dbGetQuery(train_con, "SELECT fid FROM data")[,'fid']
-    extract_data <- extract_data[!extract_data[["fid"]] %in% existing_fids,]
+    if("data" %in% DBI::dbListTables(train_con)){
+      existing_fids <- DBI::dbGetQuery(train_con, "SELECT fid FROM data")[,'fid']
+      extract_data <- extract_data[!extract_data[["fid"]] %in% existing_fids,]
 
-    # Print message indicating which training geometry to delete
-    .print_fids_to_delete(training_polys[["fid"]], extract_data, "POLYGON")
-    .print_fids_to_delete(training_pts[["fid"]],   extract_data, "POINT")
+      # Print message indicating which training geometry to delete
+      .print_fids_to_delete(training_polys[["fid"]], extract_data, "POLYGON")
+      .print_fids_to_delete(training_pts[["fid"]],   extract_data, "POINT")
+    }
 
     if(any(is.na(extract_data))) stop("Extracted training data contained NA values")
 
