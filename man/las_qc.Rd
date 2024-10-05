@@ -4,7 +4,7 @@
 \alias{las_qc}
 \title{Quality check for LAS files}
 \usage{
-las_qc(las_cat)
+las_qc(las_cat, las_qc_file)
 }
 \description{
 Quality check for LAS files

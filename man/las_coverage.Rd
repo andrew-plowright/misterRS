@@ -4,7 +4,7 @@
 \alias{las_coverage}
 \title{Coverage of LAS files}
 \usage{
-las_coverage(in_cat, boundary)
+las_coverage(in_cat, boundary, buffer = NULL)
 }
 \description{
 Coverage of LAS files
