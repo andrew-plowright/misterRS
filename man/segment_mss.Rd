@@ -10,7 +10,7 @@ segment_mss(
   spat = 19.5,
   spec = 17,
   mins = 40,
-  writeVectoreMode = "ulu",
+  writeVectorMode = "ulu",
   seg_id = "polyID",
   min_per_tile_est = 3.5,
   ...

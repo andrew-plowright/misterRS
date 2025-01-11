@@ -14,7 +14,7 @@
 
 segment_mss <- function(img_rts, out_gpkg,
                  spat = 19.5, spec = 17, mins = 40,
-                 writeVectoreMode = "ulu",
+                 writeVectorMode = "ulu",
                  seg_id = "polyID",
                  min_per_tile_est = 3.5, ...){
 
@@ -25,10 +25,6 @@ segment_mss <- function(img_rts, out_gpkg,
   tile_names <- getOption("misterRS.tile_names")
 
   ### INPUT CHECKS ----
-
-  bin_file <- file.path(getOption("misterRS.orfeo"), "bin", "otbcli_Segmentation.bat")
-  if(!file.exists(bin_file)) stop("Orfeo Toolbox binary not found '", bin_file, "'")
-
   .complete_input(img_rts)
 
   # Get tiles
@@ -56,8 +52,7 @@ segment_mss <- function(img_rts, out_gpkg,
     spat    = spat,
     spec    = spec,
     mins    = mins,
-    bin_file = bin_file,
-    writeVectorMode = writeVectoreMode)
+    writeVectorMode = writeVectorMode)
 
   # Filter out warnings about self-intersections
   mss_result <- mss_result[!grepl("Self-intersection", mss_result)]
@@ -77,7 +72,16 @@ segment_mss <- function(img_rts, out_gpkg,
 }
 
 .exe_mss <- function(in_file, out_file, spat, spec, mins,
-                 writeVectorMode = NULL, bin_file){
+                 writeVectorMode = NULL){
+
+  orfeo_dir = getOption("misterRS.orfeo")
+  if(!dir.exists(orfeo_dir)) stop("Orfeo Toolbox directory not found '", orfeo_dir, "'")
+
+  profile_file <- file.path(orfeo_dir, "otbenv.profile")
+  if(!file.exists(profile_file)) stop("Orfeo Toolbox profile file not found '", profile_file, "'")
+
+  bin_file <- file.path(orfeo_dir, "bin", "otbcli_Segmentation")
+  if(!file.exists(bin_file)) stop("Orfeo Toolbox segmentation command not found '", bin_file, "'")
 
   outExt <- toupper(tools::file_ext(out_file))
 
@@ -94,17 +98,26 @@ segment_mss <- function(img_rts, out_gpkg,
 
   }else stop("Unsupported output format")
 
-  # Execute command
-  system(paste(
 
-    shQuote(bin_file),
+  command <- paste(
+    'bash -c "source',
+    profile_file,
+    '&&' ,
+    bin_file,
     "-in", shQuote(in_file),
     paste(writeMode, collapse = " "),
     "-filter", "meanshift",
     "-filter.meanshift.spatialr", spat,
     "-filter.meanshift.ranger",   spec,
-    "-filter.meanshift.minsize",  mins
-  ), intern = TRUE)
+    "-filter.meanshift.minsize",  mins,
+    "-mode.vector.simplify", 0.1,
+    "-progress 1",
+    '"'
+  )
+
+
+  # Execute command
+  system(command, intern = TRUE)
 }
 
 

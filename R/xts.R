@@ -606,7 +606,14 @@ vts = R6::R6Class(
         # Get output fields. It may be necessary to order the output data correctly
         gpkg_fields <- setdiff(DBI::dbListFields(self$con, self$geom_layer), "fid")
 
-        sf::st_write(data[,gpkg_fields], dsn = self$gpkg, layer = self$geom_layer, append = TRUE, quiet = TRUE)
+        # Get missing columns
+        missing_columns <- setdiff(gpkg_fields, names(data))
+
+        # NOTE: !!! If there are already extra fields (i.e.: seg metrics), this will fail
+        # since there are some 'missing_columns'
+
+
+        sf::st_write(data, dsn = self$gpkg, layer = self$geom_layer, append = TRUE, quiet = TRUE)
       }
 
       # Update tile registry

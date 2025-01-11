@@ -1,7 +1,10 @@
 #' @export
 #' @param source_root
 
-new_project <- function(location, year, prefix = NULL, location_abbreviation = NULL, source_root){
+# Example:
+# new_project(location="comox", year=2019, source_root="/mnt/diamondhead3")
+
+new_project <- function(location, year, source_root, prefix = "dh_", location_abbreviation = NULL){
 
   # Create project name
   if(is.null(location_abbreviation)){

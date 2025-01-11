@@ -1,7 +1,17 @@
-#' Filter noise from LAS files
+#' Create a lidar grid
 #'
 #' @export
 
+las_grid <- function(las_cat, out_file){
+
+  out_sf <- las_cat@data[,c("filename", "geometry")]
+
+  sf::st_write(out_sf, out_file)
+}
+
+#' Filter noise from LAS files
+#'
+#' @export
 noise_filter <- function(in_files, out_dir, filter_noise_alg, remove_noise = TRUE){
 
   process_timer <- .headline("LAS NOISE FILTER")
