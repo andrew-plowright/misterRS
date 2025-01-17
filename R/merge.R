@@ -68,7 +68,7 @@ merge_vts <- function(in_vts_list, out_vts, zones, zone_field, ...){
     # Create new field ID
     if(nrow(out_sf) > 0) out_sf[[in_vts$id_field]] <- 1:nrow(out_sf)
 
-    out_vts$append_geom(out_sf, tile_name)
+    out_vts$write_geom_tile(out_sf, tile_name)
 
     return("Success")
 

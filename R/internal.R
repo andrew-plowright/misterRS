@@ -100,7 +100,7 @@
       }
 
       # Execute function at the start of the process
-      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$connect()
+      #if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$connect()
 
       # Generate 'foreach' statement
       fe_ser <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass')
@@ -108,8 +108,8 @@
       # Execute in serial
       results <- fe_ser %do% worker_ser(tile_name)
 
-      # Execute functionsat the end of the process
-      if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$disconnect()
+      # Execute functions at the end of the process
+      #if(!is.null(cluster_vts)) get(cluster_vts, env = parent.frame())$disconnect()
 
     # Otherwise, execute in parallel
     }else{
@@ -132,7 +132,7 @@
       # Also note that the worker function, whose environment is sys.frame(-1), has access to these
       # variables
 
-      func_args <- setdiff(names(formals(sys.function(-1))), "...")
+      func_args <- setdiff(names(formals(sys.function(-3))), "...")
       for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
 
       #func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
@@ -294,10 +294,11 @@
   # If not overwriting, subset only non-existent tiles
   if(length(proc_tiles) > 0 && !overwrite){
 
+      # Arguments for detecting which tiles exist
       args <- list(tile_names = proc_tiles)
-
       if("vts" %in% in_class){ args[["attribute"]] <- attribute_set_name }
 
+      # Determine which tiles existing
       has_tiles <-  do.call(xts$has_tiles, args)
 
       proc_tiles <- names(has_tiles)[!has_tiles]

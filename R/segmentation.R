@@ -146,6 +146,11 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
+
+  # Create tile directory
+  geom_tiles_dir <- out_vts$temp_tile_dir("geom")
+  if(!dir.exists(geom_tiles_dir)) dir.create(geom_tiles_dir)
+
   # Run process
   tile_worker <-function(tile_name){
 
@@ -210,10 +215,14 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
 
       # Drop unwanted fields
       polys <- polys[,out_vts$id_field]
+
+    }else{
+      # Rename empty ID field
+      colnames(polys)[colnames(polys)=="DN"] <- out_vts$id_field
     }
 
     # Write file
-    out_vts$append_geom(polys, tile_name)
+    out_vts$write_geom_tile(polys, tile_name)
 
     return("Success")
   }
@@ -319,7 +328,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
       }
     }
 
-    out_vts$append_geom(seg_poly_tile, tile_name = tile_name)
+    out_vts$write_geom_tile(seg_poly_tile, tile_name = tile_name)
 
     # Write file
     return("Success")

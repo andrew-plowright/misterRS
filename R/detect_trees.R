@@ -74,7 +74,7 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
     }
 
-    ttops_vts$append_geom(det_ttops, tile_name)
+    ttops_vts$write_geom_tile(det_ttops, tile_name)
 
     return("Success")
   }

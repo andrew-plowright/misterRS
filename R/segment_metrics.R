@@ -11,8 +11,6 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
 
   ### INPUT CHECKS ----
 
-  seg_vts$connect()
-
   # Check complete inputs
   .complete_input(seg_vts, attribute = "geom")
   .complete_input(seg_rts)
@@ -29,6 +27,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
     discretize_range <- unlist(img_rts$metadata("range")[[band]])
   }
 
+
   ### METRIC FIELDS ----
 
   metric_fields <- names(GLCMTextures::glcm_metrics(matrix()))
@@ -43,7 +42,9 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
+  # Create tile directory
+  seg_vts$temp_tile_dir_create(attribute_set)
+
 
   ### CREATE WORKER ----
 
@@ -95,25 +96,34 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
       seg_data <- cbind(seg_data, glcm_metrics)
     }
 
-    # Write attributes
-    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+    # Output file
+    out_file <- seg_vts$temp_tile_path(tile_name, attribute_set, "csv")
+
+    # Write output
+    write.csv(seg_data, out_file, row.names = FALSE)
 
     return("Success")
   }
 
 
   ### APPLY WORKER ----
+  seg_vts %>%
+    .tile_queue(attribute_set_name = attribute_set) %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .print_process_status()
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(seg_vts, attribute_set)
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- seg_vts$temp_absorb_queue(attribute_set, attribute_set, "csv")
 
-  # Report
-  .print_process_status(process_status)
+  for(tile_name in names(absorb_tiles)){
 
-  # Conclude
+    data <- read.csv(absorb_tiles[tile_name])
+    seg_vts$update_data(data = data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+  }
+
+
+  ### CONCLUDE ----
   .conclusion(process_timer)
 }
 
@@ -131,8 +141,6 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   process_timer <- .headline("SEGMENT METRICS - SPECTRAL")
 
   ### INPUT CHECKS ----
-
-  seg_vts$connect()
 
   # Check complete inputs
   .complete_input(seg_vts, attribute = "geom")
@@ -168,7 +176,8 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
+  # Create tile directory
+  seg_vts$temp_tile_dir_create(attribute_set)
 
   ### CREATE WORKER ----
 
@@ -249,24 +258,31 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
 
     }
 
-    # Write attributes
-    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+    # Output file
+    out_file <- seg_vts$temp_tile_path(tile_name, attribute_set, "csv")
+
+    # Write output
+    write.csv(seg_data, out_file, row.names = FALSE)
 
     return("Success")
   }
 
   ### APPLY WORKER ----
+  seg_vts %>%
+    .tile_queue(attribute_set_name = attribute_set) %>%
+    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .print_process_status()
 
-  # Get tiles for processing
-  queued_tiles <- .tile_queue(seg_vts, attribute_set)
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- seg_vts$temp_absorb_queue(attribute_set, attribute_set, "csv")
 
-  # Process
-  process_status <- .exe_tile_worker(queued_tiles, tile_worker, cluster_vts = "seg_vts")
+  for(tile_name in names(absorb_tiles)){
 
-  # Report
-  .print_process_status(process_status)
+    data <- read.csv(absorb_tiles[tile_name])
+    seg_vts$update_data(data = data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+  }
 
-  # Conclude
+  ### CONCLUDE ----
   .conclusion(process_timer)
 }
 
@@ -284,8 +300,6 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
 
 
   ### INPUT CHECKS ----
-
-  seg_vts$connect()
 
   # Check inputs are complete
   .complete_input(seg_vts, attribute = "geom")
@@ -376,7 +390,8 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
   # Get ID field
   seg_id <- seg_vts$id_field
 
-  seg_vts$disconnect()
+  # Create tile directory
+  seg_vts$temp_tile_dir_create(attribute_set)
 
 
   ### CREATE WORKER ----
@@ -447,8 +462,11 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
       }
     }
 
-    # Write attributes
-    seg_vts$update_data(data = seg_data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+    # Output file
+    out_file <- seg_vts$temp_tile_path(tile_name, attribute_set, "csv")
+
+    # Write output
+    write.csv(seg_data, out_file, row.names = FALSE)
 
     return("Success")
   }
@@ -460,7 +478,17 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
     .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
     .print_process_status()
 
-  # Conclude
+
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- seg_vts$temp_absorb_queue(attribute_set, attribute_set, "csv")
+
+  for(tile_name in names(absorb_tiles)){
+
+    data <- read.csv(absorb_tiles[tile_name])
+    seg_vts$update_data(data = data, tile_name = tile_name, attribute = attribute_set, overwrite = TRUE)
+  }
+
+  ### CONCLUDE ----
   .conclusion(process_timer)
 }
 
