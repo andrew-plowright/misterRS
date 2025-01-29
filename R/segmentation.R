@@ -134,7 +134,7 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
   .env_misterRS(list(...))
 
   # Do not attempt to write to Geopackage using multiple clusters
-  withr::local_options("misterRS.cluster" = 1)
+  #withr::local_options("misterRS.cluster" = 1)
 
   process_timer <- .headline("TILE POLYGONS")
 
@@ -146,10 +146,8 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
   # Get GeoPackage layer name
   lyr_name <- sf::st_layers(in_gpkg)$name[1]
 
-
   # Create tile directory
-  geom_tiles_dir <- out_vts$temp_tile_dir("geom")
-  if(!dir.exists(geom_tiles_dir)) dir.create(geom_tiles_dir)
+  out_vts$temp_tile_dir_create("geom")
 
   # Run process
   tile_worker <-function(tile_name){
@@ -221,8 +219,11 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
       colnames(polys)[colnames(polys)=="DN"] <- out_vts$id_field
     }
 
-    # Write file
-    out_vts$write_geom_tile(polys, tile_name)
+    # Output file
+    out_file <- out_vts$temp_tile_path(tile_name, "geom", "gpkg")
+
+    # Write output
+    sf::st_write(polys, out_file, quiet=TRUE)
 
     return("Success")
   }
@@ -230,9 +231,18 @@ tile_poly <- function(in_gpkg, out_vts,  ...){
   ### APPLY WORKER ----
 
   out_vts %>%
-    .tile_queue("geom") %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .tile_queue(attribute_set_name="geom") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
+
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- out_vts$temp_absorb_queue("geom", "geom", "gpkg")
+
+  for(tile_name in names(absorb_tiles)){
+
+    data <- sf::st_read(absorb_tiles[tile_name], quiet=TRUE)
+    out_vts$append_geom(data = data, tile_name = tile_name)
+  }
 
   # Create index
   out_vts$index()
@@ -254,7 +264,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   process_timer <- .headline("WATERSHED SEGMENTATION")
 
   # Override parallel processing
-  withr::local_options("misterRS.clusters" = 1)
+  #withr::local_options("misterRS.clusters" = 1)
 
   ### INPUT CHECKS ----
 
@@ -266,18 +276,19 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   ts <- .tilescheme()
   proj <- getOption("misterRS.crs")
 
-  out_vts$connect()
-  ttops_vts$connect()
+  #out_vts$connect()
+  #ttops_vts$connect()
 
   # Add fields
   out_vts$add_field("height",     "REAL")
   out_vts$add_field("crown_area", "REAL")
 
-  out_vts$disconnect()
-  ttops_vts$disconnect()
-
   # Get ID field
   tree_id <- ttops_vts$id_field
+
+  # Create tile directory
+  out_vts$temp_tile_dir_create("geom")
+
 
   ### CREATE WORKER ----
 
@@ -328,7 +339,11 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
       }
     }
 
-    out_vts$write_geom_tile(seg_poly_tile, tile_name = tile_name)
+    # Output file
+    out_file <- out_vts$temp_tile_path(tile_name, "geom", "gpkg")
+
+    # Write output
+    sf::st_write(seg_poly_tile, out_file, quiet=TRUE)
 
     # Write file
     return("Success")
@@ -337,9 +352,19 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
   ### APPLY WORKER ----
 
   out_vts %>%
-    .tile_queue("geom") %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .tile_queue(attribute_set_name="geom") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
+
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- out_vts$temp_absorb_queue("geom", "geom", "gpkg")
+
+  for(tile_name in names(absorb_tiles)){
+
+    data <- sf::st_read(absorb_tiles[tile_name], quiet=TRUE)
+    out_vts$append_geom(data = data, tile_name = tile_name)
+  }
+
 
   # Create index
   out_vts$index()
@@ -366,7 +391,7 @@ poly_to_ras <- function(in_vts, out_rts, res, ...){
 
   ts <- .tilescheme()
 
-  in_vts$connect()
+  #in_vts$connect()
 
   ### CREATE WORKER ----
 

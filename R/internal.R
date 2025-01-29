@@ -131,28 +131,27 @@
 
       # Also note that the worker function, whose environment is sys.frame(-1), has access to these
       # variables
-
       func_args <- setdiff(names(formals(sys.function(-3))), "...")
-      for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-1))
+      for(func_args in func_args) eval(parse(text = func_args),  sys.frame(-3))
 
       #func_args <- names(formals(sys.function(-1))) %>% setdiff("...")
       #parallel::clusterExport(cl, ls(envir = sys.frame(-1)), envir = sys.frame(-1))
 
-      if(!is.null(cluster_vts)){
+      # if(!is.null(cluster_vts)){
 
         # Export cluster VTS
-        parallel::clusterExport(cl, cluster_vts, envir= parent.frame())
+        # parallel::clusterExport(cl, cluster_vts, envir= parent.frame())
 
         # Connect VTS
-        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$connect(); return(NULL)})
+        #parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$connect(); return(NULL)})
 
         # parallel::clusterEvalQ(cl, {DBI::dbIsValid(in_vts$con)})
 
         # Avoid namespace collisions by removing the 'cluster_vts' parent enfironment, which is where it would normally be retrieved
         # from. Instead, the worker function will then "look" into the cluster environment.
         # This is probably not a best practice
-        rm(list=cluster_vts, envir= parent.frame())
-      }
+      #   rm(list=cluster_vts, envir= parent.frame())
+      # }
 
       # Generate 'foreach' statement
       fe_par <- foreach::foreach(tile_name = tile_names, .errorhandling = 'pass', .options.snow = list(progress = function(n) pb$tick()))
@@ -160,10 +159,10 @@
       # Execute in parallel
       results <- fe_par %dopar% worker_par(tile_name)
 
-      if(!is.null(cluster_vts)){
-
-        parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$disconnect(); return(NULL)})
-      }
+      # if(!is.null(cluster_vts)){
+      #
+      #   parallel::clusterCall(cl, function(){get(cluster_vts, envir = parent.frame(1))$disconnect(); return(NULL)})
+      # }
 
       parallel::stopCluster(cl)
     }
@@ -354,7 +353,7 @@
 
     gpkg_lyr <- sf::st_layers(path)$name[1]
 
-    con <-  RSQLite::dbConnect(RSQLite::SQLite(), dbname = path)
+    con <- RSQLite::dbConnect(RSQLite::SQLite(), dbname = path)
     qur <- RSQLite::dbSendQuery(con, sprintf("SELECT * FROM %s", gpkg_lyr))
     res <- RSQLite::dbFetch(qur)
     RSQLite::dbClearResult(qur)
@@ -415,10 +414,26 @@
 }
 
 
-.rar <- function(src_files, dest_file, winrar_exe = getOption("misterRS.winrar")){
+.compress <- function(src_files, dest_file){
 
-  command <- sprintf('"%s" a -ep1 -r "%s" "%s"', winrar_exe, dest_file, paste(src_files, collapse='"  "'))
-  system(command)
+  if(length(src_files) > 1) stop("Compressing multiple files is not supported")
+
+  src_dir <- dirname(src_files)
+  src_file <- basename(src_files)
+
+  # Return to previous work directory
+  return_dir <- getwd()
+  withr::defer(setwd(return_dir))
+
+  # Set work directory to source path
+  setwd(src_dir)
+
+  # Execute command
+  #command <- sprintf('zip -j "%s" "%s"', dest_file, paste(src_files, collapse='"  "'))
+  command <- sprintf('tar -czvf  "%s" "%s"', dest_file, src_file)
+
+  system(command, ignore.stdout = TRUE, ignore.stderr = TRUE)
+
 }
 
 

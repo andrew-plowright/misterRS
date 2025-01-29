@@ -109,7 +109,7 @@ seg_metrics_tex <- function(seg_rts, seg_vts, img_rts, attribute_set,
   ### APPLY WORKER ----
   seg_vts %>%
     .tile_queue(attribute_set_name = attribute_set) %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
 
 
@@ -270,7 +270,7 @@ seg_metrics_spec <- function(seg_rts, seg_vts, img_rts, attribute_set,
   ### APPLY WORKER ----
   seg_vts %>%
     .tile_queue(attribute_set_name = attribute_set) %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
 
   ### ABSORB TEMP FILES ----
@@ -475,7 +475,7 @@ seg_metrics_las <- function(seg_rts, seg_vts, in_cat, dem_rts, attribute_set,
 
   seg_vts %>%
     .tile_queue(attribute_set) %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "seg_vts") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
 
 

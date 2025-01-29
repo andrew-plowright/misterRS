@@ -11,7 +11,7 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   process_timer <- .headline("DETECT TREES")
 
   # Do not attempt to write to Geopackage using multiple clusters
-  withr::local_options("misterRS.cluster" = 1)
+  #withr::local_options("misterRS.cluster" = 1)
 
   ### INPUT CHECKS ----
 
@@ -29,12 +29,11 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
   win_fun_text_path <- file.path(R.utils::getAbsolutePath(ttops_vts$dir), "win_fun.txt")
   write(win_fun_text, win_fun_text_path)
 
-  ttops_vts$connect()
-
   # Add height field
   ttops_vts$add_field("height", "REAL")
 
-  ttops_vts$disconnect()
+  # Create tile directory
+  ttops_vts$temp_tile_dir_create("geom")
 
   ### CREATE WORKER ----
 
@@ -71,19 +70,32 @@ detect_trees <- function(chm_rts, ttops_vts, win_fun, min_hgt, ...){
 
       # Subset treetops
       det_ttops <- det_ttops[lengths(sf::st_intersects(det_ttops, tile)) > 0,]
-
     }
 
-    ttops_vts$write_geom_tile(det_ttops, tile_name)
+    # Output file
+    out_file <- ttops_vts$temp_tile_path(tile_name, "geom", "gpkg")
+
+    # Write output
+    sf::st_write(det_ttops, out_file, quiet=TRUE)
+
 
     return("Success")
   }
 
   ### APPLY WORKER ----
   ttops_vts %>%
-    .tile_queue("geom") %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "ttops_vts") %>%
+    .tile_queue(attribute_set_name="geom") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
+
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- ttops_vts$temp_absorb_queue("geom", "geom", "gpkg")
+
+  for(tile_name in names(absorb_tiles)){
+
+    data <- sf::st_read(absorb_tiles[tile_name], quiet=TRUE)
+    ttops_vts$append_geom(data = data, tile_name = tile_name)
+  }
 
   # Create index
   ttops_vts$index()

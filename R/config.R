@@ -8,10 +8,7 @@ misterRS_config <- function(config_file, override = TRUE){
   op.misterRS <- list(
     misterRS.orfeo            = config$orfeo_dir,
     misterRS.projects_root    = config$projects_root,
-    misterRS.project_register = config$projects_log,
-    misterRS.syncback_exe     = config$syncback_exe,
-    misterRS.mod_spatialite   = config$mod_spalialite,
-    misterRS.winrar           = config$winrar
+    misterRS.project_register = config$projects_log
   )
   if(override){
     options(op.misterRS)

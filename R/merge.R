@@ -32,6 +32,9 @@ merge_vts <- function(in_vts_list, out_vts, zones, zone_field, ...){
   acceptable_zones <- c("<none>", unique(zones[[zone_field]]))
   if(!all(names(in_vts_list) %in% acceptable_zones)) stop("Could match list names of 'in_vts_list' to the values in the '", zone_field, "' attribute of 'zones'")
 
+  # Create tile directory
+  out_vts$temp_tile_dir_create("geom")
+
   ### CREATE WORKER ----
 
   tile_worker <-function(tile_name){
@@ -68,7 +71,11 @@ merge_vts <- function(in_vts_list, out_vts, zones, zone_field, ...){
     # Create new field ID
     if(nrow(out_sf) > 0) out_sf[[in_vts$id_field]] <- 1:nrow(out_sf)
 
-    out_vts$write_geom_tile(out_sf, tile_name)
+    # Output file
+    out_file <- out_vts$temp_tile_path(tile_name, "geom", "gpkg")
+
+    # Write output
+    sf::st_write(out_sf, out_file, quiet=TRUE)
 
     return("Success")
 
@@ -76,9 +83,18 @@ merge_vts <- function(in_vts_list, out_vts, zones, zone_field, ...){
 
   ### APPLY WORKER ----
   out_vts %>%
-    .tile_queue("geom") %>%
-    .exe_tile_worker(tile_worker, cluster_vts = "out_vts") %>%
+    .tile_queue(attribute_set_name="geom") %>%
+    .exe_tile_worker(tile_worker) %>%
     .print_process_status()
+
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- out_vts$temp_absorb_queue("geom", "geom", "gpkg")
+
+  for(tile_name in names(absorb_tiles)){
+
+    data <- sf::st_read(absorb_tiles[tile_name], quiet=TRUE)
+    out_vts$append_geom(data = data, tile_name = tile_name)
+  }
 
   # Create index
   out_vts$index()

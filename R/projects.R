@@ -92,9 +92,15 @@ new_project <- function(location, year, source_root, prefix = "dh_", location_ab
     new_scratch_file <- file.path(source_dir, "R", paste0(project_name, "_0_scratch.R"))
     .create_scratch(new_scratch_file, source_dir, project_name)
 
-    cat("  Creating log file", "\n")
-    new_project_log <- file.path(source_dir, paste0(project_name, ".md"))
-    .create_log(new_project_log, location, year)
+    cat("  Create back-up file", "\n")
+    new_backup_script <- file.path(source_dir, paste0(project_name, "_backup.sh"))
+    new_backup_filter <- file.path(source_dir, "baclup_filter.txt")
+    .create_backup_script(new_backup_script, source_dir, project_dir, project_name)
+    .create_backup_filter(new_backup_filter)
+
+    cat("  Scheduling back-up cron job")
+    cmd <- sprintf('gnome-terminal -- bash -c "%s; exec bash"', new_backup_script)
+    cronR::cron_add(command = cmd, frequency = "daily", at = "14:00", id = project_name, ask = F)
 
     # Add project to log
     cat("  Updating project register", "\n")
@@ -127,7 +133,7 @@ new_project <- function(location, year, source_root, prefix = "dh_", location_ab
 
 .R_project_files <- function(dir, project_name){
 
-  r_file_suffixes <- c("_1_variables.R", "_2_paths.R", "_3_data.R", "_4_analysis.R")
+  r_file_suffixes <- c("_1_variables.R", "_2_paths.R", "_3_data.R", "_4_analysis.R", "_5_cleanup.R")
 
   file.path(dir, c( paste0("R/", project_name, r_file_suffixes )))
 
@@ -164,9 +170,63 @@ new_project <- function(location, year, source_root, prefix = "dh_", location_ab
     '# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '',
     paste0('setwd("',project_dir,'")'),
+    paste0('project_name = "', project_name, '"'),
     paste0('source("R/',project_name,'_1_variables.R")'),
     paste0('source("R/',project_name,'_2_paths.R")'),
     paste0('source("R/',project_name,'_3_data.R")')
   ), fileConn)
   close(fileConn)
+}
+
+.create_backup_filter <- function(file_path){
+  file.create(file_path)
+
+  fileConn<-file(file_path)
+  writeLines(c(
+    '+ /*.txt',
+    '+ /*.sh',
+    '+ /*.qgz',
+    '+ R/**',
+    '+ data_manual/**',
+    '+ data_final/**',
+    '- *'
+  ), fileConn)
+  close(fileConn)
+}
+
+.create_backup_script <- function(file_path, source_dir, project_dir, project_name){
+
+  file.create(file_path)
+
+  fileConn<-file(file_path)
+  writeLines(c(
+
+    '# File paths',
+    paste0('PROJECT="', project_name, '"'),
+    paste0('LOCAL_PATH="', source_dir,'"'),
+    paste0('FILTER_PATH="', source_dir  ,'/backup_filter.txt"'),
+    paste0('REMOTE_PATH="', project_dir,'"'),
+    '',
+    'echo -e "${BLUE}********************************************"',
+    'echo -e "RCLONE: Backing up project $PROJECT"',
+    'echo -e "********************************************${NOCOL}"',
+    'echo',
+    '',
+    'echo -e "PROJECT       : ${YELLOW}$PROJECT${NOCOL}"',
+    'echo -e "INPUT FOLDER  : ${YELLOW}$LOCAL_PATH${NOCOL}"',
+    'echo -e "FILTER FILE   : ${YELLOW}$FILTER_PATH${NOCOL}"',
+    'echo -e "REMOTE FOLDER : ${YELLOW}$REMOTE_PATH${NOCOL}"',
+    'echo',
+    '',
+    '# Execute rclone',
+    'rclone sync "$LOCAL_PATH" "$REMOTE_PATH" -v --filter-from="$FILTER_PATH"',
+    '',
+    '# Check if the previous command was successful',
+    'if [ $? -eq 0 ]; then',
+    'echo -e "${GREEN}Sync to backup disk successful${NOCOL}"',
+    'else',
+    '  echo -e "${RED}Sync to backup disk failed.${NOCOL}"',
+    'fi',
+    'echo'
+  ), fileConn)
 }

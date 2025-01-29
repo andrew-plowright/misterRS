@@ -203,8 +203,6 @@ training_data_extract <- function(training_data, attribute_set, seg_vts, overwri
 
   process_timer <- .headline("EXTRACT TRAINING DATA")
 
-  seg_vts$connect()
-
   .complete_input(seg_vts, attribute = "geom")
 
   # Read training points and polygons
@@ -294,8 +292,6 @@ training_data_extract <- function(training_data, attribute_set, seg_vts, overwri
       sep = ""
     )
   }
-
-  seg_vts$disconnect()
 
   # Conclude
   .conclusion(process_timer)
@@ -408,8 +404,6 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Get attributes
   attributes <- unique(sapply(strsplit(class_features, "_"),"[", 1))
 
-  seg_vts$connect()
-
   # Check that inputs are complete
   for(attribute in attributes) .complete_input(seg_vts, attribute= attribute)
 
@@ -419,6 +413,9 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
   # Add column
   class_label <- paste0("class_", iteration)
   seg_vts$add_field(class_label, "INTEGER")
+
+  cat("  Iteration        : ", class_label, "\n", sep="")
+
 
   # Add attribute set name to tile registry
   seg_vts$add_attribute(class_label)
@@ -431,6 +428,9 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
 
   # Unique id field
   seg_id <- seg_vts$id_field
+
+  # Create tile directory
+  seg_vts$temp_tile_dir_create(class_label)
 
 
   ### CREATE WORKER ----
@@ -498,24 +498,34 @@ classify_seg_poly <- function(classifier_file, seg_vts, iteration, class_table, 
       seg_poly <- sf::st_drop_geometry(seg_poly)[, c(seg_id, class_label)]
     }
 
+
+    # Output file
+    out_file <- seg_vts$temp_tile_path(tile_name, class_label, "csv")
+
+    # Write output
+    write.csv(seg_poly, out_file, row.names = FALSE)
+
     # Write attributes
-    seg_vts$update_data(data = seg_poly, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
+    #seg_vts$update_data(data = seg_poly, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
 
     return("Success")
   }
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  proc_tiles <- .tile_queue(seg_vts, attribute_set_name = class_label)
+  seg_vts %>%
+    .tile_queue(attribute_set_name = class_label) %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
-  seg_vts$disconnect()
+  ### ABSORB TEMP FILES ----
+  absorb_tiles <- seg_vts$temp_absorb_queue(class_label, class_label, "csv")
 
-  # Process
-  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
+  for(tile_name in names(absorb_tiles)){
 
-  # Report
-  .print_process_status(process_status)
+    data <- read.csv(absorb_tiles[tile_name])
+    seg_vts$update_data(data = data, tile_name = tile_name, attribute = class_label, overwrite = TRUE)
+  }
 
   # Conclude
   .conclusion(process_timer)
@@ -539,14 +549,11 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
   ### INPUT CHECKS ----
 
   class_label <- paste0("class_", iteration)
-
-  seg_vts$connect()
+  cat("  Iteration        : ", class_label, "\n", sep="")
 
   # Check that inputs are complete
   .complete_input(seg_rts)
   .complete_input(seg_vts, attribute = class_label)
-
-  seg_vts$disconnect()
 
   # Unique id field
   seg_id <- seg_vts$id_field
@@ -581,14 +588,11 @@ classify_seg_ras <- function(seg_vts, seg_rts, seg_class_rts, iteration, ...){
 
   ### APPLY WORKER ----
 
-  # Get tiles for processing
-  proc_tiles <- .tile_queue(seg_class_rts)
+  seg_class_rts %>%
+    .tile_queue() %>%
+    .exe_tile_worker(tile_worker) %>%
+    .print_process_status()
 
-  # Process
-  process_status <- .exe_tile_worker(proc_tiles, tile_worker, cluster_vts = "seg_vts")
-
-  # Report
-  .print_process_status(process_status)
 
   # Conclude
   .conclusion(process_timer)

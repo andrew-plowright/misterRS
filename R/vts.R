@@ -7,7 +7,7 @@ vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
   process_timer <- .headline("VTS BACKUP")
 
   # Set output file path
-  dest_file <- file.path(backup_dir, paste0(in_vts$id, "_", tag, ".rar"))
+  dest_file <- file.path(backup_dir, paste0(in_vts$id, "_", tag, ".tar.gz"))
 
   cat(
     "  VTS  : ", in_vts$name, "\n",
@@ -24,13 +24,18 @@ vts_backup <- function(in_vts, backup_dir, tag, overwrite = FALSE){
     }
   }
 
-  # Source files
-  src_files <-  c(in_vts$gpkg)
+  # Compress geopackage
+  .compress(in_vts$gpkg, dest_file)
 
-  # Compress files
-  .rar(src_files, dest_file)
-
-  if(!file.exists(dest_file)) stop("Failed to create back-up file")
+  if(file.exists(dest_file)){
+    cat(
+      "  Size : ", round(file.info(dest_file)$size / (1024 * 1024),2), " MB", "\n",
+      crayon::green("  Backup file created"),"\n",
+      sep=""
+    )
+  }else{
+    stop("Failed to create back-up file")
+  }
 
   # Conclude rpocess
   .conclusion(process_timer)
@@ -56,7 +61,6 @@ vts_row_count <- function(in_vts, out_file, overwrite = FALSE){
   tiles <- .tilescheme()[["tiles"]]
 
   con <- in_vts$temp_con()
-  withr::defer(  DBI::dbDisconnect(con))
 
   tiles[["seg_count"]] <- sapply(tiles[["tile_name"]], function(tile_name){
 

@@ -346,8 +346,6 @@ vts = R6::R6Class(
         print_totals,
         sep = ""
       )
-
-
     },
 
     temp_con = function(){
@@ -356,24 +354,24 @@ vts = R6::R6Class(
       withr::defer(DBI::dbDisconnect(con), envir = parent.frame(1))
       return(con)
     },
-#'
-#'     #' @description Connect to Geopackage DB.
-#'     #' @param mod_spatialite Path to Spatialite directory.
-#'     connect = function(mod_spatialite = getOption("misterRS.mod_spatialite")){
-#'
-#'       withr::with_envvar(list(PATH =  mod_spatialite), {
-#'
-#'         private$db_con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
-#'
-#'         DBI::dbExecute(private$db_con, "PRAGMA busy_timeout=500000;")
-#'         DBI::dbExecute(private$db_con, "PRAGMA journal_mode=WAL;")
-#'         DBI::dbExecute(private$db_con, "SELECT load_extension('mod_spatialite')")
-#'       })
-#'
-#'       invisible(self)
-#'     },
 
-
+    #' #' @description Connect to Geopackage DB.
+    #' #' @param mod_spatialite Path to Spatialite directory.
+    #' connect = function(mod_spatialite = getOption("misterRS.mod_spatialite")){
+    #'
+    #'   withr::with_envvar(list(PATH =  mod_spatialite), {
+    #'
+    #'     private$db_con <- DBI::dbConnect(RSQLite::SQLite(), dbname = self$gpkg)
+    #'
+    #'     DBI::dbExecute(private$db_con, "PRAGMA busy_timeout=500000;")
+    #'     DBI::dbExecute(private$db_con, "PRAGMA journal_mode=WAL;")
+    #'     DBI::dbExecute(private$db_con, "SELECT load_extension('mod_spatialite')")
+    #'   })
+    #'
+    #'   invisible(self)
+    #' },
+    #'
+    #'
     #' connected = function(){
     #'
     #'   class(private$db_con) == 'SQLiteConnection' && DBI::dbIsValid(private$db_con)
@@ -387,7 +385,7 @@ vts = R6::R6Class(
     #'
     #'   invisible(self)
     #' },
-
+    #'
     #' #' @description Execute SQL. TO BE DEPRECATED
     #' #' @param code Code for transaction
     #' transact = function(code) {
@@ -409,6 +407,7 @@ vts = R6::R6Class(
     #'
     #'   return(res)
     #' },
+
 
     #' @description Check if has tiles.
     #' @param tile_names Name of tile.
@@ -505,7 +504,6 @@ vts = R6::R6Class(
 
       return(out_data)
     },
-
 
     read_from_polys = function(polys, fields = NULL){
 
@@ -740,10 +738,13 @@ vts = R6::R6Class(
     },
 
     #' @description Clear all temporary directories
-    temp_clear = function(){
-      dirs <- list.dirs(x, full.names=T, recursive=F)
-      temp_dirs <- grep("^temp_", basename(dirs))
-      for(temp_dir in temp_dirs) unlink(tempdir, recursive = TRUE)
+    temp_clear = function(dry_run=FALSE){
+      dirs <- list.dirs(self$dir, full.names=T, recursive=F)
+      temp_dirs <- dirs[grep("^temp_", basename(dirs))]
+      for(temp_dir in temp_dirs) {
+        cat("deleting", temp_dir, "\n")
+        if(!dry_run) unlink(temp_dir, recursive = TRUE)
+      }
     },
 
     #' @description Queue up tiles that need to be absorbed
