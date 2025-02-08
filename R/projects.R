@@ -200,7 +200,8 @@ new_project <- function(location, year, source_root, prefix = "dh_", location_ab
 
   fileConn<-file(file_path)
   writeLines(c(
-
+    '#!/bin/bash',
+    '',
     '# File paths',
     paste0('PROJECT="', project_name, '"'),
     paste0('LOCAL_PATH="', source_dir,'"'),

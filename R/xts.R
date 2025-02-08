@@ -688,6 +688,45 @@ vts = R6::R6Class(
       invisible(self)
     },
 
+
+
+    #' @description Add new attribute to tile registry.
+    #' @param attribute Name of attribute being added.
+    delete_attribute = function(attribute){
+
+      con <- self$temp_con()
+
+      existing_attributes <- DBI::dbListFields(con, "tile_reg")
+
+      if(attribute %in% existing_attributes){
+
+        sql <- sprintf("ALTER TABLE tile_reg DROP COLUMN %s;", attribute)
+
+        DBI::dbExecute(con, sql)
+
+      }
+      invisible(self)
+    },
+
+    #' @description Add new field to geometry layer.
+    #' @param field_name Name of field being added.
+    #' @param field_type Data type of field.
+    delete_field = function(field_name){
+
+      con <- self$temp_con()
+
+      existing_fields <- DBI::dbListFields(con, self$geom_layer)
+
+      if(field_name %in% existing_fields){
+
+        sql <- sprintf("ALTER TABLE %s DROP COLUMN %s;" , self$geom_layer, field_name)
+
+        DBI::dbExecute(con, sql)
+
+      }
+      invisible(self)
+    },
+
     #' @description Create a database index on a column.
     #' @param field_name Name of field being indexed.
     index = function(field_name = "tile_name"){

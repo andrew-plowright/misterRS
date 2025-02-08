@@ -302,10 +302,10 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
     buff <- ts[tile_name][["buffs"]]
 
     # Empty output
-    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs( proj)), setNames(list(integer()), tree_id))
+    seg_poly_tile <- sf::st_sf(geometry = sf::st_sfc(crs = sf::st_crs(proj)), setNames(list(integer()), tree_id))
 
     # Read treetops
-    ttops <- ttops_vts$read_from_polys( buff, fields = c(tree_id, "tile_name", "height", "geom"))[[1]]
+    ttops <- ttops_vts$read_from_polys(buff, fields = c(tree_id, "tile_name", "height", "geom"))[[1]]
 
     if(nrow(ttops) > 0){
 
@@ -330,7 +330,7 @@ segment_watershed <- function(out_vts, chm_rts, ttops_vts,
         sf::st_geometry(seg_poly) <- "geom"
 
         # Subset only those segments that have treetops within non-buffered tile boundaries
-        seg_poly_tile <-  seg_poly[match(ttops_tile[[tree_id]], seg_poly[[tree_id]]),]
+        seg_poly_tile <- seg_poly[match(ttops_tile[[tree_id]], seg_poly[[tree_id]]),]
 
         # Seg poly attributes
         seg_poly_tile[["height"]]     <- ttops_tile$height
